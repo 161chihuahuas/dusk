@@ -1,8 +1,9 @@
 # <center>dusk</center> 
 # <center><em>darknet under s/kademlia</em></center>
-# <center>--</center>
+## --
 #### <center>Lily Anne (lily@tacticalchihuahua.lol)</center>
 #### <center>November 22, 2024</center>
+## --
 
 >
 * [Background](#background)
