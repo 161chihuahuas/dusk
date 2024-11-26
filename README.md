@@ -225,20 +225,12 @@ Identities are the RMD160 hash of an Equihash solution where the node's public k
 In every message exchanged on the network, each party will include a tuple structure which includes enough information to locate and authenticate each party.
 
 ```
-<<<<<<< HEAD
-npm install @tacticalchihuahua/kadence
-=======
 ["<node_id>", { /* <contact> */ }]
->>>>>>> dusk
 ```
 
 #### Contact Hash Map
 
-<<<<<<< HEAD
-## features
-=======
 The second entry in the identity tuple contains additional information specific to addressing the node on the network. This includes:
->>>>>>> dusk
 
 ```
 {
@@ -312,12 +304,8 @@ recipient must return K contacts if at all possible. It may only return fewer th
 
 ##### `FIND_VALUE`
 
-<<<<<<< HEAD
-## research
-=======
 Kademlia search operation that is conducted as a node lookup and builds a list of K closest contacts. If at any time during the lookup the value is returned, the search is abandoned. If no value is found, the K closest contacts are 
 returned. Upon success, we must store the value at the nearest node seen during the search that did not return the value.
->>>>>>> dusk
 
 A `FIND_VALUE` RPC includes a B=160-bit key. If a corresponding value is present on the recipient, the associated data is returned. Otherwise the RPC is equivalent to a `FIND_NODE` and a set of K contacts is returned.
 
@@ -490,16 +478,9 @@ This will respond with information about your dusk node. In particular we are in
 * [DHT-based collaborative Web Translation](https://etd.ohiolink.edu/!etd.send_file?accession=ucin1479821556144121&disposition=inline)
 * [Kademlia with Consistency Checks as a Foundation of Borderless Collaboration in Open Science Services](https://www.sciencedirect.com/science/article/pii/S1877050916327041)
 
-<<<<<<< HEAD
-## license
-
-> Kadence - p2p application framework  
-> Copyright (C) 2019 Lily Anne Hall.
-=======
 ### Licenses
 
 dusk: darknet under s/kademlia © 2024 by Lily H, Tactical Chihuahua is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International. To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
->>>>>>> dusk
 
 ---
 
