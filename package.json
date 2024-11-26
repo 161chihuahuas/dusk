@@ -13,7 +13,7 @@
   "dependencies": {
     "@ronomon/reed-solomon": "^6.0.0",
     "@tacticalchihuahua/equihash": "^1.0.0",
-    "@tacticalchihuahua/granax": "^3.3.0",
+    "@tacticalchihuahua/granax": "^3.3.1",
     "@yao-pkg/pkg": "^6.1.1",
     "async": "^2.6.0",
     "atbf": "^1.1.0",
