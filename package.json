@@ -11,17 +11,22 @@
   },
   "contributors": [],
   "dependencies": {
+    "@ronomon/reed-solomon": "^6.0.0",
     "@tacticalchihuahua/equihash": "^1.0.0",
     "@tacticalchihuahua/granax": "^3.3.0",
+    "@yao-pkg/pkg": "^6.1.1",
     "async": "^2.6.0",
     "atbf": "^1.1.0",
+    "bip39": "^3.1.0",
     "boscar": "^2.0.0",
     "bunyan": "^1.8.12",
     "bunyan-rotating-file-stream": "^1.6.3",
     "commander": "^2.9.0",
     "concat-stream": "^1.6.0",
     "daemon": "^1.1.0",
+    "eciesjs": "^0.4.12",
     "encoding-down": "^6.0.1",
+    "inquirer": "^12.1.0",
     "ip": "^1.1.5",
     "json-stable-stringify": "^1.0.1",
     "jsonrpc-lite": "^1.3.0",
@@ -46,9 +51,7 @@
   "description": "(d)arknet (u)nder (s/k)ademlia",
   "devDependencies": {
     "chai": "^2.2.0",
-    "clean-jsdoc-theme": "^4.3.0",
     "eslint": "^5.14.1",
-    "jsdoc": "^4.0.4",
     "memdown": "^2.0.0",
     "mocha": "^10.8.2",
     "proxyquire": "^1.8.0",
@@ -80,7 +83,7 @@
     "start": "docker-compose up --build --force-recreate --always-recreate-deps",
     "test": "npm run unit-tests && npm run integration-tests && npm run e2e-tests && npm run linter",
     "unit-tests": "mocha --exit test/*.unit.js",
-    "generate-docs": "mkdir -p ./docs && rm -r ./docs && jsdoc lib -r -R README.md -u ./tutorials -c .jsdoc.json --verbose -d ./docs"
+    "make-dist": "pkg . --out-path sea"
   },
   "version": "1.0.0"
 }

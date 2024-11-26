@@ -34,6 +34,15 @@ module.exports.RoutingTable = require('./lib/routing-table');
 /** {@link HTTPTransport} */
 module.exports.HTTPTransport = require('./lib/transport-http');
 
+/** { @link DAGEntry } */
+module.exports.DAGEntry = require('./lib/dag-entry');
+
+/** {@link MerkleTree } */
+module.exports.MerkleTree = require('./lib/merkle-tree');
+
+/** {@link module.reedsol } */
+module.exports.reedsol = require('./lib/reed-solomon')
+
 /** {@link module:dusk/onion} */
 module.exports.onion = require('./lib/plugin-onion');
 

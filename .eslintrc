@@ -75,5 +75,8 @@
       }
     }],
     "brace-style": [2, "1tbs"]
+  },
+  "parserOptions": {
+    "ecmaVersion": 2017
   }
 }

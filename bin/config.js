@@ -18,7 +18,9 @@ module.exports = function(datadir) {
     DaemonPidFilePath: join(datadir, 'dusk.pid'),
 
     // Identity/Cryptography
-    PrivateKeyPath: join(datadir, 'dusk.xpriv'),
+    PrivateKeyPath: join(datadir, 'dusk.key'),
+    PublicKeyPath: join(datadir, 'dusk.pub'),
+    PrivateKeySaltPath: join(datadir, 'salt'),
     IdentityNoncePath: join(datadir, 'nonce'),
     IdentityProofPath: join(datadir, 'proof'),
 
