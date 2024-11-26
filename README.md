@@ -1,4 +1,4 @@
-# <center>dusk</center> 
+# <center><a href="https://github.com/lilyannehall/dusk">dusk</a></center> 
 # <center><em>darknet under s/kademlia</em></center>
 ## --
 #### <center>Lily Anne (lily@tacticalchihuahua.lol)</center>
