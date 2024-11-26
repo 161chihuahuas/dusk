@@ -1,27 +1,27 @@
 # <center>dusk</center> 
-# <center>*darknet under s/kademlia*</center>
-# <center>---</center>
+# <center><em>darknet under s/kademlia</em></center>
+# <center><hr></center>
 #### <center>Lily Anne (lily@tacticalchihuahua.lol)</center>
 #### <center>November 22, 2024</center>
 
 >
-* Background
-1. [History](#) 
-1. [Purpose](#)
-1. [Threat Model](#)
-* Specifcation 
-1. [Design](#) 
-1. [Attacks](#) 
-1. [Protocol](#) 
-1. [Implementation](#)
-* User Guide
-1. [Installation](#) 
-1. [Testing](#) 
-1. [Interfaces](#) 
-1. [Sneakernets](#) 
-* Appendix 
-1. [References](#) 
-1. [Licenses](#) 
+* [Background](#background)
+1. [History](#history) 
+1. [Purpose](#purpose)
+1. [Threat Model](#threat-model)
+* [Specifcation](#specification) 
+1. [Design](#design) 
+1. [Attacks](#attacks) 
+1. [Protocol](#protocol) 
+1. [Implementation](#implementation)
+* [User Guide](#user-guide)
+1. [Installation](#installation) 
+1. [Testing](#testing) 
+1. [Interfaces](#interfaces) 
+1. [Sneakernets](#sneakernets) 
+* [Appendix](#appendix)
+1. [References](#references) 
+1. [Licenses](#licenses) 
 >
 
 ## --
@@ -418,7 +418,76 @@ This increases the total size by half, but **any** two thirds of the file can be
 
 ### Installation
 
-...
+Make sure you have the following prerequisites installed:
+
+* [Git](https://git-scm.org)
+* [Node.js LTS (22.x)](https://nodejs.org)
+* Python3
+* GCC/G++/Make
+
+#### Node.js + NPM
+
+##### GNU+Linux & Mac OSX
+
+```
+wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+```
+
+Close your shell and open an new one. Now that you can call the `nvm` program,
+install Node.js (which comes with NPM):
+
+```
+nvm install --lts
+```
+
+#### Build Dependencies
+
+##### GNU+Linux
+
+Debian / Ubuntu / Mint / Trisquel / and Friends
+
+```
+apt install git python build-essential
+```
+
+Red Hat / Fedora / CentOS
+
+```
+yum groupinstall 'Development Tools'
+```
+
+You might also find yourself lacking a C++11 compiler - 
+[see this](http://hiltmon.com/blog/2015/08/09/c-plus-plus-11-on-centos-6-dot-6/).
+
+##### Mac OSX
+
+```
+xcode-select --install
+```
+
+#### Daemon
+
+This package exposes the program `dusk`. To install, use the `--global` flag.
+
+```
+npm install -g @tacticalchihuahua/dusk
+```
+
+#### Library
+
+This package exposes a module providing a complete reference implementation 
+of the protocol. To use it in your project, from your project's root 
+directory, install as a dependency.
+
+```
+npm install @tacticalchihuahua/dusk --save
+```
+
+Then you can require the library with:
+
+```
+const dusk = require('@tacticalchihuahua/dusk');
+```
 
 ### Interfaces
 
@@ -450,9 +519,145 @@ This will respond with information about your dusk node. In particular we are in
 
 > Note that your `dref` contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged drefs, run `dusk --rpc connect "<dref>"`.
 
+### Configuration
+
+A dusk node requires a configuration file to get up and running. The path to this 
+file is given to `dusk` when starting a node (or the defaults will be used).
+
+```
+dusk --config myconfig.ini
+```
+
+If a configuration file is not supplied, a minimal default configuration is 
+automatically created and used, which will generate a private key, database, 
+and other necessary files. All of this data will be created and stored in 
+`$HOME/.config/dusk`, unless a `--datadir` option is supplied. Valid configuration 
+files may be in either INI or JSON format.
+
+#### DaemonPidFilePath
+
+##### Default: `$HOME/.config/dusk/dusk.pid`
+
+The location to write the PID file for the daemon.
+
+#### PublicKeyPath
+
+##### Default: `$HOME/.config/dusk/dusk.pub`
+
+Path to public key key file.
+
+#### PrivateKeyPath
+
+##### Default: `$HOME/.config/dusk/dusk.key`
+
+Path to private key key file to use for identity.
+
+#### EmbeddedDatabaseDirectory
+
+##### Default: `$HOME/.config/dusk/dusk.dht`
+
+Sets the directory to store DHT entries.
+
+#### NodeListenPort
+
+##### Default: `5274`
+
+Sets the local port to bind the node's RPC service.
+
+#### NodeListenAddress
+
+##### Default: `0.0.0.0`
+
+Sets the address to bind the RPC service.
+
+#### VerboseLoggingEnabled
+
+##### Default: `1`
+
+More detailed logging of messages sent and received. Useful for debugging.
+
+#### LogFilePath
+
+##### Default: `$HEAD/.config/dusk.log`
+
+Path to write the daemon's log file. Log file will rotate either every 24 hours 
+or when it exceeds 10MB, whichever happens first.
+
+#### LogFileMaxBackCopies
+
+##### Default: `3`
+
+Maximum number of rotated log files to keep.
+
+#### NetworkBootstrapNodes[]
+
+##### Default: `(empty)`
+
+Add a map of network bootstrap nodes to this section to use for discovering 
+other peers. Default configuration should come with a list of known and 
+trusted contacts.
+
+#### OnionVirtualPort
+
+##### Default: `443`
+
+The virtual port to use for the hidden service.
+
+#### OnionHiddenServiceDirectory
+
+##### Default: `$HOME/.config/dusk/hidden_service`
+
+The directory to store hidden service keys and other information required by 
+the Tor process.
+
+#### OnionLoggingEnabled
+
+##### Default: `0`
+
+Redirects the Tor process log output through dusk's logger for the purpose of 
+debugging.
+
+#### OnionLoggingVerbosity
+
+##### Default: `notice`
+
+Defines the verbosity level of the Tor process logging. Valid options are: 
+`debug`, `info`, `notice`.
+
+#### ControlPortEnabled
+
+##### Default: `0`
+
+Enables the {@link Control} interface over a TCP socket.
+
+#### ControlPort
+
+##### Default: `5275`
+
+The TCP port to for the control interface to listen on.
+
+#### ControlSockEnabled
+
+##### Default: `1`
+
+Enables the {@link Control} interface over a UNIX domain socket.
+
+#### ControlSock
+
+##### Default: `$HOME/.config/dusk/dusk.sock`
+
+The path to the file to use for the control interface.
+
+#### TestNetworkEnabled
+
+##### Default: `0`
+
+Places dusk into test mode, significantly lowering the identity solution
+difficulty and the permission solution difficulty.
+
 ### Testing
 
-...
+... todo
  
 
 ## --
@@ -463,7 +668,7 @@ This will respond with information about your dusk node. In particular we are in
 
 ### Sneakernets
 
-...
+... todo
 
 ### References 
 
