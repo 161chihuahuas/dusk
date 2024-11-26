@@ -4,43 +4,29 @@
     "email": "lily@tacticalchihuahua.lol"
   },
   "bin": {
-    "kadence": "bin/kadence.js"
+    "dusk": "bin/dusk.js"
   },
   "bugs": {
-    "url": "https://github.com/tacticalchihuahua/kadence/issues"
+    "url": "https://github.com/tacticalchihuahua/dusk/issues"
   },
-  "contributors": [
-    {
-      "name": "omphalos",
-      "url": "https://github.com/omphalos"
-    },
-    {
-      "name": "Alexander Leitner",
-      "url": "https://github.com/aleitner"
-    },
-    {
-      "name": "Trey Griffith",
-      "url": "https://github.com/treygriffith"
-    },
-    {
-      "name": "Janko Simonovic",
-      "url": "https://gitlab.com/simonovic86"
-    }
-  ],
+  "contributors": [],
   "dependencies": {
-    "@tacticalchihuahua/diglet": "^4.0.0",
+    "@ronomon/reed-solomon": "^6.0.0",
     "@tacticalchihuahua/equihash": "^1.0.0",
     "@tacticalchihuahua/granax": "^3.3.0",
+    "@yao-pkg/pkg": "^6.1.1",
     "async": "^2.6.0",
     "atbf": "^1.1.0",
+    "bip39": "^3.1.0",
     "boscar": "^2.0.0",
     "bunyan": "^1.8.12",
     "bunyan-rotating-file-stream": "^1.6.3",
-    "bytes": "^3.0.0",
     "commander": "^2.9.0",
     "concat-stream": "^1.6.0",
     "daemon": "^1.1.0",
+    "eciesjs": "^0.4.12",
     "encoding-down": "^6.0.1",
+    "inquirer": "^12.1.0",
     "ip": "^1.1.5",
     "json-stable-stringify": "^1.0.1",
     "jsonrpc-lite": "^1.3.0",
@@ -52,30 +38,22 @@
     "metapipe": "^2.0.2",
     "mkdirp": "^0.5.1",
     "ms": "^2.1.1",
-    "nat-pmp": "*",
-    "nat-upnp": "^1.1.1",
-    "network": "^0.4.1",
-    "node-gyp": "^10.2.0",
     "npid": "^0.4.0",
     "onion-regex": "^2.0.8",
-    "pem": "^1.13.2",
     "rc": "^1.2.8",
-    "secp256k1": "=3.2.2",
+    "secp256k1": "^5.0.1",
     "semver": "^5.1.0",
-    "socks": "^1.1.10",
+    "socks": "^2.8.3",
+    "socks-proxy-agent": "^8.0.4",
     "split": "^1.0.1",
     "uuid": "^3.2.1"
   },
-  "description": "extensible, hardened, and flexible distributed systems framework",
+  "description": "(d)arknet (u)nder (s/k)ademlia",
   "devDependencies": {
     "chai": "^2.2.0",
-    "clean-jsdoc-theme": "^4.3.0",
-    "coveralls": "^3.0.1",
     "eslint": "^5.14.1",
-    "istanbul": "^1.1.0-alpha.1",
-    "jsdoc": "^3.6.3",
     "memdown": "^2.0.0",
-    "mocha": "^5.2.0",
+    "mocha": "^10.8.2",
     "proxyquire": "^1.8.0",
     "rimraf": "^2.6.1",
     "sinon": "^2.4.1"
@@ -86,27 +64,26 @@
     "doc": "doc"
   },
   "engines": {
-    "node": ">=10.x.x"
+    "node": ">=22"
   },
-  "homepage": "https://tacticalchihuahua.lol/kadence",
+  "homepage": "https://tacticalchihuahua.lol/dusk",
   "keywords": [],
   "license": "AGPL-3.0",
   "main": "index.js",
-  "name": "@tacticalchihuahua/kadence",
+  "name": "@tacticalchihuahua/dusk",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tacticalchihuahua/kadence.git"
+    "url": "git+https://github.com/tacticalchihuahua/dusk.git"
   },
   "scripts": {
-    "clean": "docker rm $(docker ps -a -q --filter 'network=kadence_default')",
-    "coverage": "istanbul cover _mocha -- --exit --recursive",
+    "clean": "docker rm $(docker ps -a -q --filter 'network=dusk_default')",
     "e2e-tests": "mocha --exit test/*.e2e.js",
     "integration-tests": "mocha --exit test/*.integration.js",
     "linter": "eslint ./index.js ./lib",
     "start": "docker-compose up --build --force-recreate --always-recreate-deps",
     "test": "npm run unit-tests && npm run integration-tests && npm run e2e-tests && npm run linter",
     "unit-tests": "mocha --exit test/*.unit.js",
-    "generate-docs": "mkdir -p ./docs && rm -r ./docs && jsdoc lib -r -R README.md -u ./tutorials -c .jsdoc.json --verbose -d ./docs"
+    "make-dist": "pkg . --out-path sea"
   },
-  "version": "7.0.0"
+  "version": "1.0.0"
 }

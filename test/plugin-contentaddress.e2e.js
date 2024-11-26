@@ -2,14 +2,14 @@
 
 const { expect } = require('chai');
 const network = require('./fixtures/node-generator');
-const kadence = require('..');
+const dusk = require('..');
 const contentaddress = require('../lib/plugin-contentaddress');
 const { createHash } = require('crypto');
 
 
-describe('@module kadence/contentaddress + @class UDPTransport', function() {
+describe('@module dusk/contentaddress + @class HTTPTransport', function() {
 
-  let [node1, node2] = network(2, kadence.UDPTransport);
+  let [node1, node2] = network(2, dusk.HTTPTransport);
   let data = Buffer.from('data');
   let key = createHash('rmd160').update(data).digest('hex');
 
@@ -27,7 +27,7 @@ describe('@module kadence/contentaddress + @class UDPTransport', function() {
   });
 
   it('should succeed in storing item', function(done) {
-    node1.iterativeStore(key, data.toString('base64'), (err, stored) => {
+    node1.iterativeStore(key, data.toString('hex'), (err, stored) => {
       expect(err).to.equal(null);
       expect(stored).to.equal(2);
       done();

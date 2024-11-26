@@ -55,10 +55,10 @@ npm install -g windows-build-tools
 
 ### Daemon
 
-This package exposes the program `kadence`. To install, use the `--global` flag.
+This package exposes the program `dusk`. To install, use the `--global` flag.
 
 ```
-npm install -g @deadcanaries/kadence
+npm install -g @deadcanaries/dusk
 ```
 
 ### Core Library
@@ -68,11 +68,11 @@ of the protocol. To use it in your project, from your project's root
 directory, install as a dependency.
 
 ```
-npm install @tacticalchihuahua/kadence --save
+npm install @tacticalchihuahua/dusk --save
 ```
 
 Then you can require the library with:
 
 ```
-const kadence = require('@tacticalchihuahua/kadence');
+const dusk = require('@tacticalchihuahua/dusk');
 ```

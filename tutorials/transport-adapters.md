@@ -1,10 +1,10 @@
-Kadence does not impose any particular transport layer, which makes it very 
-flexible for applying to many use cases. As far as Kadence is concerned, a valid 
+Dusk does not impose any particular transport layer, which makes it very 
+flexible for applying to many use cases. As far as Dusk is concerned, a valid 
 transport adapter is any `objectMode` 
 [`DuplexStream`](https://nodejs.org/dist/latest-v6.x/docs/api/stream.html) 
 that exposes a `listen()` method.
 
-Kadence ships with UDP and HTTP(S) transports so you don't need to implement a 
+Dusk ships with UDP and HTTP(S) transports so you don't need to implement a 
 transport adapter yourself to get started. If your network layer needs are not 
 met by these, check out the interface for {@link AbstractNode~transport}.
 

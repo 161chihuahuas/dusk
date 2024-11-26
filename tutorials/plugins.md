@@ -1,18 +1,18 @@
-Kadence plugins are a simple way to package additional features. A plugin is just 
+Dusk plugins are a simple way to package additional features. A plugin is just 
 a function that receives an instance of {@link KademliaNode}. This function can 
 then apply any decorations desired.
 
 ### Included Plugins
 
-* {@link module:kadence/eclipse~EclipsePlugin}
-* {@link module:kadence/hashcash~HashCashPlugin}
-* {@link module:kadence/hibernate~HibernatePlugin}
-* {@link module:kadence/onion~OnionPlugin}
-* {@link module:kadence/permission~PermissionPlugin}
-* {@link module:kadence/quasar~QuasarPlugin}
-* {@link module:kadence/rolodex~RolodexPlugin}
-* {@link module:kadence/spartacus~SpartacusPlugin}
-* {@link module:kadence/traverse~TraversePlugin}
+* {@link module:dusk/eclipse~EclipsePlugin}
+* {@link module:dusk/hashcash~HashCashPlugin}
+* {@link module:dusk/hibernate~HibernatePlugin}
+* {@link module:dusk/onion~OnionPlugin}
+* {@link module:dusk/permission~PermissionPlugin}
+* {@link module:dusk/quasar~QuasarPlugin}
+* {@link module:dusk/rolodex~RolodexPlugin}
+* {@link module:dusk/spartacus~SpartacusPlugin}
+* {@link module:dusk/traverse~TraversePlugin}
 
 ### Example: "Howdy, Neighbor" Plugin
 

@@ -69,11 +69,11 @@ describe('@class HTTPTransport', function() {
       let httpTransport = new HTTPTransport();
       let end = sinon.stub();
       httpTransport._pending.set('1', {
-        timestamp: Date.now() - constants.T_RESPONSETIMEOUT,
+        timestamp: Date.now() - constants.T_RESPONSETIMEOUT - HTTPTransport.T_TIMEOUTBUFFER,
         response: { end }
       });
       httpTransport._pending.set('2', {
-        timestamp: Date.now() - constants.T_RESPONSETIMEOUT,
+        timestamp: Date.now() - constants.T_RESPONSETIMEOUT - HTTPTransport.T_TIMEOUTBUFFER,
         response: { end }
       });
       httpTransport._pending.set('3', {
@@ -148,7 +148,7 @@ describe('@class HTTPTransport', function() {
       let httpTransport = new HTTPTransport();
       let request = new ReadableStream({ read: () => null });
       request.headers = {
-        'x-kad-message-id': 'message-id'
+        'x-dusk-message-id': 'message-id'
       };
       request.method = 'GET';
       let response = new EventEmitter();
@@ -169,7 +169,7 @@ describe('@class HTTPTransport', function() {
       let httpTransport = new HTTPTransport();
       let request = new ReadableStream({ read: () => null });
       request.headers = {
-        'x-kad-message-id': 'message-id'
+        'x-dusk-message-id': 'message-id'
       };
       request.method = 'OPTIONS';
       let response = new EventEmitter();
@@ -189,7 +189,7 @@ describe('@class HTTPTransport', function() {
       let httpTransport = new HTTPTransport();
       let request = new ReadableStream({ read: () => null });
       request.headers = {
-        'x-kad-message-id': 'message-id'
+        'x-dusk-message-id': 'message-id'
       };
       request.method = 'POST';
       let response = new EventEmitter();

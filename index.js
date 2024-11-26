@@ -31,58 +31,43 @@ module.exports.Messenger = require('./lib/messenger');
 /** {@link RoutingTable} */
 module.exports.RoutingTable = require('./lib/routing-table');
 
-/** {@link UDPTransport} */
-module.exports.UDPTransport = require('./lib/transport-udp');
-
 /** {@link HTTPTransport} */
 module.exports.HTTPTransport = require('./lib/transport-http');
 
-/** {@link HTTPSTransport} */
-module.exports.HTTPSTransport = require('./lib/transport-https');
+/** { @link DAGEntry } */
+module.exports.DAGEntry = require('./lib/dag-entry');
 
-/** {@link module:kadence/hashcash} */
-module.exports.hashcash = require('./lib/plugin-hashcash');
+/** {@link MerkleTree } */
+module.exports.MerkleTree = require('./lib/merkle-tree');
 
-/** {@link module:kadence/hibernate} */
-module.exports.hibernate = require('./lib/plugin-hibernate');
+/** {@link module.reedsol } */
+module.exports.reedsol = require('./lib/reed-solomon')
 
-/** {@link module:kadence/onion} */
+/** {@link module:dusk/onion} */
 module.exports.onion = require('./lib/plugin-onion');
 
-/** {@link module:kadence/quasar} */
+/** {@link module:dusk/quasar} */
 module.exports.quasar = require('./lib/plugin-quasar');
 
-/** {@link module:kadence/spartacus} */
+/** {@link module:dusk/spartacus} */
 module.exports.spartacus = require('./lib/plugin-spartacus');
 
-/** {@link module:kadence/traverse} */
-module.exports.traverse = require('./lib/plugin-traverse');
-
-/** {@link module:kadence/eclipse} */
+/** {@link module:dusk/eclipse} */
 module.exports.eclipse = require('./lib/plugin-eclipse');
 
-/** {@link module:kadence/rolodex} */
-module.exports.rolodex = require('./lib/plugin-rolodex');
-
-/** {@link module:kadence/contentaddress} */
+/** {@link module:dusk/contentaddress} */
 module.exports.contentaddress = require('./lib/plugin-contentaddress');
 
-/** {@link module:kadence/trust} */
-module.exports.trust = require('./lib/plugin-trust');
-
-/** {@link module:kadence/logger} */
+/** {@link module:dusk/logger} */
 module.exports.logger = require('./lib/plugin-logger');
 
-/** {@link module:kadence/churnfilter} */
-module.exports.churnfilter = require('./lib/plugin-churnfilter');
-
-/** {@link module:kadence/constants} */
+/** {@link module:dusk/constants} */
 module.exports.constants = require('./lib/constants');
 
-/** {@link module:kadence/version} */
+/** {@link module:dusk/version} */
 module.exports.version = require('./lib/version');
 
-/** {@link module:kadence/utils} */
+/** {@link module:dusk/utils} */
 module.exports.utils = require('./lib/utils');
 
 

@@ -1,4 +1,4 @@
-Kadence exposes an interface similar to [express](https://expressjs.com)'s 
+Dusk exposes an interface similar to [express](https://expressjs.com)'s 
 `use()` method to allow for extending the protocol via message processing 
 middleware. There are 4 distinct middleware stacks that process incoming 
 messages in a particular order:

@@ -10,7 +10,7 @@ const secp256k1 = require('secp256k1');
 
 constants.IDENTITY_DIFFICULTY = constants.TESTNET_DIFFICULTY;
 
-describe('@module kadence/eclipse', function() {
+describe('@module dusk/eclipse', function() {
 
   describe('@class EclipseRules', function() {
 

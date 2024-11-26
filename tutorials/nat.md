@@ -1,13 +1,13 @@
 One of the most frustrating and daunting problems when deploying a distributed 
 network to users is dealing with NAT (or "[Network Address Translation](https://en.wikipedia.org/wiki/Network_address_translation)". 
-Kadence provides a plugin for traversing these systems with mulitple strategies 
+Dusk provides a plugin for traversing these systems with mulitple strategies 
 and is capable of breaking out of just about any network (albeit sometimes at 
 the expensive of performance).
 
-This functionality is encapsulated in the {@link module:kadence/traverse} 
-plugin, which initializes a {@link module:kadence/traverse~TraversePlugin}. 
-This plugin makes use of the {@link module:kadence/traverse~TraverseStrategy} 
-instances that are passed to it. At the time of writing, Kadence supports 
+This functionality is encapsulated in the {@link module:dusk/traverse} 
+plugin, which initializes a {@link module:dusk/traverse~TraversePlugin}. 
+This plugin makes use of the {@link module:dusk/traverse~TraverseStrategy} 
+instances that are passed to it. At the time of writing, Dusk supports 
 UPnP, NAT-PMP, and a fallback reverse HTTPS tunneling mechanism (for use with 
 the {@link HTTPSTransport} and {@link HTTPTransport}).
 
@@ -18,20 +18,20 @@ strategies may only work with certain transports, you must explicity define
 them when calling the plugin.
 
 ```js
-const node = new kadence.KademliaNode(options); // See "Getting Started"
+const node = new dusk.KademliaNode(options); // See "Getting Started"
 
-node.spartacus = node.plugin(kadence.spartacus()); // Optional, but recommended
+node.spartacus = node.plugin(dusk.spartacus()); // Optional, but recommended
 
-node.traverse = node.plugin(kadence.traverse([ // List in order of attempt
-  new kadence.traverse.UPNPStrategy({
+node.traverse = node.plugin(dusk.traverse([ // List in order of attempt
+  new dusk.traverse.UPNPStrategy({
     mappingTtl: 0, // Means keep this mapping until unmapped
     publicPort: node.contact.port // The public port to map
   }),
-  new kadence.traverse.NATPMPStrategy({
+  new dusk.traverse.NATPMPStrategy({
     mappingTtl: 0, // Means keep this mapping until unmapped
     publicPort: node.contact.port // The public port to map
   }),
-  new kadence.traverse.ReverseTunnelStrategy({
+  new dusk.traverse.ReverseTunnelStrategy({
     remoteAddress: 'tun.tacticalchihuahua.lol', // Hostname of a Diglet server
     remotePort: 8443, // Tunnel port of a Diglet server
     verboseLogging: false, // If debuggin, set to `true`

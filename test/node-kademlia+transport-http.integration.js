@@ -1,13 +1,13 @@
 'use strict';
 
 const { expect } = require('chai');
-const kad = require('..');
+const dusk = require('..');
 
 describe('@class AbstractNode / @class HTTPTransport', function() {
 
   const [node1, node2] = require('./fixtures/node-generator')(
     2,
-    kad.HTTPTransport
+    dusk.HTTPTransport
   );
 
   before(function() {

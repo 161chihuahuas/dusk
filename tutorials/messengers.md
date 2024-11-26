@@ -1,4 +1,4 @@
-Kadence implements a generic {@link Messenger} class that is used as the interface 
+Dusk implements a generic {@link Messenger} class that is used as the interface 
 between the application layer and the {@link AbstractNode~transport}. This 
 interface exposes 2 primary members: {@link Messenger~serializer} and 
 {@link Messenger~deserializer}.
@@ -24,7 +24,7 @@ Below is an example of extended the message processing pipeline.
 
 ```
 const { Transform } = require('stream');
-const node = new kadence.KademliaNode(options);
+const node = new dusk.KademliaNode(options);
 
 node.rpc.serializer.prepend(() => new Transform({
   transform function(data, encoding, callback) {

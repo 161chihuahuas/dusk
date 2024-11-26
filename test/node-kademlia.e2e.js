@@ -1,7 +1,7 @@
 'use strict';
 
 const { expect } = require('chai');
-const kadence= require('..');
+const dusk= require('..');
 const network = require('./fixtures/node-generator');
 const async = require('async');
 const TOTAL_NODES = 50;
@@ -28,8 +28,8 @@ function registerEndToEndSuite(transportName, transportAdapter) {
         });
         pairs = nodes.map(() => {
           return [
-            kadence.utils.getRandomKeyString(),
-            kadence.utils.getRandomKeyString()
+            dusk.utils.getRandomKeyString(),
+            dusk.utils.getRandomKeyString()
           ];
         });
         done();
@@ -38,15 +38,7 @@ function registerEndToEndSuite(transportName, transportAdapter) {
 
     after(function() {
       nodes.forEach((node) => {
-        switch (transportName) {
-          case 'UDPTransport':
-            node.transport.socket.close();
-            break;
-          case 'HTTPTransport':
-            node.transport.server.close();
-            break;
-          default:
-        }
+        node.transport.server.close();
       });
     });
 
@@ -63,7 +55,7 @@ function registerEndToEndSuite(transportName, transportAdapter) {
         }, function(err) {
           expect(err).to.equal(null);
           nodes.forEach((node) => {
-            expect(node.router.size >= kadence.constants.K).to.equal(true);
+            expect(node.router.size >= dusk.constants.K).to.equal(true);
           });
           done();
         });
@@ -79,7 +71,7 @@ function registerEndToEndSuite(transportName, transportAdapter) {
             node.identity.toString('hex'),
             function(err, result) {
               expect(err).to.equal(null);
-              expect(result).to.have.lengthOf(kadence.constants.K);
+              expect(result).to.have.lengthOf(dusk.constants.K);
               next();
             }
           );
@@ -107,14 +99,14 @@ function registerEndToEndSuite(transportName, transportAdapter) {
       });
 
       it('all nodes should find the closest node to a key', function(done) {
-        let key = kadence.utils.getRandomKeyString();
+        let key = dusk.utils.getRandomKeyString();
         let closest = nodes.map(node => {
           return {
             identity: node.identity,
-            distance: kadence.utils.getDistance(node.identity, key)
+            distance: dusk.utils.getDistance(node.identity, key)
           };
         }).sort( (a, b) => {
-          return kadence.utils.compareKeyBuffers(
+          return dusk.utils.compareKeyBuffers(
             Buffer.from(a.distance, 'hex'),
             Buffer.from(b.distance, 'hex')
           );
@@ -194,5 +186,4 @@ function registerEndToEndSuite(transportName, transportAdapter) {
 
 }
 
-registerEndToEndSuite('UDPTransport', kadence.UDPTransport);
-registerEndToEndSuite('HTTPTransport', kadence.HTTPTransport);
+registerEndToEndSuite('HTTPTransport', dusk.HTTPTransport);

@@ -12,8 +12,8 @@ describe('@class Control', function() {
 
     it('should return all the supported methods', function(done) {
       const control = new Control({});
-      control.listMethods((err, results) => {
-        expect(results).to.have.lengthOf(7);
+      control.listrpcs((err, results) => {
+        expect(results).to.have.lengthOf(12);
         done();
       });
     });
@@ -37,7 +37,7 @@ describe('@class Control', function() {
         utils.getRandomKeyString(),
         { hostname: 'localhost', port: 8081 }
       );
-      control.getProtocolInfo((err, result) => {
+      control.getinfo((err, result) => {
         expect(typeof result.versions.software).to.equal('string');
         expect(typeof result.versions.protocol).to.equal('string');
         expect(typeof result.identity).to.equal('string');

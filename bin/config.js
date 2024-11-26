@@ -3,10 +3,10 @@
 const ini = require('ini');
 const { existsSync, writeFileSync } = require('node:fs');
 const mkdirp = require('mkdirp');
-const { tmpdir, homedir } = require('node:os');
+const { homedir } = require('node:os');
 const { join } = require('node:path');
 
-const DEFAULT_DATADIR = join(homedir(), '.config/kadence');
+const DEFAULT_DATADIR = join(homedir(), '.config/dusk');
 
 module.exports = function(datadir) {
 
@@ -15,54 +15,24 @@ module.exports = function(datadir) {
   const options = {
 
     // Process PID
-    DaemonPidFilePath: join(datadir, 'kadence.pid'),
+    DaemonPidFilePath: join(datadir, 'dusk.pid'),
 
     // Identity/Cryptography
-    PrivateKeyPath: join(datadir, 'kadence.prv'),
+    PrivateKeyPath: join(datadir, 'dusk.key'),
+    PublicKeyPath: join(datadir, 'dusk.pub'),
+    PrivateKeySaltPath: join(datadir, 'salt'),
     IdentityNoncePath: join(datadir, 'nonce'),
     IdentityProofPath: join(datadir, 'proof'),
 
     // Database
-    EmbeddedDatabaseDirectory: join(datadir, 'kadence.dht'),
-    EmbeddedPeerCachePath: join(datadir, 'peercache'),
+    EmbeddedDatabaseDirectory: join(datadir, 'dusk.dat'),
 
     // Node Options
-    NodePublicPort: '5274',
     NodeListenPort: '5274',
-    NodePublicAddress: '127.0.0.1',
-    NodeListenAddress: '0.0.0.0',
-
-    // Onion Plugin
-    OnionEnabled: '0',
-    OnionVirtualPort: '443',
-    OnionHiddenServiceDirectory: join(datadir, 'hidden_service'),
+    OnionVirtualPort: '80',
+    OnionHiddenServiceDirectory: join(datadir, 'tor'),
     OnionLoggingVerbosity: 'notice',
     OnionLoggingEnabled: '0',
-
-    // Bandwidth Metering
-    BandwidthAccountingEnabled: '0',
-    BandwidthAccountingMax: '5GB',
-    BandwidthAccountingReset: '24HR',
-
-    // NAT Traversal
-    TraverseNatEnabled: '1',
-    TraversePortForwardTTL: '0',
-    TraverseReverseTunnelHostname: 'tun.tacticalchihuahua.lol',
-    TraverseReverseTunnelPort: '8443',
-
-    // Churn Filter
-    ChurnFilterEnabled: '0',
-    ChurnCoolDownBaseTimeout: '5M',
-    ChurnCoolDownMultiplier: '2',
-    ChurnCoolDownResetTime: '60M',
-
-    // SSL Certificate
-    SSLEnabled: '0',
-    SSLCertificatePath: join(datadir, 'kadence.crt'),
-    SSLKeyPath: join(datadir, 'kadence.key'),
-    SSLAuthorityPaths: [
-
-    ],
 
     // Network Bootstrapping
     NetworkBootstrapNodes: [
@@ -71,14 +41,14 @@ module.exports = function(datadir) {
 
     // Debugging/Developer
     VerboseLoggingEnabled: '1',
-    LogFilePath: join(datadir, 'kadence.log'),
+    LogFilePath: join(datadir, 'dusk.log'),
     LogFileMaxBackCopies: '3',
 
     // Local Control Protocol
     ControlPortEnabled: '0',
     ControlPort: '5275',
     ControlSockEnabled: '1',
-    ControlSock: join(datadir, 'kadence.sock'),
+    ControlSock: join(datadir, 'control.sock'),
 
     // Enables the Test Mode (lowers difficulty)
     TestNetworkEnabled: '0'
@@ -90,8 +60,8 @@ module.exports = function(datadir) {
     writeFileSync(join(datadir, 'config'), ini.stringify(options));
   }
 
-  if (!existsSync(join(datadir, 'kadence.dht'))) {
-    mkdirp.sync(join(datadir, 'kadence.dht'));
+  if (!existsSync(join(datadir, 'dusk.dat'))) {
+    mkdirp.sync(join(datadir, 'dusk.dat'));
   }
 
   return options;

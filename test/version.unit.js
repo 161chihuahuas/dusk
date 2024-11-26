@@ -4,13 +4,13 @@ const { expect } = require('chai');
 const version = require('../lib/version');
 
 
-describe('@module kadence/version', function() {
+describe('@module dusk/version', function() {
 
   describe('@function toString', function() {
 
     it('should return the version string', function() {
       expect(version.toString()).to.equal(
-        `kadence v${version.software} protocol v${version.protocol}`
+        `dusk v${version.software} protocol v${version.protocol}`
       );
     });
 

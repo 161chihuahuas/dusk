@@ -132,7 +132,7 @@ describe('@class KademliaNode', function() {
 
   describe('@method listen', function() {
 
-    it('should use kad rules and setup refresh/replicate', function(done) {
+    it('should use dusk rules and setup refresh/replicate', function(done) {
       let sandbox = sinon.sandbox.create();
       let clock2 = sinon.useFakeTimers(Date.now(), 'setTimeout');
       let use = sandbox.stub(kademliaNode, 'use');

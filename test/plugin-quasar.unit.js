@@ -2,34 +2,51 @@
 
 const { expect } = require('chai');
 const sinon = require('sinon');
-const uuid = require('uuid');
+const proxyquire = require('proxyquire');
 const utils = require('../lib/utils');
 const RoutingTable = require('../lib/routing-table');
-const kadence = require('..');
+const dusk = require('..');
 const constants = require('../lib/constants');
 const BloomFilter = require('atbf');
-const { QuasarPlugin, QuasarRules } = require('../lib/plugin-quasar');
 
 
-describe('@module kadence/quasar', function() {
+describe('@module dusk/quasar', function() {
+  const contact = {
+    hostname: 'example.onion',
+    port: 80,
+    protocol: 'http:',
+    pubkey: '02c0254985ceff431ea6cb28bbba2c00915e0016fcf604a5ebebb784eea7592371',
+    proof: 'cc710700ed113100a13d06001d5c250046612300526e2800551f0b00d2341e00126a0d0018293f0097252700ae7e290059801f009a2536009a15160036e61f00a3431200ec1f2600077c0a006be721004ddb030024f32b0068c210008f17340035df1e00a8452f00479725007fa02800f87d3b0096da3b0085622800e5603f00',
+    nonce: 5,
+    signature: 'd4ecaa96af54d34d33bb0a26065ae4bbfdeda199b3b0c635a78ec06dfdb503055ac791e8015589b705cdb52c99178caba43d86dcb39b24a82c17394db1387b64'
+  };
+  const pubid = '4818ac6b-db44-4381-af8f-32adc0009ba2';
+  const topic = 'd51f652b6e6acdd722b47ee04116ab34a439b148';
+
+  const { QuasarRules, QuasarPlugin } = proxyquire('../lib/plugin-quasar', {
+    uuid: { v4: () => pubid }
+  });
+  const uuid = proxyquire('uuid', { v4: () => pubid });
+
+  const spartacus = {
+    privateKey: Buffer.from('c7bbafbe7db6dda12e7417713c86f2c6c460dba54a5280898b0ba2020b74af47', 'hex')
+  };
+  const logger = {
+    warn: sinon.stub(),
+    info: sinon.stub(),
+    debug: sinon.stub(),
+    error: sinon.stub()
+  };
+  const identity = Buffer.from('d51f652b6e6acdd722b47ee04116ab34a439b148', 'hex');
+  const router = new dusk.RoutingTable(identity);
+  const use = sinon.stub();
 
   describe('@class QuasarPlugin', function() {
-
-    const logger = {
-      warn: sinon.stub(),
-      info: sinon.stub(),
-      debug: sinon.stub(),
-      error: sinon.stub()
-    };
-    const identity = kadence.utils.getRandomKeyBuffer();
-    const router = new kadence.RoutingTable(identity);
-    const use = sinon.stub();
-
     before(function() {
       let numContacts = 32;
 
       while (numContacts > 0) {
-        router.addContactByNodeId(kadence.utils.getRandomKeyString(), {
+        router.addContactByNodeId(dusk.utils.getRandomKeyString(), {
           hostname: 'localhost',
           port: 8080
         });
@@ -59,23 +76,21 @@ describe('@module kadence/quasar', function() {
 
       it('should return ALPHA contact objects', function() {
         let plugin = new QuasarPlugin({ identity, router, use });
-        expect(plugin.neighbors).to.have.lengthOf(kadence.constants.ALPHA);
+        expect(plugin.neighbors).to.have.lengthOf(dusk.constants.ALPHA);
       });
 
     });
 
     describe('@method quasarPublish', function() {
-
+ 
       it('should node#send to each neighbor', function(done) {
-        let plugin = new QuasarPlugin({ identity, router, use });
+        let plugin = new QuasarPlugin({ identity, router, use, contact, spartacus });
         plugin.node.send = sinon.stub().callsArg(3);
         plugin.node.logger = {
           warn: sinon.stub()
         };
         plugin.node.send.onCall(1).callsArgWith(3, new Error('Timeout'));
-        plugin.quasarPublish('topic string', {
-          some: 'data'
-        }, (err, deliveries) => {
+        plugin.quasarPublish(Buffer.from('000000', 'hex'), (err, deliveries) => {
           expect(plugin.node.send.callCount).to.equal(4);
           expect(
             plugin.node.send.calledWithMatch(QuasarPlugin.PUBLISH_METHOD)
@@ -84,8 +99,8 @@ describe('@module kadence/quasar', function() {
           expect(plugin.node.logger.warn.callCount).to.equal(1);
           let content = plugin.node.send.args[0][1];
           expect(typeof content.uuid).to.equal('string');
-          expect(content.topic).to.equal('topic string');
-          expect(content.contents.some).to.equal('data');
+          expect(content.topic).to.equal('d51f652b6e6acdd722b47ee04116ab34a439b148');
+          expect(content.contents).to.equal('000000');
           expect(content.ttl).to.equal(constants.MAX_RELAY_HOPS);
           expect(content.publishers.indexOf(
             identity.toString('hex')
@@ -95,16 +110,14 @@ describe('@module kadence/quasar', function() {
       });
 
       it('should use the routing key if supplied', function(done) {
-        let plugin = new QuasarPlugin({ identity, router, use });
+        let plugin = new QuasarPlugin({ contact, identity, router, use, spartacus });
         let getClosestContactsToKey = sinon.spy(
           router,
           'getClosestContactsToKey'
         );
-        let routingKey = kadence.utils.getRandomKeyString();
+        let routingKey = dusk.utils.getRandomKeyString();
         plugin.node.send = sinon.stub().callsArg(3);
-        plugin.quasarPublish('topic string', {
-          some: 'data'
-        }, { routingKey }, () => {
+        plugin.quasarPublish(Buffer.from('000000', 'hex'), { routingKey }, () => {
           expect(getClosestContactsToKey.calledWithMatch(
             routingKey
           )).to.equal(true);
@@ -152,10 +165,10 @@ describe('@module kadence/quasar', function() {
 
       it('should callback early if updated within an hour', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        let pullFilterFrom = sinon.stub(plugin, 'pullFilterFrom').callsArg(1);
-        plugin._lastUpdate = Date.now();
+        plugin.pullFilterFrom = sinon.stub().callsArg(1);
+        plugin._lastPullUpdate = Date.now();
         plugin.pullFilters(() => {
-          expect(pullFilterFrom.callCount).to.equal(0);
+          expect(plugin.pullFilterFrom.callCount).to.equal(0);
           done();
         });
       });
@@ -247,19 +260,19 @@ describe('@module kadence/quasar', function() {
 
       it('should push filters to each neighbor', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        let pushFilterTo = sinon.stub(plugin, 'pushFilterTo').callsArg(1);
+        plugin.pushFilterTo = sinon.stub().callsArg(1);
         plugin.pushFilters(() => {
-          expect(pushFilterTo.callCount).to.equal(3);
+          expect(plugin.pushFilterTo.callCount).to.equal(3);
           done();
         });
       });
 
       it('should callback early if we updated within an hour', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        plugin._lastUpdate = Date.now();
-        let pushFilterTo = sinon.stub(plugin, 'pushFilterTo').callsArg(1);
+        plugin._lastPushUpdate = Date.now();
+        plugin.pushFilterTo = sinon.stub().callsArg(1);
         plugin.pushFilters(() => {
-          expect(pushFilterTo.callCount).to.equal(0);
+          expect(plugin.pushFilterTo.callCount).to.equal(0);
           done();
         });
       });
@@ -326,7 +339,6 @@ describe('@module kadence/quasar', function() {
 
   describe('@class QuasarRules', function() {
 
-    const identity = utils.getRandomKeyBuffer();
     const router = new RoutingTable(identity);
 
     before(function() {
@@ -347,7 +359,8 @@ describe('@module kadence/quasar', function() {
         let rules = new QuasarRules({
           node: {
             router,
-            identity
+            identity,
+            logger
           },
           cached: { get: sinon.stub().returns(true) }
         });
@@ -357,10 +370,10 @@ describe('@module kadence/quasar', function() {
             uuid: uuid.v4(),
             topic: 'test',
             ttl: 3,
-            contents: {}
+            contents: '000000'
           }
         }, { send }, (err) => {
-          expect(err.message).to.equal('Message previously routed');
+          expect(err).to.equal(null);
           expect(send.called).to.equal(false);
           done();
         });
@@ -370,7 +383,8 @@ describe('@module kadence/quasar', function() {
         let rules = new QuasarRules({
           node: {
             router,
-            identity
+            identity,
+            logger
           },
           cached: { get: sinon.stub().returns(false) }
         });
@@ -380,10 +394,10 @@ describe('@module kadence/quasar', function() {
             uuid: uuid.v4(),
             topic: 'test',
             ttl: 24,
-            contents: {}
+            contents: '000000'
           }
         }, { send }, (err) => {
-          expect(err.message).to.equal('Message includes invalid TTL');
+          expect(err).to.equal(null);
           expect(send.called).to.equal(false);
           done();
         });
@@ -393,7 +407,8 @@ describe('@module kadence/quasar', function() {
         let rules = new QuasarRules({
           node: {
             router,
-            identity
+            identity,
+            logger
           },
           cached: { get: sinon.stub().returns(false) }
         });
@@ -403,10 +418,10 @@ describe('@module kadence/quasar', function() {
             uuid: uuid.v4(),
             topic: 'test',
             ttl: -1,
-            contents: {}
+            contents: '000000'
           }
         }, { send }, (err) => {
-          expect(err.message).to.equal('Message includes invalid TTL');
+          expect(err).to.equal(null);
           expect(send.called).to.equal(false);
           done();
         });
@@ -415,34 +430,29 @@ describe('@module kadence/quasar', function() {
       it('should add to pubs, cache id, exec handler, relay', function(done) {
         let cachedSet = sinon.stub();
         let handler = sinon.stub();
-        let rules = new QuasarRules({
-          node: {
-            router,
-            identity
-          },
-          groups: {
-            get: sinon.stub().returns(handler)
-          },
-          isSubscribedTo: sinon.stub().returns(true),
-          cached: {
-            get: sinon.stub().returns(false),
-            set: cachedSet
-          }
-        });
-        let id = uuid.v4();
+        let use = sinon.stub();
+        let plugin = new QuasarPlugin({ identity, router, use, contact, spartacus, logger });
+        let rules = new QuasarRules(plugin);
+        plugin.groups.get = sinon.stub().returns(handler);
+        plugin.isSubscribedTo = sinon.stub().returns(true),
+        plugin.cached = {
+          get: sinon.stub().returns(false),
+          set: cachedSet
+        }
         let _relayPublication = sinon.stub(rules, '_relayPublication')
           .callsArg(2);
         let msg = {
-          uuid: id,
-          topic: 'test',
+          uuid: pubid,
+          topic: identity.toString('hex'),
           ttl: 3,
-          contents: {},
-          publishers: []
+          contents: '000000',
+          publishers: [],
+          origin: contact 
         };
         let send = (params) => {
           expect(Array.isArray(params)).to.equal(true);
           expect(params).to.have.lengthOf(0);
-          expect(cachedSet.calledWithMatch(id)).to.equal(true);
+          expect(cachedSet.calledWithMatch(pubid)).to.equal(true);
           expect(msg.publishers.indexOf(identity.toString('hex'))).to.equal(0);
           expect(_relayPublication.callCount).to.equal(3);
           expect(handler.called).to.equal(true);
@@ -454,34 +464,30 @@ describe('@module kadence/quasar', function() {
       it('should do nothing if not subscribed and ttl is 1', function(done) {
         let cachedSet = sinon.stub();
         let handler = sinon.stub();
-        let rules = new QuasarRules({
-          node: {
-            router,
-            identity
-          },
-          groups: {
-            get: sinon.stub().returns(handler)
-          },
-          isSubscribedTo: sinon.stub().returns(false),
-          cached: {
-            get: sinon.stub().returns(false),
-            set: cachedSet
-          }
-        });
-        let id = uuid.v4();
-        let _relayPublication = sinon.stub(rules, '_relayPublication')
+        let plugin = new QuasarPlugin({ identity, router, use, contact, spartacus });
+        let rules = new QuasarRules(plugin)
+        plugin.groups = {
+          get: sinon.stub().returns(handler)
+        };
+        plugin.isSubscribedTo = sinon.stub().returns(false);
+        plugin.cached = {
+          get: sinon.stub().returns(false),
+          set: cachedSet
+        };
+        let _relayPublication = sinon.stub(rules, '_relaypublication')
           .callsArg(2);
         let msg = {
-          uuid: id,
-          topic: 'test',
+          uuid: pubid,
+          topic: identity.toString('hex'),
           ttl: 1,
-          contents: {},
-          publishers: []
+          contents: '000000',
+          publishers: [],
+          origin: contact
         };
         let send = (params) => {
           expect(Array.isArray(params)).to.equal(true);
           expect(params).to.have.lengthOf(0);
-          expect(cachedSet.calledWithMatch(id)).to.equal(true);
+          expect(cachedSet.calledWithMatch(pubid)).to.equal(true);
           expect(_relayPublication.callCount).to.equal(0);
           done();
         };
@@ -493,22 +499,18 @@ describe('@module kadence/quasar', function() {
         let handler = sinon.stub();
         let pullFilterFrom = sinon.stub().callsArgWith(1, null, []);
         let _getRandomContact = sinon.stub().returns([])
-        let rules = new QuasarRules({
-          node: {
-            router,
-            identity
-          },
-          pullFilterFrom: pullFilterFrom,
-          _getRandomContact: _getRandomContact,
-          groups: {
-            get: sinon.stub().returns(handler)
-          },
-          isSubscribedTo: sinon.stub().returns(false),
-          cached: {
-            get: sinon.stub().returns(false),
-            set: cachedSet
-          }
-        });
+        let plugin = new QuasarPlugin({ identity, router, use, contact, spartacus });
+        let rules = new QuasarRules(plugin);
+        plugin.pullFilterFrom = pullFilterFrom;
+        plugin._getRandomContact = _getRandomContact;
+        plugin.groups = {
+          get: sinon.stub().returns(handler)
+        };
+        plugin.isSubscribedTo = sinon.stub().returns(false);
+        plugin.cached = {
+          get: sinon.stub().returns(false),
+          set: cachedSet
+        };
         let shouldRelayPublication = sinon.stub(
           QuasarRules,
           'shouldRelayPublication'
@@ -518,17 +520,18 @@ describe('@module kadence/quasar', function() {
         let _relayPublication = sinon.stub(rules, '_relayPublication')
           .callsArg(2);
         let msg = {
-          uuid: id,
-          topic: 'test',
+          uuid: pubid,
+          topic: identity.toString('hex'),
           ttl: 3,
-          contents: {},
-          publishers: []
+          contents: '000000',
+          publishers: [],
+          origin: contact
         };
         let send = (params) => {
           shouldRelayPublication.restore();
           expect(Array.isArray(params)).to.equal(true);
           expect(params).to.have.lengthOf(0);
-          expect(cachedSet.calledWithMatch(id)).to.equal(true);
+          expect(cachedSet.calledWithMatch(pubid)).to.equal(true);
           expect(_relayPublication.callCount).to.equal(3);
           expect(_getRandomContact.callCount).to.equal(1);
           done();
@@ -545,7 +548,7 @@ describe('@module kadence/quasar', function() {
         filter[0].add('beep');
         filter[1].add('boop');
         filter[2].add('buup');
-        let rules = new QuasarRules({ filter });
+        let rules = new QuasarRules({ filter, node: { logger } });
         rules.subscribe({}, {
           send: (params) => {
             expect(params).to.have.lengthOf(3);
@@ -564,7 +567,7 @@ describe('@module kadence/quasar', function() {
 
       it('should merge remote filter with the local filter', function(done) {
         let local = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
-        let rules = new QuasarRules({ filter: local });
+        let rules = new QuasarRules({ filter: local, node: { logger } });
         let send = sinon.stub();
         rules.update({ params: { bad: 'data' } }, { send }, function(err) {
           expect(err.message).to.equal('Invalid bloom filters supplied');
@@ -575,7 +578,7 @@ describe('@module kadence/quasar', function() {
 
       it('should callback error if failed to merge', function(done) {
         let local = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
-        let rules = new QuasarRules({ filter: local });
+        let rules = new QuasarRules({ filter: local, node: { logger } });
         let send = sinon.stub();
         rules.update({ params: ['bad', 'data?'] }, { send }, function(err) {
           expect(err.message).to.equal('Invalid hex string');
@@ -588,7 +591,7 @@ describe('@module kadence/quasar', function() {
         let local = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         let remote = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         remote[0].add('test');
-        let rules = new QuasarRules({ filter: local });
+        let rules = new QuasarRules({ filter: local, node: { logger } });
         rules.update({ params: remote.toHexArray() }, {
           send: (params) => {
             expect(params).to.have.lengthOf(0);
@@ -620,15 +623,15 @@ describe('@module kadence/quasar', function() {
       it('should return false if negative publisher info', function() {
         let request = {
           params: {
-            topic: 'test topic',
+            topic: identity.toString('hex'),
             publishers: [
-              'publisher 1'
+              identity.toString('hex')
             ]
           }
         };
         let filters = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
-        filters[1].add('test topic');
-        filters[2].add('publisher 1');
+        filters[1].add(identity.toString('hex'));
+        filters[2].add(identity.toString('hex'));
         expect(
           QuasarRules.shouldRelayPublication(request, filters)
         ).to.equal(false);

@@ -1,91 +1,89 @@
 'use strict';
 
 const async = require('async');
-const kadence = require('..');
+const dusk = require('..');
 const quasar = require('../lib/plugin-quasar');
+const spartacus = require('../lib/plugin-spartacus');
 const network = require('./fixtures/node-generator');
 
+dusk.constants.IDENTITY_DIFFICULTY = dusk.constants.TESTNET_DIFFICULTY;
 
 const TOTAL_NODES = 12;
 
-describe('@module kadence/quasar + @class UDPTransport', function() {
+describe('@module dusk/quasar + @class HTTPTransport', function() {
 
-  this.timeout(400000);
+  this.timeout(12000);
 
   let nodes, seed;
 
-  let topics = {
-    topic1: (TOTAL_NODES - 1) / 4,
-    topic2: (TOTAL_NODES - 1) / 4,
-    topic3: (TOTAL_NODES - 1) / 4,
-    topic4: (TOTAL_NODES - 1) / 4
-  };
+  let topics = {};
 
   before(function(done) {
-    kadence.constants.T_RESPONSETIMEOUT = 30000;
-    nodes = network(TOTAL_NODES, kadence.UDPTransport);
+    dusk.constants.T_RESPONSETIMEOUT = 4000;
+    nodes = network(TOTAL_NODES, dusk.HTTPTransport);
     async.each(nodes, (node, done) => {
-      node.plugin(quasar());
-      node.listen(node.contact.port, node.contact.hostname, done);
+      node.spartacus = node.plugin(spartacus(null, { checkPublicKeyHash: false }));
+      const identity = new dusk.eclipse.EclipseIdentity(Buffer.from(node.spartacus.publicKey));
+      identity.solve().then(() => {
+        node.plugin(dusk.eclipse(identity));
+        node.plugin(quasar());
+        node.listen(node.contact.port, node.contact.hostname, done);
+      }, done);
     }, () => {
       seed = nodes.shift();
-      nodes.forEach((node) => {
+      nodes.forEach((node, i) => {
+        if (i <= 3) {
+          topics[node.identity.toString('hex')] = new Set();
+        }
         seed.router.addContactByNodeId(
           node.identity.toString('hex'),
           node.contact
         );
       });
-      async.each(nodes, (node, done) => node.join([
-        seed.identity.toString('hex'),
-        seed.contact
-      ], done), done);
+      async.each(nodes, (node, done) => {
+        node.join([
+          seed.identity.toString('hex'),
+          seed.contact
+        ], () => {
+          done();
+        });
+      }, done);
     });
   });
 
   after(function() {
-    nodes.forEach((node) => node.transport.socket.close());
+    nodes.forEach((node) => node.transport.server.close());
   });
 
   it('nodes subscribed to a topic should receive publication', function(done) {
     let topicCounter = 0;
+    let subscribers = new Set();
     function getTopicName() {
       if (topicCounter === 0 || topicCounter < 4) {
-        return 'topic' + (++topicCounter);
+        return nodes[topicCounter++].identity.toString('hex');
       } else {
         topicCounter = 0;
         return getTopicName();
       }
     }
-    function confirmPublicationReceipt(topic) {
-      topics[topic]--;
-      for (let t in topics) {
-        if (topics[t] > 0) {
-          return;
-        }
+    function confirmPublicationReceipt(topic, node) {
+      subscribers.add(node.identity.toString('hex'));
+      if (subscribers.size === TOTAL_NODES - 5) { // 5 because the seed gets shifted off
+        done();
       }
-      done();
     }
-    async.eachLimit(nodes, 4, (node, next) => {
+    async.eachLimit(nodes.slice(4), 4, (node, next) => {
       let topic = getTopicName();
-      node.quasarSubscribe(topic, () => confirmPublicationReceipt(topic));
-      setTimeout(() => next(), 500);
+      node.quasarSubscribe(topic, () => confirmPublicationReceipt(topic, node));
+      setTimeout(next, 500);
     }, () => {
-      let publishers = nodes.splice(0, 4);
+      let publishers = nodes.slice(0, 4);
       async.each(publishers, (node, done) => {
-        node.quasarPublish(getTopicName(), {}, done);
-      }, () => {
-        setTimeout(() => {
-          let totalMembersRemaining = 0;
-          for (let t in topics) {
-            totalMembersRemaining += topics[t];
-          }
-          if (totalMembersRemaining > Math.floor((TOTAL_NODES - 1) * 0.15)) {
-            return done(new Error(
-              `${totalMembersRemaining} group members did not get message`
-            ));
-          }
-          done();
-        }, 12000);
+        node.quasarPublish(Buffer.from('000000', 'hex'), done);
+      }, (err) => {
+        if (err) {
+          done(new Error(`Subscribers did not all receive publication: ${err.message}`));
+        }
       });
     });
   });

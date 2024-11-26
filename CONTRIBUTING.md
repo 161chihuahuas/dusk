@@ -2,19 +2,19 @@ Contributing
 ============
 
 This document outlines general patterns and conventions for contributing
-to the project. **For in-depth documentation on Kadence,
+to the project. **For in-depth documentation on Dusk,
 [read the documentation](doc).**
 
 Coding Style
 ------------
 
-Kadence adheres to
+Dusk adheres to
 [Felix's Node.js Style Guide](https://github.com/felixge/node-style-guide).
 
 Test Coverage
 -------------
 
-At the time of writing, Kad has near complete code coverage through
+At the time of writing, Dusk has near complete code coverage through
 its test suite. It is important to never decrease coverage, so be sure to
 include tests for any new code.
 

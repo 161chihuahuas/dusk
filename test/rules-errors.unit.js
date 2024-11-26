@@ -24,10 +24,9 @@ describe('@class ErrorRules', function() {
     });
 
     it('should call send with error params', function(done) {
-      errors.methodNotFound(null, {}, {
-        error: (message, code) => {
-          expect(message).to.equal('Method not found');
-          expect(code).to.equal(-32601);
+      errors.methodNotFound(null, { }, {
+        send: (message) => {
+          expect(message.length).to.equal(0);
           done();
         }
       });

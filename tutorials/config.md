@@ -1,27 +1,27 @@
-This guide will show you how to get started with running `kadence`! A Kadence 
+This guide will show you how to get started with running `dusk`! A Dusk 
 node requires a configuration file to get up and running. The path to this 
-file is given to `kadence` when starting a node (or the defaults will be used).
+file is given to `dusk` when starting a node (or the defaults will be used).
 
 ```
-kadence --config myconfig.ini
+dusk --config myconfig.ini
 ```
 
 If a configuration file is not supplied, a minimal default configuration is 
 automatically created and used, which will generate a private extended key, 
 self-signed certificate, database, and other necessary files. All of this data 
-will be created and stored in `$HOME/.config/kadence`, unless a `--datadir` 
+will be created and stored in `$HOME/.config/dusk`, unless a `--datadir` 
 option is supplied. Valid configuration files may be in either INI or JSON 
 format.
 
 #### DaemonPidFilePath
 
-##### Default: `$HOME/.config/kadence/kadence.pid`
+##### Default: `$HOME/.config/dusk/dusk.pid`
 
 The location to write the PID file for the daemon.
 
 #### PrivateExtendedKeyPath
 
-##### Default: `$HOME/.config/kadence/kadence.prv`
+##### Default: `$HOME/.config/dusk/dusk.prv`
 
 Path to private extended key file to use for master identity.
 
@@ -34,19 +34,19 @@ difficulty.
 
 #### EmbeddedDatabaseDirectory
 
-##### Default: `$HOME/.config/kadence/kadence.dht`
+##### Default: `$HOME/.config/dusk/dusk.dht`
 
 Sets the directory to store DHT entries.
 
 #### EmbeddedPeerCachePath
 
-##### Default: `$HOME/.config/kadence/peercache`
+##### Default: `$HOME/.config/dusk/peercache`
 
 File to store discovered peers for bootstrapping on subsequent restarts.
 
 #### EmbeddedWalletDirectory
 
-##### Default: `$HOME/.config/kadence/wallet.dat`
+##### Default: `$HOME/.config/dusk/wallet.dat`
 
 Sets the directory to store solution files for storing entries in the DHT.
 
@@ -107,7 +107,7 @@ More detailed logging of messages sent and received. Useful for debugging.
 
 #### LogFilePath
 
-##### Default: `$HEAD/.config/kadence.log`
+##### Default: `$HEAD/.config/dusk.log`
 
 Path to write the daemon's log file. Log file will rotate either every 24 hours 
 or when it exceeds 10MB, whichever happens first.
@@ -130,7 +130,7 @@ trusted contacts.
 
 ##### Default: `0`
 
-Places Kadence into anonymous mode, which establishes the node exclusively as 
+Places Dusk into anonymous mode, which establishes the node exclusively as 
 a Tor hidden services and forces all requests through the Tor network.
 
 #### OnionVirtualPort
@@ -141,7 +141,7 @@ The virtual port to use for the hidden service.
 
 #### OnionHiddenServiceDirectory
 
-##### Default: `$HOME/.config/kadence/hidden_service`
+##### Default: `$HOME/.config/dusk/hidden_service`
 
 The directory to store hidden service keys and other information required by 
 the Tor process.
@@ -150,7 +150,7 @@ the Tor process.
 
 ##### Default: `0`
 
-Redirects the Tor process log output through Kadence's logger for the purpose of 
+Redirects the Tor process log output through Dusk's logger for the purpose of 
 debugging.
 
 #### OnionLoggingVerbosity
@@ -182,13 +182,13 @@ Flag to instruct the daemon to use SSL/TLS to secure communication.
 
 #### SSLCertificatePath
 
-##### Default: `$HOME/.config/kadence/kadence.crt`
+##### Default: `$HOME/.config/dusk/dusk.crt`
 
 Path to the SSL certificate for our node.
 
 #### SSLKeyPath
 
-##### Default: `$HOME/.config/kadence/kadence.key`
+##### Default: `$HOME/.config/dusk/dusk.key`
 
 Path to the SSL private key for our node.
 
@@ -218,7 +218,7 @@ Enables the {@link Control} interface over a UNIX domain socket.
 
 #### ControlSock
 
-##### Default: `$HOME/.config/kadence/kadence.sock`
+##### Default: `$HOME/.config/dusk/dusk.sock`
 
 The path to the file to use for the control interface.
 
@@ -226,5 +226,5 @@ The path to the file to use for the control interface.
 
 ##### Default: `0`
 
-Places Kadence into test mode, significantly lowering the identity solution
+Places Dusk into test mode, significantly lowering the identity solution
 difficulty and the permission solution difficulty.

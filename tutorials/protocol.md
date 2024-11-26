@@ -16,15 +16,15 @@ A copy of the license is included in the "LICENSE" file.
 
 ### 1    Introduction
 
-This specification documents the Kadence protocol in its entirety for 
+This specification documents the Dusk protocol in its entirety for 
 the purpose of enabling its implementation in other languages. Described here, 
 is the protocol base - the minimum specification for compatibility with 
-Kadence. Additional optional extensions to this work may be defined in a 
+Dusk. Additional optional extensions to this work may be defined in a 
 future specification.
 
 ### 2    Identities
 
-Every node (host computer speaking the Kadence protocol) on the network possesses 
+Every node (host computer speaking the Dusk protocol) on the network possesses 
 a unique cryptographic identity. This identity is used to derive a special 
 160 bit identifier for the purpose of organizaing the overlay structure and 
 routing messages _(3.1: Kademlia)_. In order for a node to join the network it 
@@ -65,16 +65,16 @@ network, however the properties above are **required**.
 
 ### 3    Network Structure
 
-Kadence employs a **structured** network, meaning that nodes are organized and 
+Dusk employs a **structured** network, meaning that nodes are organized and 
 route messages based on a deterministic metric. The network uses a 
 [Kademlia](http://www.scs.stanford.edu/~dm/home/papers/kpos.pdf) distributed 
 hash table as the basis for the network overlay. In addition to Kademlia, 
-Kadence also employs other extensions to mitigate issues and attacks defined 
+Dusk also employs other extensions to mitigate issues and attacks defined 
 by the work on [S/Kademlia](http://www.tm.uka.de/doc/SKademlia_2007.pdf). 
 
 #### 3.1    Kademlia
 
-Once an Kadence node has completed generating its identity, it bootstraps its 
+Once an Dusk node has completed generating its identity, it bootstraps its 
 routing table by following the Kademlia "join" procedure. This involves 
 querying a single known "seed" node for contact information about other nodes 
 that possess a Node ID that is close (XOR distance) to its own 
@@ -85,12 +85,12 @@ bootstrapped.
 
 #### 3.2    Transport
 
-The Kadence network operates over HTTP and exclusively over 
+The Dusk network operates over HTTP and exclusively over 
 [Tor](https://torproject.org).
 
-Each Kadence node exposes a V3 hidden service to other nodes for receiving RPC 
+Each Dusk node exposes a V3 hidden service to other nodes for receiving RPC 
 messages _(4. Remote Procedure Calls)_. Requests sent to the RPC endpoint 
-require a special HTTP header `x-kad-message-id` to be included that matches 
+require a special HTTP header `x-dusk-message-id` to be included that matches 
 the `id` parameter in the associated RPC message _(4.1 Structure and Authentication)_.
 
 ### 4    Remote Procedure Calls
@@ -98,7 +98,7 @@ the `id` parameter in the associated RPC message _(4.1 Structure and Authenticat
 * **Method:** `POST`
 * **Path:** `/`
 * **Content Type:** `application/json`
-* **Headers:** `x-kad-message-id`
+* **Headers:** `x-dusk-message-id`
 
 #### 4.1    Structure and Authentication
 
@@ -260,7 +260,7 @@ Results: `{ timestamp, publisher, value }` or `[...contactN]`
 
 The sender of the `STORE` RPC provides a key and a block of data and requires 
 that the recipient store the data and make it available for later retrieval by 
-that key. Kadence **requires** that the key is the RMD160 hash of the supplied blob 
+that key. Dusk **requires** that the key is the RMD160 hash of the supplied blob 
 and that the blob is *exactly* equal to 2MiB in size and encoded as base64.
 
 Parameters: `[key_160_hex, 2mib_value_base64]`  
