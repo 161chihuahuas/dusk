@@ -3,6 +3,25 @@
 
 'use strict';
 
+// Shutdown children cleanly on exit
+process.on('exit', killChildrenAndExit); // TODO please rename
+process.on('SIGTERM', killChildrenAndExit); 
+process.on('SIGINT', killChildrenAndExit);
+process.on('uncaughtException', (err) => {
+  npid.remove(config.DaemonPidFilePath);
+  console.error(err);
+  logger.error(err.message);
+  logger.debug(err.stack);
+  process.exit(0);
+});
+process.on('unhandledRejection', (err) => {
+  npid.remove(config.DaemonPidFilePath);
+  console.error(err);
+  logger.error(err.message);
+  logger.debug(err.stack);
+  process.exit(0);
+});
+
 const { spawn } = require('node:child_process');
 const { homedir } = require('node:os');
 const assert = require('node:assert');
@@ -15,7 +34,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const options = require('./config');
 const npid = require('npid');
-const daemon = require('daemon');
 const levelup = require('levelup');
 const leveldown = require('leveldown');
 const boscar = require('boscar');
@@ -25,8 +43,7 @@ const secp256k1 = require('secp256k1');
 const readline = require('node:readline');
 const bip39 = require('bip39');
 const inquirer = require('inquirer');
-const { encrypt } = require('eciesjs');
-const { fromBuffer } = require('../lib/dag-entry');
+const { splitSync } = require('node-split');
 
 
 program.version(dusk.version.software);
@@ -47,27 +64,75 @@ const description = `
 `;
 
 program.description(description);
-program.option('--config, -C <file>', 'path to a dusk configuration file',
+
+program.option('--config, -C <file>', 
+  'path to a dusk configuration file',
   path.join(homedir(), '.config/dusk/dusk.ini'));
-program.option('--datadir <path>', 'path to the default data directory',
+
+program.option('--datadir <path>', 
+  'path to the default data directory',
   path.join(homedir(), '.config/dusk'));
-program.option('--kill', 'sends the shutdown signal to the daemon');
-program.option('--testnet', 'runs with reduced identity difficulty');
-program.option('--daemon, -D', 'sends the dusk daemon to the background');
-program.option('--quiet, -Q', 'silence terminal output that is not necessary');
-program.option('--rpc [method] [params]', 'send a command to the daemon');
-program.option('--repl', 'starts the interactive rpc console');
-program.option('--logs, -F', 'tails the log file defined in the config');
-program.option('--export, -X', 'dumps the public identity key');
-program.option('--export-secret', 'dumps the private identity key');
-program.option('--export-recovery', 'dumps the bip39 recovery words');
-program.option('--shred [message]', 'splits and pads message into uniform shards');
-program.option('--ephemeral', 'use with --shred to generate a one-time use identity key');
-program.option('--encrypt [message]', 'encrypt a message for yourself');
-program.option('--pubkey [pubkey]', 'use with --encrypt to set target or alone to print your key');
-program.option('--decrypt <message>', 'decrypts the message for yourself');
-program.option('--file-in <path>', 'specify file path to read');
-program.option('--file-out <path>', 'specift file path to write');
+
+program.option('--kill', 
+  'sends the shutdown signal to the daemon');
+
+program.option('--testnet', 
+  'runs with reduced identity difficulty');
+
+program.option('--daemon, -D', 
+  'sends the dusk daemon to the background');
+
+program.option('--quiet, -Q', 
+  'silence terminal output that is not necessary');
+
+program.option('--rpc [method] [params]', 
+  'send a command to the daemon');
+
+program.option('--repl', 
+  'starts the interactive rpc console');
+
+program.option('--logs, -F', 
+  'tails the log file defined in the config');
+
+program.option('--export, -X', 
+  'dumps the public identity key');
+
+program.option('--export-secret', 
+  'dumps the private identity key');
+
+program.option('--export-recovery', 
+  'dumps the bip39 recovery words');
+
+program.option('--shred [message]', 
+  'splits and pads message into uniform shards');
+
+program.option('--retrace [bundle]', 
+  're-assembles a dusk bundle created by --shred');
+
+program.option('--ephemeral', 
+  'use with --shred --encrypt to generate a one-time use identity key');
+
+program.option('--encrypt [message]', 
+  'encrypt a message for yourself');
+
+program.option('--pubkey [hex_pubkey]', 
+  'use with --encrypt to set target or alone to print your key');
+
+program.option('--decrypt [message]', 
+  'decrypts the message for yourself');
+
+program.option('--file-in [path]', 
+  'specify file path to read or be prompted');
+
+program.option('--file-out [path]', 
+  'specify file path to write or be prompted');
+
+program.option('--with-secret <hex_secret>',
+  'override the configured private key, use with --decrypt and --retrace');
+
+program.option('--shoes', 
+  'begin interactive prompt to create a dusk/SHOES usb drive array');
+
 program.parse(process.argv);
 
 let argv;
@@ -116,6 +181,10 @@ if (!program.Q) {
 
 
 async function _init() {
+  // import es modules
+  const fileSelector = (await import('inquirer-file-selector')).default;
+  // import es modules
+
   if (parseInt(config.TestNetworkEnabled)) {
     logger.info('dusk is running in test mode, difficulties are reduced');
     process.env.dusk_TestNetworkEnabled = config.TestNetworkEnabled;
@@ -156,9 +225,13 @@ async function _init() {
   Your key is protected, don\'t forget your password!
   Write these words down, keep them safe.
 
-  You can also write down all but a few you can remember, I'll trust your judgement.
-  If you lose these words, you can never recover access to this identity, including
-  any data encrypted for your secret key.
+  You can also write down all but a few you can remember, 
+
+  I'll trust your judgement.
+  
+  If you lose these words, you can never recover access 
+  to this identity, including any data encrypted for 
+  your secret key.
 
   [  ${bip39.entropyToMnemonic(sk.toString('hex'))}  ]
       
@@ -200,76 +273,34 @@ async function _init() {
     process.exit(0);
   }
 
-  if (program.shred) {
-    if (!program.encrypt) {
-      const questions = [
-        {
-          type: 'confirm',
-          name: 'trustme',
-          message: 'I\'m trusting that you encrypted this file yourself? ~>',
-        },
-        {
-          type: 'confirm',
-          name: 'ipromise',
-          message: 'Are you absolutely sure you ran [ dusk --encrypt --file-in <filepath> ]? ♥ ~>'
-        }
-      ];
-
-      const answers = await inquirer.default.prompt(questions);
-
-      if (!answers.trustme || !answers.ipromise) {
-        console.log(`
-    Thanks for being honest, now go run:
-    [ dusk --encrypt --file-in <filepath> ]
-
-    You can also do this in one step with: 
-    [ dusk --shred --encrypt [pubkey] --file-in <filepath> ]'
-        `);        
-        console.error('Aborting, try again?');
-        process.exit(1);
-      }
-    }
-
+  if (program.shred) { 
     console.log('');
     
+    let publicKey = program.pubkey || dusk.utils.parseContactURL(
+      fs.readFileSync(config.PublicKeyPath).toString()
+    )[1].pubkey;
 
-    if (program.ephemeral && program.pubkey) {
-      console.error('i don\'t know how to encrypt this because --ephemeral and --pubkey contradict');
-      console.error('choose one or the other');
-      process.exit(1);
-    }
-
-    if (program.ephemeral) {
-      const sk = dusk.utils.generatePrivateKey();
-      const words = bip39.entropyToMnemonic(sk.toString('hex'));
-      program.pubkey = Buffer.from(secp256k1.publicKeyCreate(sk));
-
-      console.log(`
-  I generated a new key, but I didn't store it.
-  I'll encrypt using it, but you'll need to write these words down:
-
-[  ${words}  ]
-
-  If you lose these words, you won't be able to recover this file from
-  a reconstructed bundle - it will be gone forever.
-      `);
-    }
-
-    let publicKey = program.pubkey || fs.readFileSync(config.PublicKeyPath);
-    
     let entry;
+
     if (typeof program.shred === 'string') {
-      entry = dusk.utils.encrypt(Buffer.from(publicKey, 'hex'), Buffer.from(program.shred, 'hex'));
-    } else if (program.fileIn) {
-      entry = dusk.utils.encrypt(Buffer.from(publicKey, 'hex'), fs.readFileSync(program.fileIn));
+      entry = Buffer.from(program.shred, 'hex');
+    } else if (typeof program.fileIn === 'string') {
+      entry = fs.readFileSync(program.fileIn);
     } else {
-      console.error('i don\'t know what to shred :(');
-      console.error('include a hex string after --shred or specify a --file-in <path>');
-      process.exit(1);
+      program.fileIn = await fileSelector({
+        message: 'Select input file:'
+      });
+      entry = fs.readFileSync(program.fileIn);
     }
 
-    const dagEntry = await dusk.DAGEntry.fromBuffer(entry);
-    
+
+    console.log('  encrypting input...');
+    const encryptedFile = dusk.utils.encrypt(publicKey, entry);
+    console.log('  shredding input and normalizing shard sizes...');
+    console.log('  creating parity shards...');
+    console.log('');
+    const dagEntry = await dusk.DAGEntry.fromBuffer(encryptedFile, entry.length);
+
     if (!program.Q) {
       for (let i = 0; i < dagEntry.merkle.levels(); i++) {
         console.log(`merkle level${i} ~ [`);;
@@ -284,7 +315,7 @@ async function _init() {
       if (program.fileIn) {
         program.fileOut = program.fileIn + '.duskbundle';
       } else {
-        console.warn('you didn\'t specify a --file-in or --file-out so i wont\'t write anything');
+        console.warn('you didn\'t specify a --file-out so i wont\'t write anything');
       }
     }
 
@@ -299,19 +330,19 @@ async function _init() {
       if (program.fileOut) {
         fs.writeFileSync(path.join(
           program.fileOut, 
-          `${String(s+1).padStart(4, '0')}.${dagEntry.merkle._leaves[s].toString('hex')}.part`
+          `${dagEntry.merkle._leaves[s].toString('hex')}.part`
         ), dagEntry.shards[s]);
       }
     }
 
     const meta = dagEntry.toMetadata(program.fileIn || '');
-    const metaEnc = dusk.utils.encrypt(program.pubkey, meta);
-    const metaEntry = await dusk.DAGEntry.fromBuffer(metaEnc);
+    const metaEnc = dusk.utils.encrypt(publicKey, meta);
+    const metaHash160 = dusk.utils.hash160(metaEnc).toString('hex');
 
     if (program.fileOut) {
       fs.writeFileSync(path.join(program.fileOut, 
-        `0000.${metaEntry.merkle.root().toString('hex')}.meta`), 
-        metaEntry.shards[0]
+        `${metaHash160}.meta`), 
+        metaEnc
       );
     }
 
@@ -319,20 +350,18 @@ async function _init() {
       if (program.fileOut) {
         console.log('');
         console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
+        console.log('meta hash ♥ ~ [  %s  ] ', metaHash160);
         console.log('');
       } else {
         console.log('');
-        console.log('meta hash ♥ ~ [  %s  ] ', metaEntry.merkle.root().toString('hex'));
-        console.log('');
-        console.warn('that was a dry run, i didn\'t actually write anything to disk');
         console.warn('when you\'re ready, try again with --file-in / --file-out');
+        console.log('');
       }
     }
     process.exit(0);
   }
-
-
-  if (program.daemon) {
+ 
+  if (program.D) {
     require('daemon')({ cwd: process.cwd() });
   }
 
@@ -343,25 +372,12 @@ async function _init() {
     process.exit(1);
   }
 
-  // Shutdown children cleanly on exit
-  process.on('exit', killChildrenAndExit);
-  process.on('SIGTERM', killChildrenAndExit);
-  process.on('SIGINT', killChildrenAndExit);
-  process.on('uncaughtException', (err) => {
-    npid.remove(config.DaemonPidFilePath);
-    logger.error(err.message);
-    logger.debug(err.stack);
-    process.exit(1);
-  });
-  process.on('unhandledRejection', (err) => {
-    npid.remove(config.DaemonPidFilePath);
-    logger.error(err.message);
-    logger.debug(err.stack);
-    process.exit(1);
-  });
-
   // Initialize private extended key
   privkey = await (new Promise(async (resolve, reject) => {
+    if (program.withSecret && dusk.utils.isHexaString(program.withSecret)) {
+      return resolve(Buffer.from(program.withSecret, 'hex'));
+    }
+
     const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
     const questions = [{
       type: 'password',
@@ -378,9 +394,110 @@ async function _init() {
     nonce,
     proof
   );
-  
+
+  if (program.shoes) {
+    // TODO init sneakernet setup 
+  }
+
+  if (program.retrace) {
+    if (typeof program.retrace !== 'string') {
+      program.retrace = '';
+
+      while (path.extname(program.retrace) !== '.duskbundle') {
+        if (program.retrace) {
+          console.error(`${program.retrace} is not a valid .duskbundle, try again...`)
+        }
+        program.retrace = await fileSelector({
+          type:'directory',
+          message: 'Select .duskbundle:',
+          filter: (stat) => {
+            return path.extname(stat.name) === '.duskbundle' || stat.isDirectory();
+          }
+        });
+      }
+    }
+      
+    console.log(`  Validating .duskbundle ...`);
+
+    if (path.extname(program.retrace) !== '.duskbundle') {
+      console.error('  The path specified does not have a .duskbundle extension.');
+      console.error('  Did you choose the right folder?');
+      console.error('  If you renamed the folder, make sure it ends in .duskbundle');
+      process.exit(1);
+    }
+    
+    const bundleContents = fs.readdirSync(program.retrace); 
+    const metaFiles = bundleContents.filter(f => path.extname(f) === '.meta');
+
+    if (metaFiles.length > 1) {
+      console.error('i found more than one meta file and don\'t know what to do');
+      process.exit(1);
+    } else if (metaFiles.length === 0) {
+      console.error('missing a meta file, i don\'t know how to retrace this bundle');
+      process.exit(1);
+    }
+    const metaPath = path.join(program.retrace, metaFiles.pop());
+    const metaData = JSON.parse(dusk.utils.decrypt(
+      privkey.toString('hex'),
+      fs.readFileSync(metaPath)
+    ).toString('utf8'));
+    
+    let missingPieces = 0;
+
+    console.log('  read meta file successfully ♥ ');
+    console.log('');
+    console.log('  retracing from merkle leaves... ');
+
+    const shards = metaData.l.map(hash => {
+      console.log(`  reconstructing  [ ${hash}`);
+      if (!fs.existsSync(path.join(program.retrace, `${hash}.part`))) {
+        console.warn('missing part detected for hash %s', hash);
+        missingPieces++;
+
+        if (missingPieces > metaData.p) {
+          console.error('too many missing shards to recover this file');
+          process.exit(1);
+        }
+
+        return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+      }
+      return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
+    });
+    console.log('');
+    console.log('  reconstructed encrypted + erasure coded buffer ♥ ');
+    console.log('');
+    
+    let encRsBuffer;;
+
+    if (missingPieces) {
+      console.log('  attempting to encode missing parts from erasure codes')
+      encRsBuffer = await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
+        bytes: dusk.DAGEntry.INPUT_SIZE
+      }));
+    } 
+
+    while (metaData.p--) {
+      shards.pop();
+    }
+
+    const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
+    const [unbundledFilename] = program.retrace.split('.duskbundle');
+    const dirname = path.dirname(unbundledFilename);
+    const filename = path.join(dirname, `unbundled-${path.basename(unbundledFilename)}`);
+    const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
+    const fileBuf = Buffer.from(decryptedFile);
+    const trimmedFile = fileBuf.subarray(0, metaData.s.o);
+
+    if (fs.existsSync(filename)) {
+      console.error(`${filename} already exists, I won't overwrite it.`);
+      process.exit(1);
+    }
+
+    fs.writeFileSync(filename, trimmedFile);
+    process.exit(0);
+  }
+ 
   if (program.exportSecret) {
-    // TODO store this encrypted and prompt for password EVERY time
     if (program.Q) {
       console.log(privkey.toString('hex'));
     } else {
@@ -390,7 +507,6 @@ async function _init() {
   }
 
   if (program.exportRecovery) {
-    // TODO store this encrypted and prompt for password EVERY time
     if (program.Q) {
       console.log(bip39.entropyToMnemonic(privkey.toString('hex')));
     } else {
@@ -401,27 +517,55 @@ async function _init() {
   let pubkey = Buffer.from(secp256k1.publicKeyCreate(privkey)).toString('hex');
 
   if (program.encrypt) {
-    if (typeof program.pubkey === 'string') {
-      pubkey = program.pubkey;
-    } else {
-      pubkey = Buffer.from(secp256k1.publicKeyCreate(privkey)).toString('hex');
+    if (program.ephemeral && program.pubkey) {
+      console.error('i don\'t know how to encrypt this because --ephemeral and --pubkey contradict');
+      console.error('choose one or the other');
+      process.exit(1);
+    }
+
+    if (program.ephemeral) {
+      const sk = dusk.utils.generatePrivateKey();
+      const words = bip39.entropyToMnemonic(sk.toString('hex'));
+      program.pubkey = Buffer.from(secp256k1.publicKeyCreate(sk));
+
+      console.log(`
+  I generated a new key, but I didn't store it.
+  I'll encrypt using it, but you'll need to write these words down:
+
+  [  ${words}  ]
+
+  If you lose these words, you won't be able to recover this file from
+  a reconstructed bundle - it will be gone forever.
+      `);
+    }
+
+    if (!Buffer.isBuffer(program.pubkey)) {
+      if (typeof program.pubkey === 'string') {
+        pubkey = program.pubkey;
+      } else {
+        pubkey = Buffer.from(secp256k1.publicKeyCreate(privkey)).toString('hex');
+      }
     }
 
     if (program.fileIn) {
-      program.encrypt = fs.readFileSync(program.fileIn).toString('hex');
+      program.encrypt = fs.readFileSync(program.fileIn);
+    } else if (!dusk.utils.isHexaString(program.encrypt)) {
+      console.error('String arguments to --encrypt [message] must be hexidecimal');
+      program.encrypt = Buffer.from(program.encrypt, 'hex');
+      process.exit(1);
     }
 
-    let ciphertext = dusk.utils.encrypt(pubkey, program.encrypt).toString('hex');
+    let ciphertext = dusk.utils.encrypt(pubkey, program.encrypt);
     
     if (program.fileOut) {
       if (fs.existsSync(program.fileOut)) {
         console.error('file already exists, i won\'t overwrite it');
         process.exit(1);
       }
-      fs.writeFileSync(program.fileOut, Buffer.from(ciphertext, 'hex'));
+      fs.writeFileSync(program.fileOut, ciphertext);
       console.log('encrypted ♥ ~ [  file: %s  ] ', program.fileOut);
     } else if (!program.Q) {
-      console.log('encrypted ♥ ~ [  %s  ] ', ciphertext);
+      console.log('encrypted ♥ ~ [  %s  ] ', ciphertext.toString('hex'));
     } else {
       console.log(ciphertext);
     }
@@ -439,7 +583,35 @@ async function _init() {
   }
 
   if (program.decrypt) {
-    let cleartext = dusk.utils.decrypt(privkey.toString('hex'), program.decrypt);
+    // TODO let user specific secret key
+
+    let cleartext;
+    if (program.decrypt === true && !program.fileIn) {
+      console.error('i don\'t know what to decrypt this because no parameter was ');
+      console.error('given to --decrypt and --file-in was not specified ');
+      process.exit(1);
+    }
+
+    if (typeof program.decrypt === 'string') {
+      if (program.fileIn) {
+        console.error('i don\'t know what to decrypt because you passed a string to ');
+        console.error('--decrypt but also specified --file-in');
+        process.exit(1);
+      }
+      cleartext = dusk.utils.decrypt(privkey.toString('hex'), Buffer.from(program.decrypt, 'hex'));
+    } else {
+      const filepath = typeof program.fileIn === 'string' ?
+        program.fileIn :
+        await fileSelector({ message: 'Select file to decrypt' });
+      try {
+        cleartext = dusk.utils.decrypt(privkey.toString('hex'), 
+          fs.readFileSync(filepath));
+      } catch (err) {
+        console.error(err.message);
+        process.exit(1);
+      }
+    }
+
     if (!program.Q) {
       console.log('decrypted ♥ ~ [  %s  ] ', cleartext);
     } else {

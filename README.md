@@ -17,10 +17,11 @@
 	* [Implementation](#implementation)
 1. [User Guide](#user-guide)
 	* [Installation](#installation) 
-	* [Testing](#testing) 
 	* [Interfaces](#interfaces) 
-	* [Sneakernets](#sneakernets) 
+	* [Configuration](#configuration) 
+	* [Testing](#testing) 
 1. [Appendix](#appendix)
+	* [Sneakernets](#sneakernets) 
 	* [References](#references) 
 	* [Licenses](#licenses) 
 >
@@ -425,6 +426,7 @@ Make sure you have the following prerequisites installed:
 * [Node.js LTS (22.x)](https://nodejs.org)
 * Python3
 * GCC/G++/Make
+* libudev-dev
 
 #### Node.js + NPM
 
@@ -448,13 +450,13 @@ nvm install --lts
 Debian / Ubuntu / Mint / Trisquel / and Friends
 
 ```
-apt install git python build-essential
+apt install git python build-essential libudev-dev
 ```
 
 Red Hat / Fedora / CentOS
 
 ```
-yum groupinstall 'Development Tools'
+yum groupinstall 'Development Tools' libudev-dev
 ```
 
 You might also find yourself lacking a C++11 compiler - 
@@ -668,6 +670,14 @@ difficulty and the permission solution difficulty.
 ## --
 
 ### Sneakernets
+
+... todo
+
+#### dusk/SHOES
+
+... todo
+
+#### CLI Walkthrough
 
 ... todo
 

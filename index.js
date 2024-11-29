@@ -41,7 +41,7 @@ module.exports.DAGEntry = require('./lib/dag-entry');
 module.exports.MerkleTree = require('./lib/merkle-tree');
 
 /** {@link module.reedsol } */
-module.exports.reedsol = require('./lib/reed-solomon')
+module.exports.reedsol = require('./lib/reed-solomon');
 
 /** {@link module:dusk/onion} */
 module.exports.onion = require('./lib/plugin-onion');
