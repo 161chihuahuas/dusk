@@ -20,6 +20,7 @@ module.exports = function(datadir) {
     // Identity/Cryptography
     PrivateKeyPath: join(datadir, 'dusk.key'),
     PublicKeyPath: join(datadir, 'dusk.pub'),
+    DrefLinkPath: join(datadir, 'dref'),
     PrivateKeySaltPath: join(datadir, 'salt'),
     IdentityNoncePath: join(datadir, 'nonce'),
     IdentityProofPath: join(datadir, 'proof'),

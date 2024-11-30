@@ -8,17 +8,29 @@ process.on('exit', killChildrenAndExit); // TODO please rename
 process.on('SIGTERM', killChildrenAndExit); 
 process.on('SIGINT', killChildrenAndExit);
 process.on('uncaughtException', (err) => {
-  npid.remove(config.DaemonPidFilePath);
-  console.error(err);
-  logger.error(err.message);
-  logger.debug(err.stack);
+  try {
+    npid.remove(config.DaemonPidFilePath);
+  } catch (err) {
+    console.warn(err.message);
+  }
+  console.warn(err.message);
+  if (logger) {
+    logger.error(err.message);
+    logger.debug(err.stack);
+  }
   process.exit(0);
 });
 process.on('unhandledRejection', (err) => {
-  npid.remove(config.DaemonPidFilePath);
+  try {
+    npid.remove(config.DaemonPidFilePath);
+  } catch (err) {
+    console.warn(err.message);
+  }
   console.error(err);
-  logger.error(err.message);
-  logger.debug(err.stack);
+  if (logger) {
+    logger.error(err.message);
+    logger.debug(err.stack);
+  }
   process.exit(0);
 });
 
@@ -44,23 +56,24 @@ const readline = require('node:readline');
 const bip39 = require('bip39');
 const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
-
+const shoes = require('./shoes.js');
+const mkdirp = require('mkdirp');
 
 program.version(dusk.version.software);
 
 const description = `
-             _/                      _/      
-        _/_/_/  _/    _/    _/_/_/  _/  _/   
-     _/    _/  _/    _/  _/_/      _/_/      
-    _/    _/  _/    _/      _/_/  _/  _/     
-     _/_/_/    _/_/_/  _/_/_/    _/    _/    
+    _______    ________    ________    ____ ___ 
+  _╱       ╲  ╱    ╱   ╲  ╱        ╲  ╱    ╱   ╲
+ ╱         ╱ ╱         ╱ ╱        _╱ ╱         ╱
+╱         ╱ ╱         ╱ ╱-        ╱ ╱        _╱ 
+╲________╱  ╲________╱  ╲________╱  ╲____╱___╱  
 
-        (d)arknet (u)nder (s/k)ademlia
+         (d)arknet (u)nder (s/k)ademlia         
 
-                    ~ Ⓐ ~
+                     ~ Ⓐ ~
                                            
-         N©! 2024 tactical chihuahua 
-         licensed under the AGPL-3.0
+          N©! 2024 tactical chihuahua 
+          licensed under the AGPL-3.0
 `;
 
 program.description(description);
@@ -94,8 +107,8 @@ program.option('--repl',
 program.option('--logs, -F', 
   'tails the log file defined in the config');
 
-program.option('--export, -X', 
-  'dumps the public identity key');
+program.option('--link', 
+  'dumps the public contact bundle');
 
 program.option('--export-secret', 
   'dumps the private identity key');
@@ -136,54 +149,67 @@ program.option('--shoes',
 program.parse(process.argv);
 
 let argv;
-
-if (program.datadir) {
-  argv = { config: path.join(program.datadir, 'config') };
-  program.config = argv.config;
-}
-
-if (program.testnet) {
-  process.env.dusk_TestNetworkEnabled = '1';
-}
-
-if (!program.Q) {
-  console.log(description);
-}
-
-let config = rc('dusk', options(program.datadir), argv);
 let privkey, identity, logger, controller, node, nonce, proof;
+let config;
 
-// Initialize logging
-const prettyPrint = spawn(
-  path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
-  ['--color']
-);
+function _setup() {
+  return new Promise(async (resolve, reject) => {
+    if (!program.Q) {
+      console.log(program.shoes ? shoes.description : description);
+    }
 
-logger = bunyan.createLogger({
-  name: 'dusk',
-  streams: [
-    {
-      stream: new RotatingLogStream({
-        path: config.LogFilePath,
-        totalFiles: parseInt(config.LogFileMaxBackCopies),
-        rotateExisting: true,
-        gzip: false
-      })
-    },
-    { stream: prettyPrint.stdin }
-  ],
-  level: parseInt(config.VerboseLoggingEnabled) ? 'debug' : 'info'
-});
+    if (program.shoes) {
+      program.datadir = await shoes.mount();
+    }
 
-if (!program.Q) {
-  prettyPrint.stdout.pipe(process.stdout);
+    if (program.datadir) {
+      argv = { config: path.join(program.datadir, 'config') };
+      program.config = argv.config;
+    }
+
+    if (program.testnet) {
+      process.env.dusk_TestNetworkEnabled = '1';
+    }
+
+
+    config = rc('dusk', options(program.datadir), argv);
+
+    // Initialize logging
+    const prettyPrint = spawn(
+      path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
+      ['--color']
+    );
+
+    logger = bunyan.createLogger({
+      name: 'dusk',
+      streams: [
+        {
+          stream: new RotatingLogStream({
+            path: config.LogFilePath,
+            totalFiles: parseInt(config.LogFileMaxBackCopies),
+            rotateExisting: true,
+            gzip: false
+          })
+        },
+        { stream: prettyPrint.stdin }
+      ],
+      level: parseInt(config.VerboseLoggingEnabled) ? 'debug' : 'info'
+    });
+
+    if (!program.Q) {
+      prettyPrint.stdout.pipe(process.stdout);
+    }
+
+    resolve();
+  });
 }
-
 
 async function _init() {
   // import es modules
   const fileSelector = (await import('inquirer-file-selector')).default;
   // import es modules
+  
+  await _setup();
 
   if (parseInt(config.TestNetworkEnabled)) {
     logger.info('dusk is running in test mode, difficulties are reduced');
@@ -248,27 +274,35 @@ async function _init() {
     nonce = parseInt(fs.readFileSync(config.IdentityNoncePath).toString());
   }
 
-  if (program.shutdown) {
+  if (program.kill) {
     try {
-      process.kill(parseInt(
-        fs.readFileSync(config.DaemonPidFilePath).toString().trim()
-      ), 'SIGTERM');
+      const pid = fs.readFileSync(config.DaemonPidFilePath).toString().trim()
+      console.log(`  [ shutting down dusk process with id: ${pid} ]`);
+      process.kill(parseInt(pid), 'SIGTERM');
+      console.log(`  [ done ♥ ]`);
     } catch (err) {
-      logger.error('failed to shutdown daemon, is it running?');
+      console.error('I couldn\'t shutdown the daemon, is it running?');
       process.exit(1);
     }
     process.exit(0);
   }
 
-  if (program.X) {
-    const pubbundle = fs.readFileSync(
-      path.join(program.datadir, 'dusk.pub')
-    ).toString();
+  if (program.link) {  
+    let pubbundle
+
+    try {
+      pubbundle = fs.readFileSync(
+        path.join(program.datadir, config.DrefLinkPath)
+      ).toString();
+    } catch (e) {
+      console.error('I couldn\'t find a dref link file, have you run dusk yet?');
+      process.exit(1);
+    }
 
     if (program.Q) {
       console.log(pubbundle);
     } else {
-      console.log('public bundle ♥ ~ [  %s  ] ', pubbundle);
+      console.log('public dusk link ♥ ~ [  %s  ] ', pubbundle);
     }
     process.exit(0);
   }
@@ -276,9 +310,8 @@ async function _init() {
   if (program.shred) { 
     console.log('');
     
-    let publicKey = program.pubkey || dusk.utils.parseContactURL(
-      fs.readFileSync(config.PublicKeyPath).toString()
-    )[1].pubkey;
+    let publicKey = program.pubkey || 
+      fs.readFileSync(config.PublicKeyPath).toString('hex');
 
     let entry;
 
@@ -317,22 +350,22 @@ async function _init() {
       } else {
         console.warn('you didn\'t specify a --file-out so i wont\'t write anything');
       }
+    }  
+    
+    if (program.fileOut) {
+      if (program.shoes) {
+        program.fileOut = path.join(
+          program.datadir,
+          'shoes.meta',
+          path.basename(program.fileOut)
+        );
+      }
+      mkdirp.sync(program.fileOut);
     }
 
-    if (fs.existsSync(program.fileOut)) {
+    if (fs.existsSync(program.fileOut) && fs.readdirSync(program.fileOut).length) {
       console.error('file %s already exists, i won\'t overwrite it', program.fileOut);
       process.exit(1);
-    }
-    
-    if (program.fileOut) fs.mkdirSync(program.fileOut);
-    
-    for (let s = 0; s < dagEntry.shards.length; s++) {
-      if (program.fileOut) {
-        fs.writeFileSync(path.join(
-          program.fileOut, 
-          `${dagEntry.merkle._leaves[s].toString('hex')}.part`
-        ), dagEntry.shards[s]);
-      }
     }
 
     const meta = dagEntry.toMetadata(program.fileIn || '');
@@ -346,10 +379,28 @@ async function _init() {
       );
     }
 
+    if (program.shoes) { 
+      console.log('');
+      await shoes.shred(dagEntry);
+    } else { 
+      for (let s = 0; s < dagEntry.shards.length; s++) {
+        if (program.fileOut) {
+          fs.writeFileSync(path.join(
+            program.fileOut, 
+            `${dagEntry.merkle._leaves[s].toString('hex')}.part`
+          ), dagEntry.shards[s]);
+        }
+      }
+    }
+
     if (!program.Q) {
       if (program.fileOut) {
         console.log('');
-        console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
+        if (program.shoes) {
+          console.log('sneakernet created ~ be safe  ♥ ');
+        } else {
+          console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
+        }
         console.log('meta hash ♥ ~ [  %s  ] ', metaHash160);
         console.log('');
       } else {
@@ -359,20 +410,9 @@ async function _init() {
       }
     }
     process.exit(0);
-  }
- 
-  if (program.D) {
-    require('daemon')({ cwd: process.cwd() });
-  }
+  }  
 
-  try {
-    npid.create(config.DaemonPidFilePath).removeOnExit();
-  } catch (err) {
-    logger.error('Failed to create PID file, is dusk already running?');
-    process.exit(1);
-  }
-
-  // Initialize private extended key
+  // Initialize private key
   privkey = await (new Promise(async (resolve, reject) => {
     if (program.withSecret && dusk.utils.isHexaString(program.withSecret)) {
       return resolve(Buffer.from(program.withSecret, 'hex'));
@@ -395,9 +435,20 @@ async function _init() {
     proof
   );
 
-  if (program.shoes) {
-    // TODO init sneakernet setup 
-  }
+  // are we starting the daemon?
+  if (program.D) {
+    console.log('');
+    console.log('  [ starting dusk in the background ♥  ]');
+    require('daemon')({ cwd: process.cwd() });
+  
+    try {
+      logger.info(`writing pid file to ${config.DaemonPidFilePath}`);
+      npid.create(config.DaemonPidFilePath).removeOnExit();
+    } catch (err) {
+      console.error('Failed to create PID file, is dusk already running?');
+      process.exit(1);
+    }
+  } 
 
   if (program.retrace) {
     if (typeof program.retrace !== 'string') {
@@ -583,8 +634,6 @@ async function _init() {
   }
 
   if (program.decrypt) {
-    // TODO let user specific secret key
-
     let cleartext;
     if (program.decrypt === true && !program.fileIn) {
       console.error('i don\'t know what to decrypt this because no parameter was ');
@@ -619,37 +668,48 @@ async function _init() {
     }
     process.exit(0);
   }
-  
+ 
   // If identity is not solved yet, start trying to solve it
   let identityHasValidProof = false;
 
-  logger.info(`proof difficulty param N=${dusk.constants.IDENTITY_DIFFICULTY.n}`);
-  logger.info(`proof difficulty param K=${dusk.constants.IDENTITY_DIFFICULTY.k}`);
+  console.log(`  proof difficulty param [ N=${dusk.constants.IDENTITY_DIFFICULTY.n} ]`);
+  console.log(`  proof difficulty param [ K=${dusk.constants.IDENTITY_DIFFICULTY.k} ]`);
 
   try {
     identityHasValidProof = await identity.validate();
   } catch (err) {
-    logger.warn(`identity validation failed, ${err.message}`);
+    console.warn(`Identity validation failed, ${err.message}`);
   }
 
   if (!identityHasValidProof) {
-    logger.info(`identity proof not yet solved, this can take a while`);
+    console.log(`  identity proof not yet solved, this will take a moment...`);
     await identity.solve();
     fs.writeFileSync(config.IdentityNoncePath, identity.nonce.toString());
     fs.writeFileSync(config.IdentityProofPath, identity.proof);
-    logger.info('identity solution found');
+    console.log('  identity solution found ♥ ');
   }
+  console.log('');
+  console.log(`  pubkey [ ${identity.pubkey.toString('hex')} ]`);
+  console.log(`  proof [ ${identity.proof.toString('hex')} ]`);
+  console.log(`  nonce [ ${identity.nonce} ]`);
+  console.log(`  fingerprint [ ${identity.fingerprint.toString('hex')} ]`);
 
-  logger.info(`pubkey ${identity.pubkey.toString('hex')}`);
-  logger.info(`proof: ${identity.proof.toString('hex')}`);
-  logger.info(`nonce: ${identity.nonce}`);
-  logger.info(`fingerprint ${identity.fingerprint.toString('hex')}`);
-  init();
+  if (program.shoes) {
+    console.log('');
+    console.log('\n  starting dusk/SHOES ♥ ');
+    shoes.init(program, config, privkey, identity);
+  } else {
+    initDusk();
+  }
 }
 
 function killChildrenAndExit() {
-  logger.info('exiting, killing child services, cleaning up');
-  npid.remove(config.DaemonPidFilePath);
+  try {
+    npid.remove(config.DaemonPidFilePath);
+  } catch (e) {
+    
+  }
+
   process.removeListener('exit', killChildrenAndExit);
 
   if (controller && parseInt(config.ControlSockEnabled)) {
@@ -677,8 +737,8 @@ function registerControlInterface() {
   }
 }
 
-async function init() {
-  logger.info('initializing dusk');
+async function initDusk() {
+  console.log('\n  starting dusk ♥ ');
 
   // Initialize public contact data
   const contact = {
@@ -788,7 +848,7 @@ async function init() {
     logger.info('');
     logger.info('');
     fs.writeFileSync(
-      path.join(program.datadir, 'dusk.pub'),
+      config.DrefLinkPath,
       identBundle
     );
     
