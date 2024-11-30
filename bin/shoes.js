@@ -47,7 +47,7 @@ module.exports.shred = function(dagEntry) {
     let datadir;
 
     console.log('');
-    console.log('  You are user 0, which means this data will be');
+    console.log('  You are USER 0, which means this data will be');
     console.log('  encrypted for you and only unlockable using the');
     console.log('  dusk/SHOES USB that is CURRENTLY inserted.');
     console.log('');
@@ -87,11 +87,59 @@ module.exports.shred = function(dagEntry) {
   });
 };
 
-module.exports.retrace = function(program, config) {
-  return new Promise((resolve, reject) => {
-    // take a duskbundle and a shoesmanifest and return all of the shards
-    // from an interactive prompt for usbs
-    resolve();
+module.exports.retrace = function(meta) {
+  return new Promise(async (resolve, reject) => {
+    let drivesChecked = 0;
+
+    const shardMap = {};
+    const setupQs = [
+      {
+        type: 'number',
+        name: 'numDrives',
+        message: 'How many dusk/SHOES USBs are we retracing from?'
+      }
+    ];
+    console.log('');
+    const setup = await inquirer.prompt(setupQs);
+    console.log('');
+    console.log('  You are USER 0, which means this data will be');
+    console.log('  decrypted by you at the end of this process.');
+    console.log('  I will use the key located on the dusk/SHOES USB');
+    console.log('  that is CURRENTLY inserted.');
+    console.log('');
+    
+    while (drivesChecked < setup.numDrives) {
+      if (Object.keys(shardMap).length >= meta.l.length - meta.p) {
+        console.log('  I have enough information to retrace already ♥ ');
+        console.log('');
+        break;
+      }
+      
+      console.log('  Ok, I\'m ready to start retracing. It doesn\'t');
+      console.log('  what order we go in, so decide amongst yourselves.');
+      console.log('');
+      let datadir = await module.exports.mount();
+      let foundParts = 0;
+
+      for (let i = 0; i < meta.l.length; i++) {
+        let shardPath = path.join(datadir, 'shoes.dat', `${meta.l[i]}.part`);
+
+        if (fs.existsSync(shardPath)) {
+          shardMap[meta.l[i]] = fs.readFileSync(shardPath);
+          foundParts++;
+        }
+      }
+
+      console.log(`  I found ${foundParts} parts on this dusk/SHOES USB.`);
+      drivesChecked++;
+    }
+    
+    const foundPieces = Object.keys(shardMap).length;
+    const missingPieces = meta.l.length - foundPieces;
+    
+    console.log(`  I will retrace with ${foundPieces} of ${foundPieces + missingPieces} total parts`);
+    console.log('');
+    resolve(meta.l.map(l => shardMap[l] || null));
   });
 };
 

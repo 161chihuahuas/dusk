@@ -346,7 +346,7 @@ async function _init() {
 
     if (!program.fileOut || typeof program.fileOut !== 'string') {
       if (program.fileIn) {
-        program.fileOut = program.fileIn + '.duskbundle';
+        program.fileOut = `${Date.now()}-${program.fileIn}.duskbundle`;
       } else {
         console.warn('you didn\'t specify a --file-out so i wont\'t write anything');
       }
@@ -357,7 +357,7 @@ async function _init() {
         program.fileOut = path.join(
           program.datadir,
           'shoes.meta',
-          path.basename(program.fileOut)
+          `${Date.now()}-${path.basename(program.fileOut)}`
         );
       }
       mkdirp.sync(program.fileOut);
@@ -368,7 +368,7 @@ async function _init() {
       process.exit(1);
     }
 
-    const meta = dagEntry.toMetadata(program.fileIn || '');
+    const meta = dagEntry.toMetadata(`${Date.now()}-${program.fileIn}` || '');
     const metaEnc = dusk.utils.encrypt(publicKey, meta);
     const metaHash160 = dusk.utils.hash160(metaEnc).toString('hex');
 
@@ -460,6 +460,7 @@ async function _init() {
         }
         program.retrace = await fileSelector({
           type:'directory',
+          basePath: program.shoes ? path.join(program.datadir, 'shoes.meta') : process.cwd(),
           message: 'Select .duskbundle:',
           filter: (stat) => {
             return path.extname(stat.name) === '.duskbundle' || stat.isDirectory();
@@ -499,29 +500,44 @@ async function _init() {
     console.log('');
     console.log('  retracing from merkle leaves... ');
 
-    const shards = metaData.l.map(hash => {
-      console.log(`  reconstructing  [ ${hash}`);
-      if (!fs.existsSync(path.join(program.retrace, `${hash}.part`))) {
-        console.warn('missing part detected for hash %s', hash);
-        missingPieces++;
+    const shards = program.shoes
+      ? (await shoes.retrace(metaData)).map(part => {
+          if (!part) {
+            console.warn('missing part detected');
+            missingPieces++;
+          
+            if (missingPieces > metaData.p) {
+              console.error('too many missing shards to recover this file');
+              process.exit(1);
+            }  
+          
+            return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+          }
+          return part;
+        })
+      : metaData.l.map(hash => {
+          console.log(`  reconstructing  [ ${hash}`);
+          if (!fs.existsSync(path.join(program.retrace, `${hash}.part`))) {
+            console.warn('missing part detected for hash %s', hash);
+            missingPieces++;
 
-        if (missingPieces > metaData.p) {
-          console.error('too many missing shards to recover this file');
-          process.exit(1);
-        }
+            if (missingPieces > metaData.p) {
+              console.error('too many missing shards to recover this file');
+              process.exit(1);
+            }
 
-        return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
-      }
-      return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
-    });
+            return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+          }
+          return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
+        });
     console.log('');
-    console.log('  reconstructed encrypted + erasure coded buffer ♥ ');
+    console.log('  [ I reconstructed the encrypted and erasure coded buffer ♥ ]');
     console.log('');
     
-    let encRsBuffer;;
+    let encRsBuffer;
 
     if (missingPieces) {
-      console.log('  attempting to encode missing parts from erasure codes')
+      console.log('  attempting to encode missing parts from erasure codes...')
       encRsBuffer = await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
         bytes: dusk.DAGEntry.INPUT_SIZE
       }));
@@ -531,10 +547,17 @@ async function _init() {
       shards.pop();
     }
 
+    if (program.shoes) {
+      console.log('  USER 0, I\'m ready to finish retracing and save to');
+      console.log('  your dusk/SHOES USB.');
+      console.log('');
+      program.datadir = await shoes.mount();
+    }
+
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
-    const dirname = path.dirname(unbundledFilename);
-    const filename = path.join(dirname, `unbundled-${path.basename(unbundledFilename)}`);
+    const dirname = path.dirname(program.shoes ? program.datadir : unbundledFilename);
+    const filename = path.join(dirname, `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
@@ -545,6 +568,10 @@ async function _init() {
     }
 
     fs.writeFileSync(filename, trimmedFile);
+    console.log('');
+    console.log(`  [ File retraced successfully ♥ ]`);
+    console.log(`  [ I saved it to ${filename} ♥ ]`);
+    console.log('');
     process.exit(0);
   }
  
