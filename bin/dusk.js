@@ -218,7 +218,7 @@ async function _init() {
   }
 
   // Generate a private extended key if it does not exist
-  if (!fs.existsSync(config.PrivateKeyPath)) {
+  if (!program.withSecret && !fs.existsSync(config.PrivateKeyPath)) {
     const questions = [
       {
         type: 'password',
