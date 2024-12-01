@@ -58,6 +58,7 @@ const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
+const { tmpdir } = require('os');
 
 program.version(dusk.version.software);
 
@@ -218,7 +219,7 @@ async function _init() {
   }
 
   // Generate a private extended key if it does not exist
-  if (!program.withSecret && !fs.existsSync(config.PrivateKeyPath)) {
+  if (!program.withSecret && !program.ephemeral && !fs.existsSync(config.PrivateKeyPath)) {
     const questions = [
       {
         type: 'password',
@@ -416,6 +417,12 @@ async function _init() {
   privkey = await (new Promise(async (resolve, reject) => {
     if (program.withSecret && dusk.utils.isHexaString(program.withSecret)) {
       return resolve(Buffer.from(program.withSecret, 'hex'));
+    }
+
+    if (program.ephemeral) {
+      console.log('  You passed --ephemeral, your private key will not be saved');
+      program.datadir = path.join(tmpdir(), 'dusk-' + Date.now());
+      return resolve(dusk.utils.generatePrivateKey());
     }
 
     const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
