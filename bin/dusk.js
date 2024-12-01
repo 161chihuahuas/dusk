@@ -59,6 +59,8 @@ const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
 const { tmpdir } = require('os');
+const http = require('node:http');
+const hsv3 = require('@tacticalchihuahua/granax/hsv3');
 
 program.version(dusk.version.software);
 
@@ -152,6 +154,9 @@ program.option('--with-secret <hex_secret>',
 
 program.option('--shoes', 
   'begin interactive prompt to create a dusk/SHOES usb drive array');
+
+program.option('--test-hooks',
+  'starts onion service that prints received hooks from subscribe() handlers');
 
 program.parse(process.argv);
 
@@ -1013,6 +1018,56 @@ if (program.rpc || program.repl) {
 } else if (program.F) {
   const tail = spawn('tail', ['-f', config.LogFilePath]);
   tail.stdout.pipe(prettyPrint.stdin).pipe(process.stdout);
+} else if (program.testHooks) {
+  console.log(description);
+  console.log('');
+  console.log('  I\'m setting up a local web server and onion service...')
+  // Start a simple onion service that prints received requests
+  // not for production use - ONLY for testing subscribe() hooks
+  const dataDirectory = path.join(tmpdir(), 'dusk-hook-test-' + Date.now());
+  const server = http.createServer((request, response) => {
+    let body = '';
+    request
+      .on('error', console.error)
+      .on('data', data => body += data.toString())
+      .on('end', () => {
+        try {
+          body = JSON.parse(body);
+          console.log('  Received dusk hook:', body);
+        } catch (e) {
+          console.error('Failed to parse content', e.message);
+        }
+        response.end();
+      });
+  });
+  server.listen(0, () => {
+    const localPort = server.address().port;
+    const tor = hsv3([
+      {
+        dataDirectory: path.join(dataDirectory, 'hidden_service'),
+        virtualPort: 80,
+        localMapping: '127.0.0.1:' + localPort
+      }
+    ], {
+      DataDirectory: dataDirectory
+    });
+
+    tor.on('error', (err) => {
+      console.error(err);
+      process.exit(1);
+    });
+
+    tor.on('ready', () => {
+      console.log('');
+      console.log('  [  dusk hook listener created  ♥  ]');
+      console.log('  [  %s  ]',
+        fs.readFileSync(path.join(dataDirectory, 'hidden_service',
+          'hostname')).toString().trim());
+      console.log('');
+      console.log('  Hooks will print here when they are received.');
+      console.log('');
+    });
+  });
 } else {
   // Otherwise, kick everything off
   _init();
