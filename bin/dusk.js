@@ -116,8 +116,11 @@ program.option('--control-sock <path>',
 program.option('--logs, -F', 
   'tails the log file defined in the config');
 
-program.option('--link', 
-  'dumps the public contact bundle');
+program.option('--link [dref]', 
+  'adds a startup seed if one is supplied, otherwise shows our dref');
+
+program.option('--unlink <id>',
+  'removes the given startup seed');
 
 program.option('--export-secret', 
   'dumps the private identity key');
@@ -302,13 +305,11 @@ async function _init() {
     process.exit(0);
   }
 
-  if (program.link) {  
+  if (program.link === true) {  
     let pubbundle
 
     try {
-      pubbundle = fs.readFileSync(
-        path.join(program.datadir, config.DrefLinkPath)
-      ).toString();
+      pubbundle = fs.readFileSync(config.DrefLinkPath).toString();
     } catch (e) {
       console.error('I couldn\'t find a dref link file, have you run dusk yet?');
       process.exit(1);
@@ -898,7 +899,8 @@ async function _init() {
     await identity.solve();
     fs.writeFileSync(config.IdentityNoncePath, identity.nonce.toString());
     fs.writeFileSync(config.IdentityProofPath, identity.proof);
-    console.log('  identity solution found ♥ ');
+    console.log('');
+    console.log('  [  identity solution found ♥  ]');
   }
   console.log('');
   console.log(`  pubkey [ ${identity.pubkey.toString('hex')} ]`);
@@ -1016,6 +1018,16 @@ async function initDusk() {
 
   async function joinNetwork(callback) {
     let peers = config.NetworkBootstrapNodes;
+
+    // TODO read from datadir/seeds
+    const seedsdir = path.join(program.datadir, 'seeds');
+
+    if (!fs.existsSync(seedsdir)) {
+      mkdirp.sync(seedsdir);
+    }
+    peers = peers.concat(fs.readdirSync(seedsdir).map(fs.readFile).map(buf => {
+      return buf.toString();
+    }));
 
     if (peers.length === 0) {
       logger.info('no bootstrap seeds provided');
@@ -1245,6 +1257,37 @@ if (program.rpc || program.repl) {
       console.log('');
     });
   });
+} else if (typeof program.link === 'string') {
+  console.log(description);
+  try {
+    const [id, contact] = dusk.utils.parseContactURL(program.link);
+    const seedsdir = path.join(program.datadir, 'seeds');
+
+    console.log('  saving seed to %s', seedsdir);
+    console.log('  i will connect to this node on startup');
+    fs.writeFileSync(path.join(seedsdir, id), program.link);
+    console.log('');
+    console.log('  [  done ♥  ]')
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+} else if (program.unlink) {
+  console.log(description);
+  try {
+    const seedsdir = path.join(program.datadir, 'seeds');
+
+    console.log('  removing %s from %s', program.unlink, seedsdir);
+    console.log('');
+    console.log('  i will not connect to this node on startup');
+    fs.unlinkSync(path.join(seedsdir, program.unlink));
+    console.log('');
+    console.log('  [  done ♥  ]')
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+
 } else {
   // Otherwise, kick everything off
   _init();
