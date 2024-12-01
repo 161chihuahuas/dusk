@@ -1033,7 +1033,7 @@ if (program.rpc || program.repl) {
       .on('end', () => {
         try {
           body = JSON.parse(body);
-          console.log('  Received dusk hook:', body);
+          console.log('  [  hook received  ]', body);
         } catch (e) {
           console.error('Failed to parse content', e.message);
         }
