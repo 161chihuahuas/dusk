@@ -105,6 +105,12 @@ program.option('--rpc [method] [params]',
 program.option('--repl', 
   'starts the interactive rpc console');
 
+program.option('--control-port <port>', 
+  'use with --repl / --rpc to set the control port to connect to');
+
+program.option('--control-sock <path>', 
+  'use with --repl / --rpc to set the control socket to connect to');
+
 program.option('--logs, -F', 
   'tails the log file defined in the config');
 
@@ -904,9 +910,28 @@ async function initDusk() {
 
 // Check if we are sending a command to a running daemon's controller
 if (program.rpc || program.repl) {
-  assert(!(parseInt(config.ControlPortEnabled) &&
-           parseInt(config.ControlSockEnabled)),
-    'ControlSock and ControlPort cannot both be enabled');
+  config = rc('dusk', options(program.datadir), argv);
+  
+  if (program.controlPort) {
+    config.ControlPort = program.controlPort;
+    config.ControlPortEnabled = '1';
+    config.ControlSockEnabled = '0';
+  }
+
+  if (program.controlSock) {
+    config.ControlSock = program.controlSock;
+    config.ControlSockEnabled = '1';
+    config.ControlPortEnabled = '0';
+  }
+
+  try {
+    assert(!(parseInt(config.ControlPortEnabled) &&
+             parseInt(config.ControlSockEnabled)),
+      'ControlSock and ControlPort cannot both be enabled');
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 
   const client = new boscar.Client();
 
