@@ -4,9 +4,9 @@
 'use strict';
 
 // Shutdown children cleanly on exit
-process.on('exit', killChildrenAndExit); // TODO please rename
-process.on('SIGTERM', killChildrenAndExit); 
-process.on('SIGINT', killChildrenAndExit);
+process.on('exit', exitGracefully); 
+process.on('SIGTERM', exitGracefully); 
+process.on('SIGINT', exitGracefully);
 process.on('uncaughtException', (err) => {
   try {
     npid.remove(config.DaemonPidFilePath);
@@ -153,7 +153,10 @@ program.option('--with-secret <hex_secret>',
   'override the configured private key, use with --decrypt and --retrace');
 
 program.option('--shoes', 
-  'begin interactive prompt to create a dusk/SHOES usb drive array');
+  'setup a dusk/SHOES USB or use with --retrace, --shred');
+
+program.option('--dht', 
+  'use with --shred, --retrace to store/retrieve shards to/from network');
 
 program.option('--test-hooks',
   'starts onion service that prints received hooks from subscribe() handlers');
@@ -358,7 +361,7 @@ async function _init() {
 
     if (!program.fileOut || typeof program.fileOut !== 'string') {
       if (program.fileIn) {
-        program.fileOut = `${Date.now()}-${program.fileIn}.duskbundle`;
+        program.fileOut = `${program.fileIn}.duskbundle`;
       } else {
         console.warn('you didn\'t specify a --file-out so i wont\'t write anything');
       }
@@ -371,6 +374,14 @@ async function _init() {
           'shoes.meta',
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
+      } else if (program.dht) {
+        program.fileOut = path.join(
+          program.datadir,
+          'dusk.meta',
+          `${Date.now()}-${path.basename(program.fileOut)}`
+        );
+      } else {
+        program.fileOut = `${Date.now()}-${program.fileOut}`;
       }
       mkdirp.sync(program.fileOut);
     }
@@ -394,6 +405,68 @@ async function _init() {
     if (program.shoes) { 
       console.log('');
       await shoes.shred(dagEntry);
+    } else if (program.dht) {
+      console.log('');
+      console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
+      const rpc = await getRpcControl();
+      console.log('');
+      console.log('  [ we\'re connected ♥ ]')
+      console.log('');
+      console.log(`  I will attempt to store ${dagEntry.shards.length} shards in the DHT.`);
+      console.log('  This can take a while depending on network conditions and the');
+      console.log('  overall size of the file.');
+      console.log('');
+      console.log('  Make sure you are safe to sit here for a moment and babysit me.');
+      console.log('  We will do 512Kib at a time, until we are done.');
+      console.log('');
+      
+      let ready = false;
+
+      while (!ready) {
+        let answers = await inquirer.default.prompt({
+          type: 'confirm',
+          name: 'ready',
+          message: 'Ready?'
+        });
+        ready = answers.ready;
+      }
+
+      console.log('');
+      function store(hexValue) {
+        return new Promise((resolve, reject) => {
+          rpc.invoke('storevalue', [hexValue], (err) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve(true);
+          });
+        });
+      }
+
+      for (let i = 0; i < dagEntry.shards.length; i++) {
+        let success;
+        console.log('  storevalue [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
+        while (!success) {
+          try {
+            success = await store(dagEntry.shards[i].toString('hex'));
+            console.log('  [  done!  ]');
+          } catch (e) {
+            console.error(e.message);
+            console.log('');
+            let tryAgain = await inquirer.default.prompt({
+              type: 'confirm',
+              name: 'yes',
+              message: 'Would you like to try again? If not I will exit.'
+            });
+            if (!tryAgain.yes) {
+              process.exit(1);
+            }
+          }
+        }
+      }
+
+      console.log('  [  we did it ♥  ]');
+      console.log('');
     } else { 
       for (let s = 0; s < dagEntry.shards.length; s++) {
         if (program.fileOut) {
@@ -476,9 +549,20 @@ async function _init() {
         if (program.retrace) {
           console.error(`${program.retrace} is not a valid .duskbundle, try again...`)
         }
+        
+        let basePath;
+
+        if (program.shoes) {
+          basePath = path.join(program.datadir, 'shoes.meta');
+        } else if (program.dht) {
+          basePath = path.join(program.datadir, 'dusk.meta');
+        } else {
+          basePath = process.cwd();
+        }
+
         program.retrace = await fileSelector({
           type:'directory',
-          basePath: program.shoes ? path.join(program.datadir, 'shoes.meta') : process.cwd(),
+          basePath,
           message: 'Select .duskbundle:',
           filter: (stat) => {
             return path.extname(stat.name) === '.duskbundle' || stat.isDirectory();
@@ -518,36 +602,119 @@ async function _init() {
     console.log('');
     console.log('  retracing from merkle leaves... ');
 
-    const shards = program.shoes
-      ? (await shoes.retrace(metaData)).map(part => {
-          if (!part) {
-            console.warn('missing part detected');
-            missingPieces++;
-          
-            if (missingPieces > metaData.p) {
-              console.error('too many missing shards to recover this file');
-              process.exit(1);
-            }  
-          
-            return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
-          }
-          return part;
-        })
-      : metaData.l.map(hash => {
-          console.log(`  reconstructing  [ ${hash}`);
-          if (!fs.existsSync(path.join(program.retrace, `${hash}.part`))) {
-            console.warn('missing part detected for hash %s', hash);
-            missingPieces++;
+    let shards;
+    
+    if (program.shoes) {
+      shards = (await shoes.retrace(metaData)).map(part => {
+        if (!part) {
+          console.warn('missing part detected');
+          missingPieces++;
+        
+          if (missingPieces > metaData.p) {
+            console.error('too many missing shards to recover this file');
+            process.exit(1);
+          }  
+        
+          return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+        }
+        return part;
+      });
+    } else if (program.dht) {
+      shards = [];
+      console.log('');
+      console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
+      const rpc = await getRpcControl();
+      console.log('');
+      console.log('  [ we\'re connected ♥ ]')
+      console.log('');
+      console.log(`  I will attempt to find ${metaData.l.length} shards in the DHT.`);
+      console.log('  This can take a while depending on network conditions and the');
+      console.log('  overall size of the file.');
+      console.log('');
+      console.log('  Make sure you are safe to sit here for a moment and babysit me.');
+      console.log('  We will do 512Kib at a time, until we are done.');
+      console.log('');
+      
+      let ready = false;
 
-            if (missingPieces > metaData.p) {
-              console.error('too many missing shards to recover this file');
-              process.exit(1);
-            }
-
-            return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
-          }
-          return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
+      while (!ready) {
+        let answers = await inquirer.default.prompt({
+          type: 'confirm',
+          name: 'ready',
+          message: 'Ready?'
         });
+        ready = answers.ready;
+      }
+
+      console.log('');
+      function findvalue(hexKey) {
+        return new Promise((resolve, reject) => {
+          rpc.invoke('findvalue', [hexKey], (err, data) => {
+            if (err) {
+              return reject(err);
+            }
+            if (data.length && data.length > 1) {
+              return reject(new Error('Could not find shard.'));
+            }
+            resolve(Buffer.from(data.value, 'hex'));
+          });
+        });
+      }
+
+      for (let i = 0; i < metaData.l.length; i++) {
+        let success;
+        console.log('  findvalue [  %s  ]', metaData.l[i].toString('hex'));
+        while (!success) {
+          try {
+            let shard = await findvalue(metaData.l[i].toString('hex'));
+            console.log('  [  done!  ]');
+            shards.push(shard);
+            success = true;
+          } catch (e) {
+            console.error(e.message);
+            console.log('');
+            let tryAgain = await inquirer.default.prompt({
+              type: 'confirm',
+              name: 'yes',
+              message: 'Would you like to try again? If not I will skip it.'
+            });
+            if (!tryAgain.yes) {
+              missingPieces++;
+              
+              if (missingPieces > metaData.p) {
+                console.error('too many missing shards to recover this file');
+                process.exit(1);
+              }
+
+              shards.push(Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
+              console.log('  [  skip.  ]');
+              success = true;
+            }
+          }
+        }
+      }
+
+      console.log('');
+      console.log('  [  we did it ♥  ]');
+      console.log('');
+    } else {
+      shards = metaData.l.map(hash => {
+        console.log(`  reconstructing  [ ${hash}`);
+        if (!fs.existsSync(path.join(program.retrace, `${hash}.part`))) {
+          console.warn('missing part detected for hash %s', hash);
+          missingPieces++;
+
+          if (missingPieces > metaData.p) {
+            console.error('too many missing shards to recover this file');
+            process.exit(1);
+          }
+
+          return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+        }
+        return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
+      });
+    }
+
     console.log('');
     console.log('  [ I reconstructed the encrypted and erasure coded buffer ♥ ]');
     console.log('');
@@ -748,14 +915,14 @@ async function _init() {
   }
 }
 
-function killChildrenAndExit() {
+function exitGracefully() {
   try {
     npid.remove(config.DaemonPidFilePath);
   } catch (e) {
     
   }
 
-  process.removeListener('exit', killChildrenAndExit);
+  process.removeListener('exit', exitGracefully);
 
   if (controller && parseInt(config.ControlSockEnabled)) {
     controller.server.close();
@@ -913,40 +1080,60 @@ async function initDusk() {
   });
 }
 
+function getRpcControl() {
+  return new Promise((resolve, reject) => {
+    config = config || rc('dusk', options(program.datadir), argv);
+    
+    if (program.controlPort) {
+      config.ControlPort = program.controlPort;
+      config.ControlPortEnabled = '1';
+      config.ControlSockEnabled = '0';
+    }
+
+    if (program.controlSock) {
+      config.ControlSock = program.controlSock;
+      config.ControlSockEnabled = '1';
+      config.ControlPortEnabled = '0';
+    }
+
+    try {
+      assert(!(parseInt(config.ControlPortEnabled) &&
+               parseInt(config.ControlSockEnabled)),
+        'ControlSock and ControlPort cannot both be enabled');
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+
+    const client = new boscar.Client();
+
+    if (parseInt(config.ControlPortEnabled)) {
+      client.connect(parseInt(config.ControlPort));
+    } else if (parseInt(config.ControlSockEnabled)) {
+      client.connect(config.ControlSock);
+    }
+
+    client.on('ready', () => resolve(client));
+
+    client.socket.on('close', () => {
+      console.error('Connection terminated! :(');
+      process.exit(1);
+    });
+
+    client.on('error', err => {
+      console.error(err);
+      process.exit(1)
+    });
+  });
+}
+
 // Check if we are sending a command to a running daemon's controller
 if (program.rpc || program.repl) {
-  config = rc('dusk', options(program.datadir), argv);
-  
-  if (program.controlPort) {
-    config.ControlPort = program.controlPort;
-    config.ControlPortEnabled = '1';
-    config.ControlSockEnabled = '0';
-  }
+  rpcRepl();
 
-  if (program.controlSock) {
-    config.ControlSock = program.controlSock;
-    config.ControlSockEnabled = '1';
-    config.ControlPortEnabled = '0';
-  }
+  async function rpcRepl() {
+    const client = await getRpcControl();
 
-  try {
-    assert(!(parseInt(config.ControlPortEnabled) &&
-             parseInt(config.ControlSockEnabled)),
-      'ControlSock and ControlPort cannot both be enabled');
-  } catch (e) {
-    console.error(e.message);
-    process.exit(1);
-  }
-
-  const client = new boscar.Client();
-
-  if (parseInt(config.ControlPortEnabled)) {
-    client.connect(parseInt(config.ControlPort));
-  } else if (parseInt(config.ControlSockEnabled)) {
-    client.connect(config.ControlSock);
-  }
-
-  client.on('ready', () => {
     if (program.rpc === true || program.repl) {
       if (program.rpc) {
         logger.warn('no command provided to --rpc, starting repl');
@@ -966,54 +1153,44 @@ if (program.rpc || program.repl) {
         process.exit(0);
       }
     });
-  });
 
-  client.socket.on('close', () => {
-    console.error('Connection terminated! :(');
-    process.exit(1);
-  });
+    function _initRepl() {
+      console.log('hi ♥');
+      console.log('?? try: help\n');
 
-  client.on('error', err => {
-    console.error(err);
-    process.exit(1)
-  });
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        prompt: '(dusk:repl) ~ ',
+      });
 
-  function _initRepl() {
-    console.log('hi ♥');
-    console.log('?? try: help\n');
+      rl.prompt();
 
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: '(dusk:repl) ~ ',
-    });
+      rl.on('line', (line) => {
+        if (!line) {
+          return rl.prompt();
+        }
 
-    rl.prompt();
+        if (line === 'quit' || line === 'exit') {
+          console.log('bye ♥ ');
+          process.exit(0);
+        }
 
-    rl.on('line', (line) => {
-      if (!line) {
-        return rl.prompt();
-      }
-
-      if (line === 'quit' || line === 'exit') {
+        const [method, ...params] = line.trim().split(' ');
+        client.invoke(method, params, function(err, ...results) {
+          if (err) {
+            console.error(err.message);
+          } else {
+            console.dir(results, { depth: null });
+          }
+        
+          rl.prompt();
+        });
+      }).on('close', () => {
         console.log('bye ♥ ');
         process.exit(0);
-      }
-
-      const [method, ...params] = line.trim().split(' ');
-      client.invoke(method, params, function(err, ...results) {
-        if (err) {
-          console.error(err.message);
-        } else {
-          console.dir(results, { depth: null });
-        }
-      
-        rl.prompt();
       });
-    }).on('close', () => {
-      console.log('bye ♥ ');
-      process.exit(0);
-    });
+    }
   }
 } else if (program.F) {
   const tail = spawn('tail', ['-f', config.LogFilePath]);
