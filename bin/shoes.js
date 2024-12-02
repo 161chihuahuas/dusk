@@ -38,7 +38,7 @@ module.exports.shred = function(dagEntry) {
       {
         type: 'number',
         name: 'numDrives',
-        message: 'How many dusk/SHOES USBs are we shredding to?'
+        message: 'How many dusk/SHOES USBs are we shredding to (excluding this one)?'
       }
     ];
     const setup = await inquirer.prompt(setupQs);
@@ -104,6 +104,7 @@ module.exports.retrace = function(meta) {
     console.log('');
     console.log('  You are USER 0, which means this data will be');
     console.log('  decrypted by you at the end of this process.');
+    console.log('');
     console.log('  I will use the key located on the dusk/SHOES USB');
     console.log('  that is CURRENTLY inserted.');
     console.log('');
@@ -112,10 +113,19 @@ module.exports.retrace = function(meta) {
       if (Object.keys(shardMap).length >= meta.l.length - meta.p) {
         console.log('  I have enough information to retrace already ♥ ');
         console.log('');
-        break;
+        const keepGoing = await inquirer.prompt({
+          type: 'confirm',
+          name: 'yes',
+          message: 'Do you want to keep going anyway?'
+        });
+
+        if (!keepGoing.yes) {
+          break;
+        }
       }
       
-      console.log('  Ok, I\'m ready to start retracing. It doesn\'t');
+      console.log('');
+      console.log('  Ok, I\'m ready to retrace. It doesn\'t matter');
       console.log('  what order we go in, so decide amongst yourselves.');
       console.log('');
       let datadir = await module.exports.mount();
@@ -131,6 +141,7 @@ module.exports.retrace = function(meta) {
       }
 
       console.log(`  I found ${foundParts} parts on this dusk/SHOES USB.`);
+      console.log('');
       drivesChecked++;
     }
     

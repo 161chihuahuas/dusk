@@ -720,13 +720,11 @@ async function _init() {
     console.log('  [ I reconstructed the encrypted and erasure coded buffer ♥ ]');
     console.log('');
     
-    let encRsBuffer;
-
     if (missingPieces) {
       console.log('  attempting to encode missing parts from erasure codes...')
-      encRsBuffer = await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
+      shards = splitSync(await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
         bytes: dusk.DAGEntry.INPUT_SIZE
-      }));
+      })), { bytes: dusk.DAGEntry.INPUT_SIZE });
     } 
 
     while (metaData.p--) {
