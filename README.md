@@ -521,7 +521,7 @@ Now dusk will start bootstrapping the Tor network connection and eventually it w
 
 Maybe it's your affinity group, your research team, your friends - they need to run dusk too. And you'll exchange "identity bundles" to bootstrap from each other. To do that, we need to ask our dusk node for it. In *another* Terminal, run `dusk --link`.
 
-![duck --link](./assets/dusk_--link.png) 
+![dusk --link](./assets/dusk_--link.png) 
 
 This is like your username. It contains information about how to communicate with your dusk node. Note that your link contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged links, run `dusk --rpc "connect <link>"`.
 
@@ -776,7 +776,7 @@ dusk --rpc 'connect <dref from node 2>' --control-port 6275
 dusk --rpc 'connect <dref from node 3>' --control-port 6275
 ```
 
-They'll all find each other pretty quick. Check your terminal windows for your nodes. You should see that they are chatting and are aware of each other. You can repeat this process for as many nodes as you want to test against. You can also use `dusk --shred --dht --control-port 6275` and `duck --retrace --dht --control-port 6275` to test file shredding and retracing over your testnet.
+They'll all find each other pretty quick. Check your terminal windows for your nodes. You should see that they are chatting and are aware of each other. You can repeat this process for as many nodes as you want to test against. You can also use `dusk --shred --dht --control-port 6275` and `dusk --retrace --dht --control-port 6275` to test file shredding and retracing over your testnet.
 
 ## --
 
