@@ -146,12 +146,7 @@ module.exports.retrace = function(meta) {
 module.exports.init = function(program, config) {
   return new Promise((resolve, reject) => {
     const shoesMetaPath = path.join(program.datadir, 'shoes.meta');
-    mkdirp.sync(shoesMetaPath);
-
-
-    
-    // does whatever we are gonna do when dusk --shoes instead of s/kad over tor
-    // probably create a shoesmanifest from a interactive prompt and set a drive array
+    mkdirp.sync(shoesMetaPath);    
     resolve();
   });
 }

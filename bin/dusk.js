@@ -910,8 +910,9 @@ async function _init() {
 
   if (program.shoes) {
     console.log('');
-    console.log('\n  starting dusk/SHOES ♥ ');
-    shoes.init(program, config, privkey, identity);
+    await shoes.init(program, config, privkey, identity);
+    console.log('\n  [ created dusk/SHOES USB ♥ ] ');
+    process.exit(0);
   } else {
     initDusk();
   }
