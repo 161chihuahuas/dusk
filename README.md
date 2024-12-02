@@ -559,7 +559,7 @@ dusk --retrace --dht --control-port 5275
 
 dusk will talk you through the process and keep you updated on progress.
 
-![dusk shred](assets/dusk_--shred_--dht.png) 
+![dusk shred](assets/dusk_--retrace_--dht.png) 
 
 ### Advanced
 
