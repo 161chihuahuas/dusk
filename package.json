@@ -89,5 +89,5 @@
     "unit-tests": "mocha --exit test/*.unit.js",
     "make-dist": "pkg . --out-path sea"
   },
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
