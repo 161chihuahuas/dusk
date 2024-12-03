@@ -827,7 +827,7 @@ Retracing follows a similar process.
 
 dusk: darknet under s/kademlia © 2024 by Lily H, Tactical Chihuahua is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International. To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
 
----
+--
 
 `dusk/lib`, `dusk/bin`, `dusk/test`  
 Copyright (C) 2017,2024  Lily H, Tactical Chihuahua
