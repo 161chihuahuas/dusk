@@ -65,18 +65,11 @@ const hsv3 = require('@tacticalchihuahua/granax/hsv3');
 program.version(dusk.version.software);
 
 const description = `
-    _______    ________    ________    ____ ___ 
-  _╱       ╲  ╱    ╱   ╲  ╱        ╲  ╱    ╱   ╲
- ╱         ╱ ╱         ╱ ╱        _╱ ╱         ╱
-╱         ╱ ╱         ╱ ╱-        ╱ ╱        _╱ 
-╲________╱  ╲________╱  ╲________╱  ╲____╱___╱  
+  🝰 dusk ${dusk.version.software}
 
-         (d)arknet (u)nder (s/k)ademlia         
+  anti-©opyright, 2024 tactical chihuahua 
+  licensed under the agpl 3
 
-                     ~ Ⓐ ~
-                                           
-          N©! 2024 tactical chihuahua 
-          licensed under the AGPL-3.0
 `;
 
 program.description(description);
@@ -158,6 +151,9 @@ program.option('--with-secret <hex_secret>',
 program.option('--shoes', 
   'setup a dusk/SHOES USB or use with --retrace, --shred');
 
+program.option('--usb', 
+  'alias for --shoes');
+
 program.option('--dht', 
   'use with --shred, --retrace to store/retrieve shards to/from network');
 
@@ -166,6 +162,8 @@ program.option('--test-hooks',
 
 program.parse(process.argv);
 
+program.usb = program.usb || program.shoes;
+
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
@@ -173,10 +171,10 @@ let config;
 function _setup() {
   return new Promise(async (resolve, reject) => {
     if (!program.Q) {
-      console.log(program.shoes ? shoes.description : description);
+      console.log(description);
     }
 
-    if (program.shoes) {
+    if (program.usb) {
       program.datadir = await shoes.mount();
     }
 
@@ -369,7 +367,7 @@ async function _init() {
     }  
     
     if (program.fileOut) {
-      if (program.shoes) {
+      if (program.usb) {
         program.fileOut = path.join(
           program.datadir,
           'shoes.meta',
@@ -403,7 +401,7 @@ async function _init() {
       );
     }
 
-    if (program.shoes) { 
+    if (program.usb) { 
       console.log('');
       await shoes.shred(dagEntry);
     } else if (program.dht) {
@@ -482,7 +480,7 @@ async function _init() {
     if (!program.Q) {
       if (program.fileOut) {
         console.log('');
-        if (program.shoes) {
+        if (program.usb) {
           console.log('sneakernet created ~ be safe  ♥ ');
         } else {
           console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
@@ -553,7 +551,7 @@ async function _init() {
         
         let basePath;
 
-        if (program.shoes) {
+        if (program.usb) {
           basePath = path.join(program.datadir, 'shoes.meta');
         } else if (program.dht) {
           basePath = path.join(program.datadir, 'dusk.meta');
@@ -605,7 +603,7 @@ async function _init() {
 
     let shards;
     
-    if (program.shoes) {
+    if (program.usb) {
       shards = (await shoes.retrace(metaData)).map(part => {
         if (!part) {
           console.warn('missing part detected');
@@ -731,7 +729,7 @@ async function _init() {
       shards.pop();
     }
 
-    if (program.shoes) {
+    if (program.usb) {
       console.log('  USER 0, I\'m ready to finish retracing and save to');
       console.log('  your dusk/SHOES USB.');
       console.log('');
@@ -740,7 +738,7 @@ async function _init() {
 
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
-    const dirname = path.dirname(program.shoes ? program.datadir : unbundledFilename);
+    const dirname = path.dirname(program.usb ? program.datadir : unbundledFilename);
     const filename = path.join(dirname, `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
@@ -906,7 +904,7 @@ async function _init() {
   console.log(`  nonce [ ${identity.nonce} ]`);
   console.log(`  fingerprint [ ${identity.fingerprint.toString('hex')} ]`);
 
-  if (program.shoes) {
+  if (program.usb) {
     console.log('');
     await shoes.init(program, config, privkey, identity);
     console.log('\n  [ created dusk/SHOES USB ♥ ] ');

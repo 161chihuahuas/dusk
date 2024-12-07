@@ -8,27 +8,6 @@ const mkdirp = require('mkdirp');
 const dusk = require('../index.js');
 const fs = require('node:fs');
 
-// usb.on('add', (device) => {})
-// usb.on('remove', (device) => {})
-// const drives = await drivelist.list(); // [device.mountpoints[]]
-
-module.exports.description = `
-                    dusk/ 
-         .▄▄ ·  ▄ .▄      ▄▄▄ ..▄▄ · 
-         ▐█ ▀. ██▪▐█▪     ▀▄.▀·▐█ ▀. 
-         ▄▀▀▀█▄██▀▐█ ▄█▀▄ ▐▀▀▪▄▄▀▀▀█▄
-         ▐█▄▪▐███▌▐▀▐█▌.▐▌▐█▄▄▌▐█▄▪▐█
-          ▀▀▀▀ ▀▀▀ · ▀█▄▀▪ ▀▀▀  ▀▀▀▀
-
-  simple human operated encrypted sneakernet
-
-                    ~ Ⓐ ~
-                                           
-         N©! 2024 tactical chihuahua 
-         licensed under the AGPL-3.0
-
-
-`;
 
 module.exports.shred = function(dagEntry) {
   return new Promise(async (resolve, reject) => {

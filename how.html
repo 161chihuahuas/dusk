@@ -1,0 +1,843 @@
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <meta charset="utf-8"/>
+  <title>
+   Made with Remarkable!
+  </title>
+  <link href="/usr/share/remarkable/media/highlightjs.default.min.css" rel="stylesheet"/>
+  <style type="text/css">
+   @import url(http://fonts.googleapis.com/css?family=Vollkorn:400,400italic,700,700italic&subset=latin);ol,ul{padding-left:1.2em}body,code,html{background:#fff}body,h1 a,h1 a:hover{color:#333}a,h1 a,h1 a:hover{text-decoration:none}hr,video{margin:2em 0}h1,h2,p#heart{text-align:center}table tr td,table tr th{border:1px solid #ccc;text-align:left;padding:6px 13px;margin:0}h1,p,table tr td :first-child,table tr th :first-child{margin-top:0}pre code,table,table tr{padding:0}body,html{padding:1em;margin:auto}body{font:1.3em Vollkorn,Palatino,Times;line-height:1;text-align:justify}h1,h2,h3{font-weight:400}h3,nav{font-style:italic}code,nav{font-size:.9em}article,footer,header,nav{margin:0 auto}article{margin-top:4em;margin-bottom:4em;min-height:400px}footer{margin-bottom:50px}video{border:1px solid #ddd}nav{border-bottom:1px solid #ddd;padding:1em 0}nav p{margin:0}p{-webkit-hypens:auto;-moz-hypens:auto;hyphens:auto}ul{list-style:square}blockquote{margin-left:1em;padding-left:1em;border-left:1px solid #ddd}code{font-family:Consolas,Menlo,Monaco,monospace,serif}a{color:#2484c1}a:hover{text-decoration:underline}a img{border:0}hr{color:#ddd;height:1px;border-top:solid 1px #ddd;border-bottom:0;border-left:0;border-right:0}p#heart{font-size:2em;line-height:1;color:#ccc}.red{color:#b50000}body#index li{margin-bottom:1em}@media only screen and (max-device-width:1024px){body{font-size:120%;line-height:1.4}}@media only screen and (max-device-width:480px){body{text-align:left}article,footer{width:auto}article{padding:0 10px}}table tr{border-top:1px solid #ccc;background-color:#fff;margin:0}table tr:nth-child(2n){background-color:#aaa}table tr th{font-weight:700}table tr td:last-child,table tr th :last-child{margin-bottom:0}img{max-width:100%}code,tt{margin:0 2px;padding:0 5px;white-space:nowrap;border:1px solid #eaeaea;background-color:#f8f8f8;border-radius:3px}pre code{margin:0;white-space:pre;border:none;background:0 0}.highlight pre,pre{background-color:#f8f8f8;border:1px solid #ccc;font-size:13px;line-height:19px;overflow:auto;padding:6px 10px;border-radius:3px}
+  </style>
+ </head>
+ <body>
+  <h1>
+   <a href="https://rundusk.org">
+    🝰 dusk
+   </a>
+  </h1>
+  <h2>
+   user guide
+  </h2>
+  <ul>
+   <li>
+    <a href="#installation">
+     Installation
+    </a>
+   </li>
+   <li>
+    <a href="#setup">
+     Setup
+    </a>
+   </li>
+   <li>
+    <a href="#basics">
+     Basics
+    </a>
+   </li>
+   <li>
+    <a href="#advanced">
+     Advanced
+    </a>
+   </li>
+   <li>
+    <a href="#configuration">
+     Configuration
+    </a>
+   </li>
+   <li>
+    <a href="#testing">
+     Testing
+    </a>
+   </li>
+   <li>
+    <a href="#sneakernets">
+     Sneakernets
+    </a>
+   </li>
+  </ul>
+  <hr/>
+  <h3>
+   Installation
+  </h3>
+  <p>
+   Make sure you have the following prerequisites installed:
+  </p>
+  <ul>
+   <li>
+    <a href="https://git-scm.org">
+     Git
+    </a>
+   </li>
+   <li>
+    <a href="https://nodejs.org">
+     Node.js LTS (22.x)
+    </a>
+   </li>
+   <li>
+    Python3
+   </li>
+   <li>
+    GCC/G++/Make
+   </li>
+   <li>
+    libudev-dev
+   </li>
+  </ul>
+  <p>
+   You can also skip all of this and use Docker:
+  </p>
+  <pre><code>docker pull tacticalchihuahua/dusk
+</code></pre>
+  <h4>
+   Node.js + NPM
+  </h4>
+  <h5>
+   GNU+Linux &amp; Mac OSX
+  </h5>
+  <pre><code>wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+</code></pre>
+  <p>
+   Close your shell and open an new one. Now that you can call the
+   <code>
+    nvm
+   </code>
+   program,
+install Node.js (which comes with NPM):
+  </p>
+  <pre><code>nvm install --lts
+</code></pre>
+  <h4>
+   Build Dependencies
+  </h4>
+  <h5>
+   GNU+Linux
+  </h5>
+  <p>
+   Debian / Ubuntu / Mint / Trisquel / and Friends
+  </p>
+  <pre><code>apt install git python build-essential libudev-dev
+</code></pre>
+  <p>
+   Red Hat / Fedora / CentOS
+  </p>
+  <pre><code>yum groupinstall 'Development Tools' libudev-dev
+</code></pre>
+  <p>
+   You might also find yourself lacking a C++11 compiler -
+   <a href="http://hiltmon.com/blog/2015/08/09/c-plus-plus-11-on-centos-6-dot-6/">
+    see this
+   </a>
+   .
+  </p>
+  <h5>
+   Mac OSX
+  </h5>
+  <pre><code>xcode-select --install
+</code></pre>
+  <h4>
+   Daemon
+  </h4>
+  <p>
+   This package exposes the program
+   <code>
+    dusk
+   </code>
+   . To install, use the
+   <code>
+    --global
+   </code>
+   flag.
+  </p>
+  <pre><code>npm install -g @tacticalchihuahua/dusk
+</code></pre>
+  <h4>
+   Library
+  </h4>
+  <p>
+   This package exposes a module providing a complete reference implementation 
+of the protocol. To use it in your project, from your project's root 
+directory, install as a dependency.
+  </p>
+  <pre><code>npm install @tacticalchihuahua/dusk --save
+</code></pre>
+  <p>
+   Then you can require the library with:
+  </p>
+  <pre><code>const dusk = require('@tacticalchihuahua/dusk');
+</code></pre>
+  <h3>
+   Setup
+  </h3>
+  <p>
+   dusk itself does not (yet?) have a graphical interface. It comes with a
+   <code>
+    dusk
+   </code>
+   text-based command line interface. Low level node control is achieved by sending RPC commands to
+   <code>
+    dusk
+   </code>
+   . The
+   <code>
+    dusk
+   </code>
+   CLI also provides tools for configuration, encryption, encoding, key sharing, sneakernet setup, and even a REPL (read-eval-print-loop) - which acts as it's own command-line.
+  </p>
+  <p>
+   Once you have installed dusk or linked it as a global package, open your Terminal and run
+   <code>
+    dusk --help
+   </code>
+   .
+  </p>
+  <p>
+   <img alt="dusk --help" src="./assets/images/dusk_--help.png"/>
+  </p>
+  <p>
+   The CLI will print a list of options and what they do. This is where you'll find tools to interact with dusk. But first you have to start dusk for the first time! In that same Terminal just run
+   <code>
+    dusk
+   </code>
+   .
+  </p>
+  <p>
+   <img alt="dusk first run" src="./assets/images/dusk.png"/>
+  </p>
+  <p>
+   The CLI will prompt you to enter a password to protect the key it generated. Then, it will print a list of words and tell you to write them down. Do that and run
+   <code>
+    dusk
+   </code>
+   again.
+  </p>
+  <p>
+   <img alt="dusk" src="./assets/images/dusk_.png"/>
+  </p>
+  <p>
+   Now dusk will start bootstrapping the Tor network connection and eventually it will say it's listening for connections. Now you'll want to connect to someone to discover more of the network. But how? There is no signaling server, no DNS seeds, or list of operating nodes (yet). So, here is where your IRL network comes into play.
+  </p>
+  <p>
+   Maybe it's your affinity group, your research team, your friends - they need to run dusk too. And you'll exchange "identity bundles" to bootstrap from each other. To do that, we need to ask our dusk node for it. In
+   <em>
+    another
+   </em>
+   Terminal, run
+   <code>
+    dusk --link
+   </code>
+   .
+  </p>
+  <p>
+   <img alt="dusk --link" src="./assets/images/dusk_--link.png"/>
+  </p>
+  <p>
+   This is like your username. It contains information about how to communicate with your dusk node. Note that your link contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged links, run
+   <code>
+    dusk --rpc "connect &lt;link&gt;"
+   </code>
+   .
+  </p>
+  <p>
+   You need a minimum of 3 dusk nodes to form a functioning network. These could be friends, family, colleagues, members of your affinity group, etc. dusk can operate segmented to a small community or connected to a wider global network.
+  </p>
+  <p>
+   Run your dusk node in the background with
+   <code>
+    dusk --daemon
+   </code>
+   .
+  </p>
+  <h3>
+   Basics
+  </h3>
+  <p>
+   The dusk CLI provides a number of tools for interacting with dusk and the network, but there are 2 primary operations to familiarize yourself with first: shred and retrace.
+  </p>
+  <h4>
+   <code>
+    --shred
+   </code>
+  </h4>
+  <p>
+   <strong>
+    Shred
+   </strong>
+   takes a file, encrypts it to your key, splits it up into equal segments, generates parity segments (for recovery from data loss), creates a metadata pointer, encrypts the metadata, and depending on your choice either: writes the pieces to a special folder called a
+   <code>
+    duskbundle
+   </code>
+   , stores the pieces in the network using the DHT, or transfers them across an array of USB drives (see
+   <a href="#sneakernets">
+    Sneakernets
+   </a>
+   .
+  </p>
+  <p>
+   To shred a file and store the pieces in the DHT using the control port:
+  </p>
+  <pre><code>dusk --shred --dht --control-port 5275
+</code></pre>
+  <p>
+   dusk will talk you through the process and keep you updated on progress.
+  </p>
+  <p>
+   <img alt="dusk shred" src="assets/images/dusk_--shred_--dht.png"/>
+  </p>
+  <h4>
+   <code>
+    --retrace
+   </code>
+  </h4>
+  <p>
+   <strong>
+    Retrace
+   </strong>
+   takes an encrypted metadata pointer, decrypts it then depending on your choice either: reads the pieces from a
+   <code>
+    duskbundle
+   </code>
+   , downloads the pieces from the network, or reads them from an array of USB drives. Then, retrace will reassmble the pieces, encode any corrupted or missing pieces, decrypt the original file, and save it.
+  </p>
+  <p>
+   To retrace the same file from the previous example from the DHT:
+  </p>
+  <pre><code>dusk --retrace --dht --control-port 5275
+</code></pre>
+  <p>
+   dusk will talk you through the process and keep you updated on progress.
+  </p>
+  <p>
+   <img alt="dusk shred" src="assets/images/dusk_--retrace_--dht.png"/>
+  </p>
+  <h3>
+   Advanced
+  </h3>
+  <p>
+   The next most important feature is dusk's publish/subscribe system. Nodes can receive arbitrary publications announced through the network by adding the fingerprint of the publisher to their subscriptions. Whenever dusk is handed a PUBLISH message it is interested in, it can trigger a webhook to a onion address.
+  </p>
+  <h4>
+   <code>
+    --test-hooks
+   </code>
+  </h4>
+  <p>
+   If you are developing an application that uses the pub/sub system, your application will expose an onion service where dusk can send POST requests with the publication contents in the body. Your application can then validate and process those messages according to your needs.
+  </p>
+  <p>
+   You can test this out using the
+   <code>
+    --test-hooks
+   </code>
+   option - which will start a simple onion service that prints messages it receives from dusk to the console.
+   <em>
+    Do not use this AS IS in production.
+   </em>
+  </p>
+  <p>
+   <img alt="test hooks" src="assets/images/dusk_--test-hooks.png"/>
+  </p>
+  <p>
+   In the screenshot above, one terminal is running
+   <code>
+    dusk --test-hooks
+   </code>
+   , one subscribes to publications from a node running in the pictured test network using
+   <code>
+    dusk --rpc 'subscribe &lt;fingerprint&gt;'
+   </code>
+   , and the third (the publisher) publishes a message using
+   <code>
+    dusk --rpc 'publish &lt;hex data&gt;'
+   </code>
+   .
+  </p>
+  <h3>
+   Configuration
+  </h3>
+  <p>
+   A dusk node requires a configuration file to get up and running. The path to this 
+file is given to
+   <code>
+    dusk
+   </code>
+   when starting a node (or the defaults will be used).
+  </p>
+  <pre><code>dusk --config myconfig.ini
+</code></pre>
+  <p>
+   If a configuration file is not supplied, a minimal default configuration is 
+automatically created and used, which will generate a private key, database, 
+and other necessary files. All of this data will be created and stored in
+   <code>
+    $HOME/.config/dusk
+   </code>
+   , unless a
+   <code>
+    --datadir
+   </code>
+   option is supplied. Valid configuration 
+files may be in either INI or JSON format.
+  </p>
+  <h4>
+   DaemonPidFilePath
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HOME/.config/dusk/dusk.pid
+   </code>
+  </h5>
+  <p>
+   The location to write the PID file for the daemon.
+  </p>
+  <h4>
+   PublicKeyPath
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HOME/.config/dusk/dusk.pub
+   </code>
+  </h5>
+  <p>
+   Path to public key key file.
+  </p>
+  <h4>
+   PrivateKeyPath
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HOME/.config/dusk/dusk.key
+   </code>
+  </h5>
+  <p>
+   Path to private key key file to use for identity.
+  </p>
+  <h4>
+   EmbeddedDatabaseDirectory
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HOME/.config/dusk/dusk.dht
+   </code>
+  </h5>
+  <p>
+   Sets the directory to store DHT entries.
+  </p>
+  <h4>
+   NodeListenPort
+  </h4>
+  <h5>
+   Default:
+   <code>
+    5274
+   </code>
+  </h5>
+  <p>
+   Sets the local port to bind the node's RPC service.
+  </p>
+  <h4>
+   NodeListenAddress
+  </h4>
+  <h5>
+   Default:
+   <code>
+    0.0.0.0
+   </code>
+  </h5>
+  <p>
+   Sets the address to bind the RPC service.
+  </p>
+  <h4>
+   VerboseLoggingEnabled
+  </h4>
+  <h5>
+   Default:
+   <code>
+    1
+   </code>
+  </h5>
+  <p>
+   More detailed logging of messages sent and received. Useful for debugging.
+  </p>
+  <h4>
+   LogFilePath
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HEAD/.config/dusk.log
+   </code>
+  </h5>
+  <p>
+   Path to write the daemon's log file. Log file will rotate either every 24 hours 
+or when it exceeds 10MB, whichever happens first.
+  </p>
+  <h4>
+   LogFileMaxBackCopies
+  </h4>
+  <h5>
+   Default:
+   <code>
+    3
+   </code>
+  </h5>
+  <p>
+   Maximum number of rotated log files to keep.
+  </p>
+  <h4>
+   NetworkBootstrapNodes[]
+  </h4>
+  <h5>
+   Default:
+   <code>
+    (empty)
+   </code>
+  </h5>
+  <p>
+   Add a map of network bootstrap nodes to this section to use for discovering 
+other peers. Default configuration should come with a list of known and 
+trusted contacts.
+  </p>
+  <h4>
+   OnionVirtualPort
+  </h4>
+  <h5>
+   Default:
+   <code>
+    443
+   </code>
+  </h5>
+  <p>
+   The virtual port to use for the hidden service.
+  </p>
+  <h4>
+   OnionHiddenServiceDirectory
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HOME/.config/dusk/hidden_service
+   </code>
+  </h5>
+  <p>
+   The directory to store hidden service keys and other information required by 
+the Tor process.
+  </p>
+  <h4>
+   OnionLoggingEnabled
+  </h4>
+  <h5>
+   Default:
+   <code>
+    0
+   </code>
+  </h5>
+  <p>
+   Redirects the Tor process log output through dusk's logger for the purpose of 
+debugging.
+  </p>
+  <h4>
+   OnionLoggingVerbosity
+  </h4>
+  <h5>
+   Default:
+   <code>
+    notice
+   </code>
+  </h5>
+  <p>
+   Defines the verbosity level of the Tor process logging. Valid options are:
+   <code>
+    debug
+   </code>
+   ,
+   <code>
+    info
+   </code>
+   ,
+   <code>
+    notice
+   </code>
+   .
+  </p>
+  <h4>
+   ControlPortEnabled
+  </h4>
+  <h5>
+   Default:
+   <code>
+    0
+   </code>
+  </h5>
+  <p>
+   Enables the {@link Control} interface over a TCP socket.
+  </p>
+  <h4>
+   ControlPort
+  </h4>
+  <h5>
+   Default:
+   <code>
+    5275
+   </code>
+  </h5>
+  <p>
+   The TCP port to for the control interface to listen on.
+  </p>
+  <h4>
+   ControlSockEnabled
+  </h4>
+  <h5>
+   Default:
+   <code>
+    1
+   </code>
+  </h5>
+  <p>
+   Enables the {@link Control} interface over a UNIX domain socket.
+  </p>
+  <h4>
+   ControlSock
+  </h4>
+  <h5>
+   Default:
+   <code>
+    $HOME/.config/dusk/dusk.sock
+   </code>
+  </h5>
+  <p>
+   The path to the file to use for the control interface.
+  </p>
+  <h4>
+   TestNetworkEnabled
+  </h4>
+  <h5>
+   Default:
+   <code>
+    0
+   </code>
+  </h5>
+  <p>
+   Places dusk into test mode, significantly lowering the identity solution
+difficulty and the permission solution difficulty.
+  </p>
+  <h3>
+   Testing
+  </h3>
+  <p>
+   It is mostly straightforward to setup a test environment so you can learn about dusk and how it works. This is also very helpful if you are contributing to the project or developing an application on top of dusk. First you'll want to clone the
+   <code>
+    main
+   </code>
+   branch from the git repository and install dependencies.
+  </p>
+  <pre><code>git clone https://github.com/lilyannehall/dusk
+cd dusk
+npm install
+</code></pre>
+  <p>
+   From here, you can run the automated test suites:
+  </p>
+  <pre><code>npm run unit-tests
+npm run integration-tests
+npm run e2e-tests
+npm run linter
+</code></pre>
+  <blockquote>
+   <p>
+    Running
+    <code>
+     npm test
+    </code>
+    will do all of the above.
+   </p>
+  </blockquote>
+  <p>
+   Next, you'll probably want to setup a disposable test network to play with. A test network is a "live" network in that nodes communicate with each other like they otherwise would through Tor. The difference is that the difficulty parameters for identity creation are reduced and the secret keys are never saved. You can setup a testnet just using the
+   <code>
+    dusk
+   </code>
+   command line, but it may also be desirable to use Docker.
+  </p>
+  <p>
+   Setting up a testnet without Docker involves creating separate data directories for each node you want to run and modifying each configuration file to listen on different control sockets. Then starting each
+   <code>
+    dusk
+   </code>
+   process, letting them each bootstrap, then connecting each one to another using another
+   <code>
+    dusk
+   </code>
+   process to send them RPCs.
+  </p>
+  <p>
+   Using Docker, this can be reduced to a few commands and no configuration since each container is isolated and won't conflict with the others. Here is how to setup a testnet using Docker.
+  </p>
+  <p>
+   <strong>
+    First
+   </strong>
+   , build the Docker image (from the dusk source root directory):
+  </p>
+  <pre><code>docker build . -t dusk
+</code></pre>
+  <p>
+   Once completed, we can start our dusk nodes. We
+   <strong>
+    only need 3
+   </strong>
+   to form a functional network, so in 3 separate terminal windows, run:
+  </p>
+  <pre><code>docker run --publish 6275:5275 -it dusk --testnet --ephemeral
+</code></pre>
+  <pre><code>docker run --publish 7275:5275 -it dusk --testnet --ephemeral
+</code></pre>
+  <pre><code>docker run --publish 8275:5275 -it dusk --testnet --ephemeral
+</code></pre>
+  <p>
+   The
+   <code>
+    --publish [port:port]
+   </code>
+   option tells Docker to bind the first port on the host to the second port inside the container. Port
+   <code>
+    5275
+   </code>
+   is the default
+   <code>
+    ControlPort
+   </code>
+   that dusk receives local RPC messages on. We are exposing these to our host so we can use our host installation of dusk to control the nodes. The
+   <code>
+    --testnet
+   </code>
+   and
+   <code>
+    --ephemeral
+   </code>
+   options tell dusk to use lower solution difficulty and to create a disposable secret key. Eventually, all three nodes will say they are in "seed mode"/waiting for connections.
+  </p>
+  <p>
+   <img alt="docker testnet" src="assets/images/docker-testnet.png"/>
+  </p>
+  <p>
+   Now, we are going to find the dusk links for nodes 2 and 3 then use them to link from node 1. From a
+   <em>
+    new
+   </em>
+   terminal window:
+  </p>
+  <pre><code>dusk --rpc 'getinfo' --control-port 7275
+dusk --rpc 'getinfo' --control-port 8275
+</code></pre>
+  <p>
+   <img alt="dusk rpc getinfo" src="assets/images/dusk_--rpc_--control-port.png"/>
+  </p>
+  <p>
+   Each of these commands will print a JSON object with a
+   <code>
+    dref
+   </code>
+   property. We want to issue node 1 a
+   <code>
+    connect
+   </code>
+   RPC for each of these.
+  </p>
+  <pre><code>dusk --rpc 'connect &lt;dref from node 2&gt;' --control-port 6275
+dusk --rpc 'connect &lt;dref from node 3&gt;' --control-port 6275
+</code></pre>
+  <p>
+   They'll all find each other pretty quick. Check your terminal windows for your nodes. You should see that they are chatting and are aware of each other. You can repeat this process for as many nodes as you want to test against. You can also use
+   <code>
+    dusk --shred --dht --control-port 6275
+   </code>
+   and
+   <code>
+    dusk --retrace --dht --control-port 6275
+   </code>
+   to test file shredding and retracing over your testnet.
+  </p>
+  <h3>
+   Sneakernets
+  </h3>
+  <p>
+   "Sneakernet" is an informal term that refers to transferring data between parties using physical media, like a USB drive, instead of networks. In scenarios where bandwidth is limited, internet access is unavailable, or in cases where the threat model warrants that some data not be transmitted over the internet, sneakernets offer security. They do this in the form of a greatly reduced attack surface, because unauthorized access to data over a sneakernet requires physical access to the media it is stored on.
+  </p>
+  <p>
+   dusk is built with sneakernets as a transmission model in mind. A subset of the shred/retrace protocol is implemented to function without network access - instead using an array of USB drives. This is called dusk/SHOES (dusk over shoes). SHOES is an acronym for Simple Human Operated Encrypted Sneakernet.
+  </p>
+  <h4>
+   dusk/SHOES
+  </h4>
+  <blockquote>
+   <p>
+    This feature is experimental.
+   </p>
+  </blockquote>
+  <p>
+   The dusk CLI includes a
+   <code>
+    --shoes
+   </code>
+   option that can be used in 3 ways:
+  </p>
+  <ul>
+   <li>
+    <code>
+     dusk --shoes
+    </code>
+    will setup a new dusk/SHOES USB
+   </li>
+   <li>
+    <code>
+     dusk --shred --shoes
+    </code>
+    will encrypt/shred/encode/distribute a file to
+    <code>
+     n
+    </code>
+    USB drives
+   </li>
+   <li>
+    <code>
+     dusk --retrace --shoes
+    </code>
+    will retrace a file from
+    <code>
+     n
+    </code>
+    USB drives, then decrypt and save
+   </li>
+  </ul>
+  <p>
+   Setting up a dusk/SHOES USB functions a lot like setting up dusk on first run. All of the configuration, identity keys, and data directories are created on the USB. The dusk/SHOES USB can even be used to run dusk online later.
+  </p>
+  <p>
+   <img alt="dusk --shoes" src="assets/images/dusk_--shoes.png"/>
+  </p>
+  <p>
+   Shredding a file follows a guided prompt.
+  </p>
+  <p>
+   <img alt="shred shoes" src="assets/images/dusk_--shred_--shoes.png"/>
+  </p>
+  <p>
+   Retracing follows a similar process.
+  </p>
+  <script src="/usr/share/remarkable/media/highlight.min.js">
+  </script>
+  <script>
+   hljs.initHighlightingOnLoad();
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+   MathJax.Hub.Config({"showProcessingMessages" : false,"messageStyle" : "none","tex2jax": { inlineMath: [ [ "$", "$" ] ] }});
+  </script>
+ </body>
+</html>
