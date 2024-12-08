@@ -14,7 +14,6 @@
     "@ronomon/reed-solomon": "^6.0.0",
     "@tacticalchihuahua/equihash": "^1.0.0",
     "@tacticalchihuahua/granax": "^3.3.2",
-    "@yao-pkg/pkg": "^6.1.1",
     "async": "^2.6.0",
     "atbf": "^1.1.0",
     "bip39": "^3.1.0",
