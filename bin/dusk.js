@@ -181,6 +181,7 @@ program.usb = program.usb || program.shoes;
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
+let tray;
 
 let _didSetup = false;
 
@@ -1159,7 +1160,16 @@ async function initDusk() {
       }
 
       if (program.gui) {
-        Dialog.info(`You are online, but have not added any peer links. Swap links with friends or team members and add them using the menu. I will still listen for incoming connections.`, '🝰 dusk', 'warning');
+        Dialog.notify(`You are online, but have not added any peer links. 
+Swap links with friends or team members and add them using the menu.
+
+I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
+      }
+
+      if (program.tray && tray) {
+        tray.tray.onReady(() => {
+          tray.tray.sendAction(tray.STATUS_LISTENING);
+        });
       }
 
       logger.info('no bootstrap seeds provided');
@@ -1226,7 +1236,7 @@ async function initDusk() {
     registerControlInterface();
 
     if (program.tray) {
-      require('./tray.js')(await getRpcControl(), program, config, exitGracefully);
+      tray = require('./tray.js')(await getRpcControl(), program, config, exitGracefully);
     }
 
     async.retry({
