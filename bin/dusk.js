@@ -18,6 +18,7 @@ process.on('uncaughtException', (err) => {
     logger.error(err.message);
     logger.debug(err.stack);
   }
+  showUserCrashReport(err);
   process.exit(0);
 });
 process.on('unhandledRejection', (err) => {
@@ -31,6 +32,7 @@ process.on('unhandledRejection', (err) => {
     logger.error(err.message);
     logger.debug(err.stack);
   }
+  showUserCrashReport(err);
   process.exit(0);
 });
 
@@ -61,6 +63,8 @@ const mkdirp = require('mkdirp');
 const { tmpdir } = require('os');
 const http = require('node:http');
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
+const Fuse = require('fuse-native');
+const Dialog = require('../lib/zenity.js');
 
 program.version(dusk.version.software);
 
@@ -93,6 +97,16 @@ program.option('--daemon, -D',
 
 program.option('--quiet, -Q', 
   'silence terminal output that is not necessary');
+
+program.option('--gui',
+  'prompt with graphical dialogs instead of command line prompts');
+
+program.option('--tray', 
+  'show system try icon and menu applet');
+
+program.option('--fuse <mountpath>',
+  'mount the virtual filesystem to the supplied path', 
+  path.join(homedir(), 'Desktop/dusk.virt'));
 
 program.option('--rpc [method] [params]', 
   'send a command to the daemon');
@@ -168,6 +182,8 @@ let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
 
+let _didSetup = false;
+
 function _setup() {
   return new Promise(async (resolve, reject) => {
     if (!program.Q) {
@@ -216,6 +232,7 @@ function _setup() {
       prettyPrint.stdout.pipe(process.stdout);
     }
 
+    _didSetup = true;
     resolve();
   });
 }
@@ -225,7 +242,9 @@ async function _init() {
   const fileSelector = (await import('inquirer-file-selector')).default;
   // import es modules
   
-  await _setup();
+  if (!_didSetup) {
+    await _setup();
+  }
 
   if (parseInt(config.TestNetworkEnabled)) {
     logger.info('dusk is running in test mode, difficulties are reduced');
@@ -248,22 +267,68 @@ async function _init() {
       }
     ];
 
-    const answers = await inquirer.default.prompt(questions);
+    let answers;
+    
+    if (!program.gui) {
+      answers = await inquirer.default.prompt(questions);
+    } else {
+      let d = new Dialog('I made you a key, enter a password to protect it?', {
+        text: `Your dusk key is stored encrypted on your device
+and is used to protect your files. Anyone with 
+your password and access to this device will be 
+able to view your data.`
+      });
+      d.password('password1', 'Set the password');
+      d.password('password2', 'Repeat password');
+      answers = d.show();
+
+      if (!answers) {
+        Dialog.info('You cancelled the setup. I will try again the next time you run dusk.', 'Error', 'error');
+        process.exit(1);
+      }
+    } 
 
     if (answers.password1 !== answers.password2) {
+      if (program.gui) {
+        Dialog.info('Passwords did not match, try again?', 'Error', 'error');
+        return _init();
+      }
       logger.error('Passwords do not match, try again?');
       return _init();
     }
+
+    if (answers.password1.trim() === '') {
+      let ignore;
+      const message = `You entered a blank password. Are you sure?`;
+
+      if (program.gui) {
+        ignore = {
+          useBlankPassword: Dialog.info(message, 'Confirm', 'question').status !== 1
+        };
+      } else {
+        ignore = await inquirer.default.prompt({
+          name: 'useBlankPassword',
+          type: 'confirm',
+          message
+        });
+      }
+
+      if (!ignore.useBlankPassword) {
+        return _init(); 
+      }
+    }
+
     const sk = dusk.utils.generatePrivateKey();
     const salt = fs.existsSync(config.PrivateKeySaltPath)
       ? fs.readFileSync(config.PrivateKeySaltPath)
       : crypto.getRandomValues(Buffer.alloc(16));
     const encryptedPrivKey = dusk.utils.passwordProtect(answers.password1, salt, sk);
+    
+    let words = bip39.entropyToMnemonic(sk.toString('hex'));
+    let wordlist = words.split(' ').map((word, i) => `${i+1}.  ${word}`);
+    words = wordlist.join('\n');
 
-    fs.writeFileSync(config.PrivateKeySaltPath, salt);
-    fs.writeFileSync(config.PrivateKeyPath, encryptedPrivKey);
-    fs.writeFileSync(config.PublicKeyPath, secp256k1.publicKeyCreate(sk));
-    console.log(`
+    const text = `
   Your key is protected, don\'t forget your password!
   Write these words down, keep them safe.
 
@@ -275,11 +340,43 @@ async function _init() {
   to this identity, including any data encrypted for 
   your secret key.
 
-  [  ${bip39.entropyToMnemonic(sk.toString('hex'))}  ]
-      
-  Come back and run dusk again where you\'re ready. ♥
-    `);
-    process.exit(0);
+  ${words}     
+
+  Come back where you\'re ready. ♥
+    `;
+
+    let savedWords = false;
+    
+    if (program.gui) {
+      savedWords = { 
+        iPromise: await Dialog.textInfo(words, 'Recovery Words', { 
+          checkbox: 'I have written down my recovery words.' 
+        }) === 0 
+      };
+    } else {
+      console.log(text);
+      savedWords = await inquirer.default.prompt({
+        name: 'iPromise',
+        type: 'confirm',
+        message: 'I have written down my recovery words.'
+      });
+    }
+
+    if (savedWords.iPromise) {
+      fs.writeFileSync(config.PrivateKeySaltPath, salt);
+      fs.writeFileSync(config.PrivateKeyPath, encryptedPrivKey);
+      fs.writeFileSync(config.PublicKeyPath, secp256k1.publicKeyCreate(sk));
+    } else {
+      const msg = 'I did not save your key and will exit. Try again.';
+      if (program.gui) {
+        Dialog.info(msg, 'Error', 'error');
+        process.exit(1);
+      } else {
+        console.error(msg);
+        process.exit(1);
+      }
+    }
+    return _init();
   }
 
   if (fs.existsSync(config.IdentityProofPath)) {
@@ -514,7 +611,14 @@ async function _init() {
       name: 'password',
       message: 'Enter password to unlock your key? ~>',
     }];
-    const answers = await inquirer.default.prompt(questions);
+    const answers = program.gui
+      ? { password: Dialog.password('Enter password', '🝰 dusk') }
+      : await inquirer.default.prompt(questions);
+
+    if (answers.password === null) {
+      process.exit(1);
+    }
+
     const salt = fs.readFileSync(config.PrivateKeySaltPath);
     const sk = dusk.utils.passwordUnlock(answers.password, salt, encryptedPrivKey);
     resolve(sk);
@@ -892,7 +996,19 @@ async function _init() {
 
   if (!identityHasValidProof) {
     console.log(`  identity proof not yet solved, this will take a moment...`);
+
+    let progress;
+    if (program.gui) {
+      progress = Dialog.progress(
+        'Generating a strong identity key. This can take a while, but only runs once.', 
+        '🝰 dusk', 
+        { pulsate: true, noCancel: true }
+      );
+    } 
     await identity.solve();
+    if (progress) {
+      progress.progress(100);
+    }
     fs.writeFileSync(config.IdentityNoncePath, identity.nonce.toString());
     fs.writeFileSync(config.IdentityProofPath, identity.proof);
     console.log('');
@@ -911,6 +1027,12 @@ async function _init() {
     process.exit(0);
   } else {
     initDusk();
+  }
+}
+
+function showUserCrashReport(err) {
+  if (program.gui) {
+    Dialog.info(err, '🝰 dusk: fatal', 'error');
   }
 }
 
@@ -950,7 +1072,14 @@ function registerControlInterface() {
 
 async function initDusk() {
   console.log('\n  starting dusk ♥ ');
+  let progress;
 
+  if (program.gui) {
+    progress = Dialog.progress('Connecting, hang tight! ♥', '🝰 dusk', {
+      pulsate: true,
+      noCancel: true
+    });
+  }
   // Initialize public contact data
   const contact = {
     hostname: '',
@@ -1015,8 +1144,6 @@ async function initDusk() {
 
   async function joinNetwork(callback) {
     let peers = config.NetworkBootstrapNodes;
-
-    // TODO read from datadir/seeds
     const seedsdir = path.join(program.datadir, 'seeds');
 
     if (!fs.existsSync(seedsdir)) {
@@ -1027,6 +1154,14 @@ async function initDusk() {
     }));
 
     if (peers.length === 0) {
+      if (progress) {
+        progress.progress(100);
+      }
+
+      if (program.gui) {
+        Dialog.info(`You are online, but have not added any peer links. Swap links with friends or team members and add them using the menu. I will still listen for incoming connections.`, '🝰 dusk', 'warning');
+      }
+
       logger.info('no bootstrap seeds provided');
       logger.info('running in seed mode (waiting for connections)');
 
@@ -1043,6 +1178,15 @@ async function initDusk() {
     }
 
     logger.info(`joining network from ${peers.length} seeds`);
+    
+    if (program.gui) {
+      progress.progress(100);
+      progress = Dialog.progress(`Joining network via ${peers.length} links...`, '🝰 dusk', {
+        pulsate: true,
+        noCancel: true
+      });
+    }
+
     async.detectSeries(peers, (url, done) => {
       const contact = dusk.utils.parseContactURL(url);
       logger.info('contacting', contact);
@@ -1050,17 +1194,23 @@ async function initDusk() {
         done(null, (err ? false : true) && node.router.size > 1);
       });
     }, (err, result) => {
+      if (program.gui) {
+        progress.progress(100);
+      }
       if (!result) {
         logger.error(err);
         logger.error('failed to join network, will retry in 1 minute');
+        if (program.gui) {
+          Dialog.info('Failed to join network. I will try again every minute until I get through.', '🝰 dusk', 'warn');
+        }
         callback(new Error('Failed to join network'));
-      } else {
+      } else { 
         callback(null, result);
       }
     });
   }
 
-  node.listen(parseInt(config.NodeListenPort), () => {
+  node.listen(parseInt(config.NodeListenPort), async () => {
     logger.info('dusk node is running! your identity is:');
     logger.info('');
     logger.info('');
@@ -1074,6 +1224,11 @@ async function initDusk() {
     );
     
     registerControlInterface();
+
+    if (program.tray) {
+      require('./tray.js')(await getRpcControl(), program, config, exitGracefully);
+    }
+
     async.retry({
       times: Infinity,
       interval: 60000
@@ -1082,7 +1237,12 @@ async function initDusk() {
         logger.error(err.message);
         process.exit(1);
       }
-
+      
+      if (program.gui) {
+        Dialog.notify(`Connected (${node.router.size} peers) ♥`, '🝰 dusk', 
+          path.join(__dirname, '../assets/images/favicon.png'));
+      }
+ 
       logger.info(`connected to network via ${entry}`);
       logger.info(`discovered ${node.router.size} peers from seed`);
     });
@@ -1110,6 +1270,7 @@ function getRpcControl() {
                parseInt(config.ControlSockEnabled)),
         'ControlSock and ControlPort cannot both be enabled');
     } catch (e) {
+      reject(e);
       console.error(e.message);
       process.exit(1);
     }
