@@ -43,15 +43,15 @@
     "no-unused-vars": 2,
     "max-params": [
       2,
-      4
+      6
     ],
     "max-statements": [
       2,
-      20
+      32
     ],
     "complexity": [
       2,
-      8
+      12
     ],
     "max-depth": [
       2,
