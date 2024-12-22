@@ -36,7 +36,7 @@ process.on('unhandledRejection', (err) => {
   process.exit(0);
 });
 
-const { spawn } = require('node:child_process');
+const { spawn, execSync } = require('node:child_process');
 const { homedir } = require('node:os');
 const assert = require('node:assert');
 const async = require('async');
@@ -103,6 +103,9 @@ program.option('--gui',
 
 program.option('--tray', 
   'show system try icon and menu applet');
+
+program.option('--install',
+  'writes linux .desktop entry to $HOME/.local/share/applications');
 
 program.option('--fuse <mountpath>',
   'mount the virtual filesystem to the supplied path', 
@@ -184,6 +187,26 @@ let config;
 let tray;
 
 let _didSetup = false;
+
+if (program.install) {
+  const binpath = execSync('which node').toString().trim();
+  const desktop = `[Desktop Entry]
+Name=dusk
+Comment=darknet under s/kademlia
+Terminal=false
+Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --tray %U
+Icon=${path.join(__dirname, '../assets/images/favicon.png')}
+Categories=Utility;
+Type=Application
+  `;
+
+  const writeOut = path.join(homedir(), '.local/share/applications/dusk.desktop');
+  console.log(`  Installing desktop entry to ${writeOut}...`);
+  fs.writeFileSync(writeOut, desktop);
+  console.log('');
+  console.log('  [ done! ♥ ]');
+  process.exit(0);
+}
 
 function _setup() {
   return new Promise(async (resolve, reject) => {
