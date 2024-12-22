@@ -481,7 +481,6 @@ able to view your data.`
       entry = fs.readFileSync(program.fileIn);
     }
 
-
     console.log('  encrypting input...');
     const encryptedFile = dusk.utils.encrypt(publicKey, entry);
     console.log('  shredding input and normalizing shard sizes...');
@@ -544,9 +543,17 @@ able to view your data.`
       );
     }
 
+    let progressBar;
+    
+    if (program.gui) {
+      progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
+        pulsate: true
+      });
+    }
+
     if (program.usb) { 
       console.log('');
-      await shoes.shred(dagEntry);
+      await shoes.shred(dagEntry, program, config, progressBar);
     } else if (program.dht) {
       console.log('');
       console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
@@ -561,8 +568,23 @@ able to view your data.`
       console.log('  Make sure you are safe to sit here for a moment and babysit me.');
       console.log('  We will do 512Kib at a time, until we are done.');
       console.log('');
-      
+            
       let ready = false;
+
+      if (program.gui) {
+        ready = Dialog.info(
+          `I connected to dusk's control port ♥ 
+
+I will attempt to store ${metaData.l.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
+
+Make sure you are safe to sit here for a moment and babysit me. We will do 512Kib at a time, until we are done.
+
+Ready?
+          `,
+          '🝰 dusk',
+          'question'
+        );
+      }
 
       while (!ready) {
         let answers = await inquirer.default.prompt({
@@ -587,6 +609,10 @@ able to view your data.`
 
       for (let i = 0; i < dagEntry.shards.length; i++) {
         let success;
+        if (progressBar) {
+          progressBar.progress((i / dagEntry.shards.length) * 100);
+          progressBar.text('Storing piece ' + dagEntry.merkle._leaves[i].toString('hex') + '...');
+        }
         console.log('  storevalue [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
         while (!success) {
           try {
@@ -595,22 +621,35 @@ able to view your data.`
           } catch (e) {
             console.error(e.message);
             console.log('');
-            let tryAgain = await inquirer.default.prompt({
-              type: 'confirm',
-              name: 'yes',
-              message: 'Would you like to try again? If not I will exit.'
-            });
+            if (program.gui) {
+              tryAgain = { yes: Dialog.info(
+                `I wasn't able to store the shard. Would you like to try again? If not, I will exit.`, 
+                  '🝰 dusk', 'question') };
+            } else {
+              tryAgain = await inquirer.default.prompt({
+                type: 'confirm',
+                name: 'yes',
+                message: 'Would you like to try again? If not I will exit.'
+              });
+            }
             if (!tryAgain.yes) {
               process.exit(1);
             }
           }
         }
       }
+      
+      if (program.gui) {
+        Dialog.notify('File was stored in the dusk network', 'Success!');
+      }
 
       console.log('  [  we did it ♥  ]');
       console.log('');
     } else { 
       for (let s = 0; s < dagEntry.shards.length; s++) {
+        if (progressBar) {
+          progressBar.progress((s / dagEntry.shards.length) * 100);
+        }
         if (program.fileOut) {
           fs.writeFileSync(path.join(
             program.fileOut, 
@@ -621,11 +660,20 @@ able to view your data.`
     }
 
     if (!program.Q) {
+      if (progressBar) {
+        progressBar.progress(100);
+      }
       if (program.fileOut) {
         console.log('');
         if (program.usb) {
+          if (program.gui) {
+            Dialog.notify('Be safe. ♥', 'Sneakernet created');
+          }
           console.log('sneakernet created ~ be safe  ♥ ');
         } else {
+          if (program.gui) {
+            Dialog.notify('Metadata was written to ' + program.fileOut, 'File uploaded',); 
+          }
           console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
         }
         console.log('meta hash ♥ ~ [  %s  ] ', metaHash160);
@@ -859,7 +907,7 @@ Ready?
       for (let i = 0; i < metaData.l.length; i++) {
         let success;
         if (progressBar) {
-          progressBar.progress(i + 1 / metaData.l.length);
+          progressBar.progress((i / metaData.l.length) * 100);
           progressBar.text(`Finding shard ${metaData.l[i].toString('hex')}...`);
         }
         console.log('  findvalue [  %s  ]', metaData.l[i].toString('hex'));
@@ -1121,7 +1169,7 @@ Ready?
         message: 'Enter a message to encrypt? ~>',
       }];
       const answers = program.gui
-        ? { pubkey: Dialog.entry('Enter a message to encrypt:', '🝰 dusk') }
+        ? { encrypt: Dialog.entry('Enter a message to encrypt:', '🝰 dusk') }
         : await inquirer.default.prompt(questions);
 
       if (!answers.encrypt) {
@@ -1411,7 +1459,7 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
 
       if (program.tray && tray) {
         tray.tray.onReady(() => {
-          tray.tray.sendAction(tray.STATUS_LISTENING);
+          tray.tray.sendAction(tray.NET_STATUS_LISTENING);
         });
       }
 
@@ -1459,6 +1507,9 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
         callback(new Error('Failed to join network'));
       } else { 
         callback(null, result);
+        if (program.tray && tray) {
+          tray.tray.sendAction(tray.NET_STATUS_CONNECTED);
+        }
       }
     });
   }

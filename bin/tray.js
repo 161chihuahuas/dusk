@@ -1,7 +1,7 @@
 'use strict';
 
 const Tray = require('systray').default;
-const { fork } = require('node:child_process');
+const { spawn, fork } = require('node:child_process');
 const path = require('node:path');
 const Dialog = require('../lib/zenity');
 const fs = require('node:fs');
@@ -11,7 +11,7 @@ function _dusk(args) {
 }
 
 function _init(rpc, program, config, exitGracefully) {
-  const STATUS_CONNECTING = { 
+  const NET_STATUS_CONNECTING = { 
     type: 'update-item', 
     seq_id: 0, 
     item: { 
@@ -20,7 +20,7 @@ function _init(rpc, program, config, exitGracefully) {
       title: '🔄  Connecting...' 
     }
   };
-  const STATUS_CONNECTED = { 
+  const NET_STATUS_CONNECTED = { 
     type: 'update-item', 
     seq_id: 0, 
     item: {
@@ -29,7 +29,7 @@ function _init(rpc, program, config, exitGracefully) {
       title: ' 🔐  Connected' 
     }
   };
-  const STATUS_LISTENING = { 
+  const NET_STATUS_LISTENING = { 
     type: 'update-item', 
     seq_id: 0, 
     item: {
@@ -39,7 +39,7 @@ function _init(rpc, program, config, exitGracefully) {
     }
   };
 
-  const FUSE_NOT_MOUNTED = {
+  const FUSE_STATUS_NOT_MOUNTED = {
     type: 'update-item',
     seq_id: 2,
     item: {
@@ -48,7 +48,7 @@ function _init(rpc, program, config, exitGracefully) {
       checked: false
     }
   };
-  const FUSE_MOUNTED = {
+  const FUSE_STATUS_MOUNTED = {
     type: 'update-item',
     seq_id: 2,
     item: {
@@ -57,7 +57,7 @@ function _init(rpc, program, config, exitGracefully) {
       checked: false
     }
   };
-  const FUSE_MOUNTING = {
+  const FUSE_STATUS_MOUNTING = {
     type: 'update-item',
     seq_id: 2,
     item: {
@@ -73,18 +73,28 @@ function _init(rpc, program, config, exitGracefully) {
       title: '🝰 dusk',
       tooltip: '🝰 dusk',
       items: [
-        STATUS_CONNECTING.item,
+        NET_STATUS_CONNECTING.item,
         {
           title: '🔍  Show network info',
           enabled: true,
           checked: false
         },
         {
-          title: '🔗  Link peer device',
+          title: '🔗  Manage device links',
           enabled: true,
           checked: false
         },
-        FUSE_NOT_MOUNTED.item, 
+        FUSE_STATUS_NOT_MOUNTED.item,
+        {
+          title: '🔑  Encryption utilities',
+          enabled: true,
+          check: false
+        },
+        {
+          title: '👟 USB sneakernet tools',
+          enabled: true,
+          checked: false
+        },
         {
           title: '🗜  Edit preferences',
           enabled: true,
@@ -114,18 +124,23 @@ function _init(rpc, program, config, exitGracefully) {
         showNetworkInfo(action);
         break;
       case 2: // Link peer device
-        linkPeerDevice(action);
+        manageDeviceLinks(action);
         break;
       case 3: // Mount virtual folders
         toggleMountVirtualFolders(action);
+      case 4: // Encryption tools dialogs
+        encryptionUtilities(actions);
         break;
-      case 4: // Edit preferences
+      case 5: // Sneakernet shred and retracing
+        createSneakernet(action);
+        break;
+      case 6: // Edit preferences
         editPreferences(action);
         break;
-      case 5: // View debug logs
+      case 7: // View debug logs
         viewDebugLogs(action);
         break;
-      case 6: // Disconnect and exit
+      case 8: // Disconnect and exit
         disconnectAndExit(action); 
         break;
       default:
@@ -137,11 +152,19 @@ function _init(rpc, program, config, exitGracefully) {
 
   }
 
-  function linkPeerDevice(actions) {
+  function manageDeviceLinks(actions) {
 
   }
 
   function toggleMountVirtualFolders(action) {
+
+  }
+
+  function encryptionUtilities(action) {
+
+  }
+
+  function createSneakernet(action) {
 
   }
 
@@ -162,9 +185,12 @@ function _init(rpc, program, config, exitGracefully) {
 
   return {
     tray,
-    STATUS_CONNECTING,
-    STATUS_LISTENING,
-    STATUS_CONNECTED
+    NET_STATUS_CONNECTING,
+    NET_STATUS_LISTENING,
+    NET_STATUS_CONNECTED,
+    FUSE_STATUS_MOUNTED,
+    FUSE_STATUS_NOT_MOUNTED,
+    FUSE_STATUS_MOUNTING
   };
 };
 

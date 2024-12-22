@@ -9,7 +9,7 @@ const dusk = require('../index.js');
 const fs = require('node:fs');
 
 
-module.exports.shred = function(dagEntry) {
+module.exports.shred = function(dagEntry, program, config, progressBar) {
   return new Promise(async (resolve, reject) => {
     // take a shard array and shoesmanifest and distribute the shards onto
     // shoes usbs through interactive prompt
@@ -17,7 +17,7 @@ module.exports.shred = function(dagEntry) {
       {
         type: 'number',
         name: 'numDrives',
-        message: 'How many dusk/SHOES USBs are we shredding to (excluding this one)?'
+        message: 'How many USB drives are we shredding to (excluding this one)?'
       }
     ];
 
