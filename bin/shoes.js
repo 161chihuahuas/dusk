@@ -20,10 +20,14 @@ module.exports.shred = function(dagEntry) {
         message: 'How many dusk/SHOES USBs are we shredding to (excluding this one)?'
       }
     ];
+
+    // TODO gui dialog
     const setup = await inquirer.prompt(setupQs);
     const shardsPerUsb = Math.ceil(dagEntry.shards.length / setup.numDrives);
     
     let datadir;
+
+    // TODO gui dialog
 
     console.log('');
     console.log('  You are USER 0, which means this data will be');
@@ -42,8 +46,10 @@ module.exports.shred = function(dagEntry) {
       console.log('');
       if (i % shardsPerUsb === 0) {
         if (i + 1 > setup.numDrives) {
+          // TODO gui dialog
           console.log(`  Ok, USER 0, it's you again to finish the process.`);
         } else {
+          // TODO gui dialog
           console.log(`  I'm ready for USER ${i + 1}.`);
         }
         console.log('');
@@ -57,9 +63,10 @@ module.exports.shred = function(dagEntry) {
       );
     }
 
+    // TODO gui dialog
     console.log('');
     console.log('  All finished! USER 0, you can retrace this file by running:');
-    console.log('    [ dusk --retrace --shoes]');
+    console.log('    [ dusk --retrace --usb]');
     console.log('');
 
     resolve();
@@ -78,6 +85,7 @@ module.exports.retrace = function(meta) {
         message: 'How many dusk/SHOES USBs are we retracing from?'
       }
     ];
+    // TODO gui dialog
     console.log('');
     const setup = await inquirer.prompt(setupQs);
     console.log('');
@@ -90,6 +98,7 @@ module.exports.retrace = function(meta) {
     
     while (drivesChecked < setup.numDrives) {
       if (Object.keys(shardMap).length >= meta.l.length - meta.p) {
+        // TODO gui dialog
         console.log('  I have enough information to retrace already ♥ ');
         console.log('');
         const keepGoing = await inquirer.prompt({
@@ -103,6 +112,7 @@ module.exports.retrace = function(meta) {
         }
       }
       
+      // TODO gui dialog
       console.log('');
       console.log('  Ok, I\'m ready to retrace. It doesn\'t matter');
       console.log('  what order we go in, so decide amongst yourselves.');
@@ -119,6 +129,7 @@ module.exports.retrace = function(meta) {
         }
       }
 
+      // TODO gui dialog
       console.log(`  I found ${foundParts} parts on this dusk/SHOES USB.`);
       console.log('');
       drivesChecked++;
@@ -143,6 +154,7 @@ module.exports.init = function(program, config) {
 ;
 module.exports.mount = function() {
   return new Promise(async (resolve, reject) => {
+    // TODO gui dialog
     console.log('  [ Eject and remove any dusk/SHOES USBs ... ]');
     console.log('');
     const ejected = await inquirer.prompt({
@@ -152,18 +164,21 @@ module.exports.mount = function() {
     });
 
     if (!ejected.yes) {
+      // TODO gui dialog
       console.error('Eject dusk/SHOES USB and try again.');
       return module.exports.mount();
     }
 
     const drives = (await drivelist.list()).map(d => d.device);
 
+    // TODO gui progress
     console.log('');
     console.log('  [ Insert your dusk/SHOES USB ] ');
     console.log('  [ I will wait for you  ♥ ... ]');
     console.log('');
 
     usb.usb.once('attach', async (device) => {
+      // TODO gui dialogs
       const confirm = await inquirer.prompt([{
         type: 'confirm',
         name: 'inserted',
@@ -175,11 +190,13 @@ module.exports.mount = function() {
       }]);
 
       if (!confirm.inserted) {
+        // TODO gui dialog
         console.warn('That\'s sus, friend, I\'m going to abort this.');
         process.exit(1);
       }
 
       if (!confirm.mounted) {
+        // TODO gui dialog
         console.warn('Try a different usb drive and start over.');
         process.exit(1);
       }
@@ -190,6 +207,7 @@ module.exports.mount = function() {
       }).pop();
 
       if (!drive) {
+        // TODO gui dialog
         console.error('I wasn\'t able to find the new USB drive, sorry.');
         process.exit(1);
       }
@@ -205,12 +223,14 @@ module.exports.mount = function() {
       }
 
       if (!datadir) {
+        // TODO gui dialog
         console.error('I wasn\'t able to find the mount point, sorry.');
         process.exit(1);
       }
 
       datadir = path.join(datadir, '.dusk');
 
+      // TODO gui dialog?
       console.log(`  Using datadir: ${datadir}`);
       resolve(datadir);
     });

@@ -208,6 +208,15 @@ Type=Application
   process.exit(0);
 }
 
+function _config() {
+  if (program.datadir) {
+    argv = { config: path.join(program.datadir, 'config') };
+    program.config = argv.config;
+  }
+
+  config = rc('dusk', options(program.datadir), argv);
+}
+
 function _setup() {
   return new Promise(async (resolve, reject) => {
     if (!program.Q) {
@@ -218,17 +227,11 @@ function _setup() {
       program.datadir = await shoes.mount();
     }
 
-    if (program.datadir) {
-      argv = { config: path.join(program.datadir, 'config') };
-      program.config = argv.config;
-    }
-
     if (program.testnet) {
       process.env.dusk_TestNetworkEnabled = '1';
     }
 
-
-    config = rc('dusk', options(program.datadir), argv);
+    _config();
 
     // Initialize logging
     const prettyPrint = spawn(
@@ -434,7 +437,9 @@ able to view your data.`
       process.exit(1);
     }
 
-    if (program.Q) {
+    if (program.gui) {
+      Dialog.entry('Shareable device link:', '🝰 dusk', pubbundle);
+    } else if (program.Q) {
       console.log(pubbundle);
     } else {
       console.log('public dusk link ♥ ~ [  %s  ] ', pubbundle);
@@ -453,6 +458,9 @@ able to view your data.`
     if (typeof program.shred === 'string') {
       entry = Buffer.from(program.shred, 'hex');
     } else if (typeof program.fileIn === 'string') {
+      entry = fs.readFileSync(program.fileIn);
+    } else if (program.gui) { 
+      program.fileIn = Dialog.file('file', false, false);
       entry = fs.readFileSync(program.fileIn);
     } else {
       program.fileIn = await fileSelector({
@@ -494,19 +502,21 @@ able to view your data.`
           'shoes.meta',
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
-      } else if (program.dht) {
+      } else {
         program.fileOut = path.join(
           program.datadir,
           'dusk.meta',
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
-      } else {
-        program.fileOut = `${Date.now()}-${program.fileOut}`;
       }
       mkdirp.sync(program.fileOut);
     }
 
     if (fs.existsSync(program.fileOut) && fs.readdirSync(program.fileOut).length) {
+      if (program.gui) {
+        Dialog.info(`The file ${program.fileOut} already exists. I won't overwrite it`,
+          'Sorry', 'error');
+      }
       console.error('file %s already exists, i won\'t overwrite it', program.fileOut);
       process.exit(1);
     }
@@ -681,26 +691,31 @@ able to view your data.`
 
         if (program.usb) {
           basePath = path.join(program.datadir, 'shoes.meta');
-        } else if (program.dht) {
-          basePath = path.join(program.datadir, 'dusk.meta');
         } else {
-          basePath = process.cwd();
+          basePath = path.join(program.datadir, 'dusk.meta');
         }
-
-        program.retrace = await fileSelector({
-          type:'directory',
-          basePath,
-          message: 'Select .duskbundle:',
-          filter: (stat) => {
-            return path.extname(stat.name) === '.duskbundle' || stat.isDirectory();
-          }
-        });
+        
+        if (program.gui) {
+          program.retrace = Dialog.file('directory', false, basePath + '/');
+        } else {
+          program.retrace = await fileSelector({
+            type:'directory',
+            basePath,
+            message: 'Select .duskbundle:',
+            filter: (stat) => {
+              return path.extname(stat.name) === '.duskbundle' || stat.isDirectory();
+            }
+          });
+        }
       }
     }
       
     console.log(`  Validating .duskbundle ...`);
 
     if (path.extname(program.retrace) !== '.duskbundle') {
+
+      // TODO gui dialog
+
       console.error('  The path specified does not have a .duskbundle extension.');
       console.error('  Did you choose the right folder?');
       console.error('  If you renamed the folder, make sure it ends in .duskbundle');
@@ -711,9 +726,15 @@ able to view your data.`
     const metaFiles = bundleContents.filter(f => path.extname(f) === '.meta');
 
     if (metaFiles.length > 1) {
+
+      // TODO gui dialog
+
       console.error('i found more than one meta file and don\'t know what to do');
       process.exit(1);
     } else if (metaFiles.length === 0) {
+
+      // TODO gui dialog
+
       console.error('missing a meta file, i don\'t know how to retrace this bundle');
       process.exit(1);
     }
@@ -724,6 +745,8 @@ able to view your data.`
     ).toString('utf8'));
     
     let missingPieces = 0;
+
+    // TODO gui dialog
 
     console.log('  read meta file successfully ♥ ');
     console.log('');
@@ -738,6 +761,7 @@ able to view your data.`
           missingPieces++;
         
           if (missingPieces > metaData.p) {
+            // TODO gui dialog
             console.error('too many missing shards to recover this file');
             process.exit(1);
           }  
@@ -748,6 +772,9 @@ able to view your data.`
       });
     } else if (program.dht) {
       shards = [];
+
+      // TODO gui dialog
+
       console.log('');
       console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
       const rpc = await getRpcControl();
@@ -765,6 +792,9 @@ able to view your data.`
       let ready = false;
 
       while (!ready) {
+
+        // TODO gui dialog
+
         let answers = await inquirer.default.prompt({
           type: 'confirm',
           name: 'ready',
@@ -800,15 +830,22 @@ able to view your data.`
           } catch (e) {
             console.error(e.message);
             console.log('');
+
+            // TODO gui prompt
+
             let tryAgain = await inquirer.default.prompt({
               type: 'confirm',
               name: 'yes',
               message: 'Would you like to try again? If not I will skip it.'
             });
+
             if (!tryAgain.yes) {
               missingPieces++;
               
               if (missingPieces > metaData.p) {
+
+                // TODO gui dialog
+
                 console.error('too many missing shards to recover this file');
                 process.exit(1);
               }
@@ -821,6 +858,8 @@ able to view your data.`
         }
       }
 
+      // TODO gui dialog 
+      
       console.log('');
       console.log('  [  we did it ♥  ]');
       console.log('');
@@ -832,6 +871,8 @@ able to view your data.`
           missingPieces++;
 
           if (missingPieces > metaData.p) {
+            // TODO gui dialog
+
             console.error('too many missing shards to recover this file');
             process.exit(1);
           }
@@ -841,6 +882,8 @@ able to view your data.`
         return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
       });
     }
+
+    // TODO gui notify
 
     console.log('');
     console.log('  [ I reconstructed the encrypted and erasure coded buffer ♥ ]');
@@ -858,12 +901,15 @@ able to view your data.`
     }
 
     if (program.usb) {
+      // TODO gui dialog
+
       console.log('  USER 0, I\'m ready to finish retracing and save to');
       console.log('  your dusk/SHOES USB.');
       console.log('');
       program.datadir = await shoes.mount();
     }
 
+    // TODO always write to tmp if not a usb
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
     const dirname = path.dirname(program.usb ? program.datadir : unbundledFilename);
@@ -873,11 +919,15 @@ able to view your data.`
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
 
     if (fs.existsSync(filename)) {
+      // TODO gui dialog
+
       console.error(`${filename} already exists, I won't overwrite it.`);
       process.exit(1);
     }
 
     fs.writeFileSync(filename, trimmedFile);
+
+    // TODO gui dialog
     console.log('');
     console.log(`  [ File retraced successfully ♥ ]`);
     console.log(`  [ I saved it to ${filename} ♥ ]`);
@@ -886,7 +936,9 @@ able to view your data.`
   }
  
   if (program.exportSecret) {
-    if (program.Q) {
+    if (program.gui) {
+      // TODO gui dialog
+    } else if (program.Q) {
       console.log(privkey.toString('hex'));
     } else {
       console.log('secret key ♥ ~ [  %s  ] ', privkey.toString('hex'));
@@ -895,7 +947,9 @@ able to view your data.`
   }
 
   if (program.exportRecovery) {
-    if (program.Q) {
+    if (program.gui) {
+      // TODO gui dialog
+    } else if (program.Q) {
       console.log(bip39.entropyToMnemonic(privkey.toString('hex')));
     } else {
       console.log('recovery words ♥ ~ [  %s  ] ', bip39.entropyToMnemonic(privkey.toString('hex')));
@@ -906,6 +960,7 @@ able to view your data.`
 
   if (program.encrypt) {
     if (program.ephemeral && program.pubkey) {
+      // TODO gui dialog
       console.error('i don\'t know how to encrypt this because --ephemeral and --pubkey contradict');
       console.error('choose one or the other');
       process.exit(1);
@@ -915,6 +970,8 @@ able to view your data.`
       const sk = dusk.utils.generatePrivateKey();
       const words = bip39.entropyToMnemonic(sk.toString('hex'));
       program.pubkey = Buffer.from(secp256k1.publicKeyCreate(sk));
+
+      //TODO GUI DIALOG
 
       console.log(`
   I generated a new key, but I didn't store it.
@@ -935,9 +992,18 @@ able to view your data.`
       }
     }
 
-    if (program.fileIn) {
+    if (typeof program.fileIn === 'string') {
       program.encrypt = fs.readFileSync(program.fileIn);
+    } else if (program.fileIn) {
+      if (program.gui) {
+        program.encrypt = fs.readFileSync(Dialog.file('file', false, false));
+      } else {
+        program.encrypt = fs.readFileSync(await fileSelector({ 
+          message: 'Select file to encrypt' 
+        })); 
+      }
     } else if (!dusk.utils.isHexaString(program.encrypt)) {
+      // TODO gui dialog
       console.error('String arguments to --encrypt [message] must be hexidecimal');
       program.encrypt = Buffer.from(program.encrypt, 'hex');
       process.exit(1);
@@ -947,9 +1013,12 @@ able to view your data.`
     
     if (program.fileOut) {
       if (fs.existsSync(program.fileOut)) {
+        // TODO gui dialog
         console.error('file already exists, i won\'t overwrite it');
         process.exit(1);
       }
+
+      // TODO gui dialog
       fs.writeFileSync(program.fileOut, ciphertext);
       console.log('encrypted ♥ ~ [  file: %s  ] ', program.fileOut);
     } else if (!program.Q) {
@@ -962,7 +1031,9 @@ able to view your data.`
   }
 
   if (program.pubkey) {
-    if (!program.Q) {
+    if (program.gui) {
+      // TODO gui dialog
+    } else if (!program.Q) {
       console.log('public key ♥ ~ [  %s  ] ', pubkey);
     } else {
       console.log(pubkey);
@@ -986,9 +1057,11 @@ able to view your data.`
       }
       cleartext = dusk.utils.decrypt(privkey.toString('hex'), Buffer.from(program.decrypt, 'hex'));
     } else {
-      const filepath = typeof program.fileIn === 'string' ?
-        program.fileIn :
-        await fileSelector({ message: 'Select file to decrypt' });
+      const filepath = typeof program.fileIn === 'string' 
+        ? program.fileIn 
+        : program.gui 
+          ? Dialog.file('file', false, false)
+          : await fileSelector({ message: 'Select file to decrypt' });
       try {
         cleartext = dusk.utils.decrypt(privkey.toString('hex'), 
           fs.readFileSync(filepath));
@@ -998,7 +1071,9 @@ able to view your data.`
       }
     }
 
-    if (!program.Q) {
+    if (program.gui) {
+      // TODO gui dialog
+    } else if (!program.Q) {
       console.log('decrypted ♥ ~ [  %s  ] ', cleartext);
     } else {
       console.log(cleartext);
@@ -1045,6 +1120,7 @@ able to view your data.`
   console.log(`  fingerprint [ ${identity.fingerprint.toString('hex')} ]`);
 
   if (program.usb) {
+    // TODO gui dialog
     console.log('');
     await shoes.init(program, config, privkey, identity);
     console.log('\n  [ created dusk/SHOES USB ♥ ] ');
@@ -1395,9 +1471,40 @@ if (program.rpc || program.repl) {
       });
     }
   }
-} else if (program.F) {
+} else if (program.F) { // --logs
+  _config();
+
+  if (program.gui) {
+    const rawLogs = execSync('tail -n 500 ' + config.LogFilePath)
+      .toString().split('\n');
+    const values = [];
+    const parsedLogs = rawLogs.map(l => {
+      try {
+        return JSON.parse(l);
+      } catch (e) {
+        return {};
+      }
+    });
+    parsedLogs.forEach(log => {
+      values.push([log.time, log.level, log.msg]);
+    });
+    return Dialog.list('🝰 dusk', 'Debugging Logs', values, [
+      'Time', 'Type', 'Message'
+    ], {
+      width: 1024,
+      height: 768,
+      multiple: true,
+      editable: true
+    });
+  }
+
   const tail = spawn('tail', ['-f', config.LogFilePath]);
-  tail.stdout.pipe(prettyPrint.stdin).pipe(process.stdout);
+  const pretty = spawn(
+    path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
+    ['--color']
+  );
+  pretty.stdout.pipe(process.stdout);
+  tail.stdout.pipe(pretty.stdin);
 } else if (program.testHooks) {
   console.log(description);
   console.log('');
@@ -1450,16 +1557,21 @@ if (program.rpc || program.repl) {
   });
 } else if (typeof program.link === 'string') {
   console.log(description);
+
+  // TODO gui dialog
+
   try {
     const [id, contact] = dusk.utils.parseContactURL(program.link);
     const seedsdir = path.join(program.datadir, 'seeds');
-
+    // TODO gui dialog
     console.log('  saving seed to %s', seedsdir);
     console.log('  i will connect to this node on startup');
     fs.writeFileSync(path.join(seedsdir, id), program.link);
+    // TODO gui dialog
     console.log('');
     console.log('  [  done ♥  ]')
   } catch (e) {
+    // TODO gui dialog
     console.error(e.message);
     process.exit(1);
   }
@@ -1467,14 +1579,16 @@ if (program.rpc || program.repl) {
   console.log(description);
   try {
     const seedsdir = path.join(program.datadir, 'seeds');
-
+    // TODO gui dialog
     console.log('  removing %s from %s', program.unlink, seedsdir);
     console.log('');
     console.log('  i will not connect to this node on startup');
     fs.unlinkSync(path.join(seedsdir, program.unlink));
+    // TODO gui dialog
     console.log('');
     console.log('  [  done ♥  ]')
   } catch (e) {
+    // TODO gui dialog
     console.error(e.message);
     process.exit(1);
   }
