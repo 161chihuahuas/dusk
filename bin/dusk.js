@@ -1779,6 +1779,15 @@ if (program.rpc || program.repl) {
     const seedsdir = path.join(program.datadir, 'seeds');
     let idOrShortname;
 
+    if (fs.readdirSync(seedsdir).length === 0) {
+      if (program.gui) {
+        Dialog.info('No devices to unlink.', 'Sorry', 'error');
+      } else {
+        console.error('No devices to unlink.')
+      }
+      process.exit(1);
+    }
+
     if (program.unlink === true) {
       let answer;
       const choices = {
