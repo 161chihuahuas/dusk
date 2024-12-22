@@ -1,23 +1,13 @@
 'use strict';
 
 const Tray = require('systray').default;
-const { exec } = require('node:child_process');
+const { fork } = require('node:child_process');
 const path = require('node:path');
 const Dialog = require('../lib/zenity');
 const fs = require('node:fs');
 
 function _dusk(args) {
-  return new Promise((resolve, reject) => {
-    exec(path.join(__dirname, 'dusk.js') + ' ' + args.join(' '), (err, stdout, stderr) => {
-      if (err) {
-        return reject(err);
-      } else if (stderr) {
-        return reject(new Error(stderr));
-      } else {
-        return resolve(stdout);
-      }
-    });
-  });
+  return fork(path.join(__dirname, 'dusk.js'), args);
 }
 
 function _init(rpc, program, config, exitGracefully) {
@@ -160,7 +150,7 @@ function _init(rpc, program, config, exitGracefully) {
   }
 
   function viewDebugLogs(action) {
-    
+    _dusk(['--logs', '--gui']);    
   }
 
   function disconnectAndExit(action) {
