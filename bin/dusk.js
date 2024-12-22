@@ -65,6 +65,12 @@ const http = require('node:http');
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
 const Fuse = require('fuse-native');
 const Dialog = require('../lib/zenity.js');
+const { 
+  uniqueNamesGenerator, 
+  adjectives, 
+  colors, 
+  animals 
+} = require('unique-names-generator');
 
 program.version(dusk.version.software);
 
@@ -123,14 +129,20 @@ program.option('--control-port <port>',
 program.option('--control-sock <path>', 
   'use with --repl / --rpc to set the control socket to connect to');
 
-program.option('--logs, -F', 
+program.option('--logs, -F [num_lines]', 
   'tails the log file defined in the config');
 
-program.option('--link [dref]', 
-  'adds a startup seed if one is supplied, otherwise shows our dref');
+program.option('--show-links', 
+  'shows a list of saved startup seeds / linked devices')
 
-program.option('--unlink <id>',
+program.option('--link [dref]', 
+  'adds a startup seed / device link');
+
+program.option('--unlink [id_or_shortname]',
   'removes the given startup seed');
+
+program.option('--export-link', 
+  'shows our shareable device link');
 
 program.option('--export-secret', 
   'dumps the private identity key');
@@ -427,7 +439,7 @@ able to view your data.`
     process.exit(0);
   }
 
-  if (program.link === true) {  
+  if (program.exportLink) {  
     let pubbundle
 
     try {
@@ -714,7 +726,9 @@ able to view your data.`
 
     if (path.extname(program.retrace) !== '.duskbundle') {
 
-      // TODO gui dialog
+      if (program.gui) {
+        Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
+      }
 
       console.error('  The path specified does not have a .duskbundle extension.');
       console.error('  Did you choose the right folder?');
@@ -727,14 +741,18 @@ able to view your data.`
 
     if (metaFiles.length > 1) {
 
-      // TODO gui dialog
+      if (program.gui) {
+        Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
+      }
 
       console.error('i found more than one meta file and don\'t know what to do');
       process.exit(1);
     } else if (metaFiles.length === 0) {
 
-      // TODO gui dialog
-
+      if (program.gui) {
+        Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
+      }
+     
       console.error('missing a meta file, i don\'t know how to retrace this bundle');
       process.exit(1);
     }
@@ -745,8 +763,13 @@ able to view your data.`
     ).toString('utf8'));
     
     let missingPieces = 0;
-
-    // TODO gui dialog
+    let progressBar;
+    
+    if (program.gui) {
+      progressBar = Dialog.progress('Retracing file ♥ ...', '🝰 dusk', {
+        pulsate: true
+      });
+    }
 
     console.log('  read meta file successfully ♥ ');
     console.log('');
@@ -761,7 +784,11 @@ able to view your data.`
           missingPieces++;
         
           if (missingPieces > metaData.p) {
-            // TODO gui dialog
+            if (program.gui) {
+              progressBar.progress(100);
+              Dialog.info('Too many missing pieces to recover this file', 
+                'Sorry', 'error');
+            }
             console.error('too many missing shards to recover this file');
             process.exit(1);
           }  
@@ -772,8 +799,6 @@ able to view your data.`
       });
     } else if (program.dht) {
       shards = [];
-
-      // TODO gui dialog
 
       console.log('');
       console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
@@ -787,14 +812,26 @@ able to view your data.`
       console.log('');
       console.log('  Make sure you are safe to sit here for a moment and babysit me.');
       console.log('  We will do 512Kib at a time, until we are done.');
-      console.log('');
+      console.log(''); 
       
       let ready = false;
 
+      if (program.gui) {
+        ready = Dialog.info(
+          `I connected to dusk's control port ♥ 
+
+I will attempt to find ${metaData.l.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
+
+Make sure you are safe to sit here for a moment and babysit me. We will do 512Kib at a time, until we are done.
+
+Ready?
+          `,
+          '🝰 dusk',
+          'question'
+        );
+      }
+
       while (!ready) {
-
-        // TODO gui dialog
-
         let answers = await inquirer.default.prompt({
           type: 'confirm',
           name: 'ready',
@@ -804,6 +841,7 @@ able to view your data.`
       }
 
       console.log('');
+      
       function findvalue(hexKey) {
         return new Promise((resolve, reject) => {
           rpc.invoke('findvalue', [hexKey], (err, data) => {
@@ -820,6 +858,10 @@ able to view your data.`
 
       for (let i = 0; i < metaData.l.length; i++) {
         let success;
+        if (progressBar) {
+          progressBar.progress(i + 1 / metaData.l.length);
+          progressBar.text(`Finding shard ${metaData.l[i].toString('hex')}...`);
+        }
         console.log('  findvalue [  %s  ]', metaData.l[i].toString('hex'));
         while (!success) {
           try {
@@ -830,21 +872,28 @@ able to view your data.`
           } catch (e) {
             console.error(e.message);
             console.log('');
+            let tryAgain;
 
-            // TODO gui prompt
-
-            let tryAgain = await inquirer.default.prompt({
-              type: 'confirm',
-              name: 'yes',
-              message: 'Would you like to try again? If not I will skip it.'
-            });
+            if (program.gui) {
+              tryAgain = { yes: Dialog.info(
+                `I wasn't able to find the shard. Would you like to try again? If not, I will skip it.`, 
+                  '🝰 dusk', 'question') };
+            } else {
+              tryAgain = await inquirer.default.prompt({
+                type: 'confirm',
+                name: 'yes',
+                message: 'Would you like to try again? If not I will skip it.'
+              });
+            }
 
             if (!tryAgain.yes) {
               missingPieces++;
               
               if (missingPieces > metaData.p) {
-
-                // TODO gui dialog
+                if (program.gui) {
+                  Dialog.info('Too many missing pieces to recover this file right now.', 
+                    'Sorry', 'error');
+                }
 
                 console.error('too many missing shards to recover this file');
                 process.exit(1);
@@ -856,9 +905,7 @@ able to view your data.`
             }
           }
         }
-      }
-
-      // TODO gui dialog 
+      } 
       
       console.log('');
       console.log('  [  we did it ♥  ]');
@@ -871,8 +918,10 @@ able to view your data.`
           missingPieces++;
 
           if (missingPieces > metaData.p) {
-            // TODO gui dialog
-
+            if (program.gui) {
+              Dialog.info('Too many missing pieces to recover this file right now.', 
+                'Sorry', 'error');
+            }
             console.error('too many missing shards to recover this file');
             process.exit(1);
           }
@@ -883,13 +932,18 @@ able to view your data.`
       });
     }
 
-    // TODO gui notify
+    if (progressBar) {
+      progressBar.text(' I reconstructed the encrypted file ♥ ');
+    }
 
     console.log('');
     console.log('  [ I reconstructed the encrypted and erasure coded buffer ♥ ]');
     console.log('');
     
     if (missingPieces) {
+      if (progressBar) {
+        progressBar.text('There were some missing pieces. I will try to recover them...');
+      }
       console.log('  attempting to encode missing parts from erasure codes...')
       shards = splitSync(await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
         bytes: dusk.DAGEntry.INPUT_SIZE
@@ -900,8 +954,14 @@ able to view your data.`
       shards.pop();
     }
 
+    if (progressBar) {
+      progressBar.progress(100);
+    }
+
     if (program.usb) {
-      // TODO gui dialog
+      if (program.gui) {
+        Dialog.info('USER 0, I am ready to finish retracing and save to you USB drive.', '🝰 dusk', 'info');
+      }
 
       console.log('  USER 0, I\'m ready to finish retracing and save to');
       console.log('  your dusk/SHOES USB.');
@@ -909,7 +969,6 @@ able to view your data.`
       program.datadir = await shoes.mount();
     }
 
-    // TODO always write to tmp if not a usb
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
     const dirname = path.dirname(program.usb ? program.datadir : unbundledFilename);
@@ -919,7 +978,9 @@ able to view your data.`
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
 
     if (fs.existsSync(filename)) {
-      // TODO gui dialog
+      if (program.gui) {
+        Dialog.info(`${filename} already exists. I won't overwrite it.`, 'Sorry', 'error');
+      }
 
       console.error(`${filename} already exists, I won't overwrite it.`);
       process.exit(1);
@@ -927,7 +988,10 @@ able to view your data.`
 
     fs.writeFileSync(filename, trimmedFile);
 
-    // TODO gui dialog
+    if (program.gui) {
+      Dialog.notify(`Retraced successfully!\nSaved to ${filename}`, '🝰 dusk');
+    }
+
     console.log('');
     console.log(`  [ File retraced successfully ♥ ]`);
     console.log(`  [ I saved it to ${filename} ♥ ]`);
@@ -937,7 +1001,7 @@ able to view your data.`
  
   if (program.exportSecret) {
     if (program.gui) {
-      // TODO gui dialog
+      Dialog.entry('Private Key:', '🝰 dusk', privkey.toString('hex'));
     } else if (program.Q) {
       console.log(privkey.toString('hex'));
     } else {
@@ -947,8 +1011,12 @@ able to view your data.`
   }
 
   if (program.exportRecovery) {
+    let words = bip39.entropyToMnemonic(privkey.toString('hex'));
+    let wordlist = words.split(' ').map((word, i) => `${i+1}.  ${word}`);
+    words = wordlist.join('\n');
+
     if (program.gui) {
-      // TODO gui dialog
+      Dialog.textInfo(words, 'Recovery Words');
     } else if (program.Q) {
       console.log(bip39.entropyToMnemonic(privkey.toString('hex')));
     } else {
@@ -960,7 +1028,9 @@ able to view your data.`
 
   if (program.encrypt) {
     if (program.ephemeral && program.pubkey) {
-      // TODO gui dialog
+      if (program.gui) {
+        Dialog.info('I cannot encrypt, because i got contradicting input.', 'Sorry', 'error');
+      }
       console.error('i don\'t know how to encrypt this because --ephemeral and --pubkey contradict');
       console.error('choose one or the other');
       process.exit(1);
@@ -968,12 +1038,12 @@ able to view your data.`
 
     if (program.ephemeral) {
       const sk = dusk.utils.generatePrivateKey();
-      const words = bip39.entropyToMnemonic(sk.toString('hex'));
+      let words = bip39.entropyToMnemonic(sk.toString('hex'));
+      let wordlist = words.split(' ').map((word, i) => `${i+1}.  ${word}`);
+      words = wordlist.join('\n');
       program.pubkey = Buffer.from(secp256k1.publicKeyCreate(sk));
 
-      //TODO GUI DIALOG
-
-      console.log(`
+      const text = `
   I generated a new key, but I didn't store it.
   I'll encrypt using it, but you'll need to write these words down:
 
@@ -981,12 +1051,54 @@ able to view your data.`
 
   If you lose these words, you won't be able to recover this file from
   a reconstructed bundle - it will be gone forever.
-      `);
+      `;
+
+      let savedWords = false;
+      
+      if (program.gui) {
+        savedWords = { 
+          iPromise: await Dialog.textInfo(words, 'Recovery Words', { 
+            checkbox: 'I have written down my recovery words.' 
+          }) === 0 
+        };
+      } else {
+        console.log(text);
+        savedWords = await inquirer.default.prompt({
+          name: 'iPromise',
+          type: 'confirm',
+          message: 'I have written down my recovery words.'
+        });
+      }
+
+      if (!savedWords.iPromise) {
+        const msg = 'I did will not proceed. Try again.';
+        if (program.gui) {
+          Dialog.info(msg, 'Error', 'error');
+          process.exit(1);
+        } else {
+          console.error(msg);
+          process.exit(1);
+        }  
+      }
     }
 
     if (!Buffer.isBuffer(program.pubkey)) {
       if (typeof program.pubkey === 'string') {
         pubkey = program.pubkey;
+      } else if (program.pubkey === true) {
+        const questions = [{
+          type: 'text',
+          name: 'pubkey',
+          message: 'Enter public key to use for encryption? ~>',
+        }];
+        const answers = program.gui
+          ? { pubkey: Dialog.entry('Enter public key to use for encryption', '🝰 dusk') }
+          : await inquirer.default.prompt(questions);
+
+        if (!answers.pubkey) {
+          process.exit(1);
+        }
+        program.pubkey = answers.pubkey;
       } else {
         pubkey = Buffer.from(secp256k1.publicKeyCreate(privkey)).toString('hex');
       }
@@ -1002,10 +1114,27 @@ able to view your data.`
           message: 'Select file to encrypt' 
         })); 
       }
+    } else if (program.encrypt === true) {
+      const questions = [{
+        type: 'text',
+        name: 'encrypt',
+        message: 'Enter a message to encrypt? ~>',
+      }];
+      const answers = program.gui
+        ? { pubkey: Dialog.entry('Enter a message to encrypt:', '🝰 dusk') }
+        : await inquirer.default.prompt(questions);
+
+      if (!answers.encrypt) {
+        process.exit(1);
+      }
+      program.encrypt = Buffer.from(answers.encrypt, 'utf8');
     } else if (!dusk.utils.isHexaString(program.encrypt)) {
-      // TODO gui dialog
-      console.error('String arguments to --encrypt [message] must be hexidecimal');
-      program.encrypt = Buffer.from(program.encrypt, 'hex');
+      const msg = 'String arguments to --encrypt [message] must be hexidecimal';
+      if (program.gui) {
+        Dialog.info(msg, 'Error', 'error');
+      } else {
+        console.error(msg);
+      }
       process.exit(1);
     }
 
@@ -1013,14 +1142,19 @@ able to view your data.`
     
     if (program.fileOut) {
       if (fs.existsSync(program.fileOut)) {
-        // TODO gui dialog
-        console.error('file already exists, i won\'t overwrite it');
+        const msg = 'File already exists, I will not overwrite it.';
+        if (program.gui) {
+          Dialog.info(msg, 'Error', 'error');
+        } else {
+          console.error(msg);
+        }
         process.exit(1);
       }
 
-      // TODO gui dialog
       fs.writeFileSync(program.fileOut, ciphertext);
       console.log('encrypted ♥ ~ [  file: %s  ] ', program.fileOut);
+    } else if (program.gui) {
+      Dialog.entry('Encrypted Message:', '🝰 dusk', ciphertext.toString('hex'));
     } else if (!program.Q) {
       console.log('encrypted ♥ ~ [  %s  ] ', ciphertext.toString('hex'));
     } else {
@@ -1032,7 +1166,7 @@ able to view your data.`
 
   if (program.pubkey) {
     if (program.gui) {
-      // TODO gui dialog
+      Dialog.entry('Public Key:', '🝰 dusk', pubkey);
     } else if (!program.Q) {
       console.log('public key ♥ ~ [  %s  ] ', pubkey);
     } else {
@@ -1044,9 +1178,20 @@ able to view your data.`
   if (program.decrypt) {
     let cleartext;
     if (program.decrypt === true && !program.fileIn) {
-      console.error('i don\'t know what to decrypt this because no parameter was ');
-      console.error('given to --decrypt and --file-in was not specified ');
-      process.exit(1);
+      const questions = [{
+        type: 'text',
+        name: 'decrypt',
+        message: 'Enter a message to decrypt? ~>',
+      }];
+      const answers = program.gui
+        ? { decrypt: Dialog.entry('Enter a message to decrypt:', '🝰 dusk') }
+        : await inquirer.default.prompt(questions);
+
+      if (!answers.decrypt) {
+        process.exit(1);
+      }
+
+      program.decrypt = answers.decrypt;
     }
 
     if (typeof program.decrypt === 'string') {
@@ -1072,7 +1217,7 @@ able to view your data.`
     }
 
     if (program.gui) {
-      // TODO gui dialog
+      Dialog.textInfo(cleartext, '🝰 dusk');
     } else if (!program.Q) {
       console.log('decrypted ♥ ~ [  %s  ] ', cleartext);
     } else {
@@ -1120,7 +1265,6 @@ able to view your data.`
   console.log(`  fingerprint [ ${identity.fingerprint.toString('hex')} ]`);
 
   if (program.usb) {
-    // TODO gui dialog
     console.log('');
     await shoes.init(program, config, privkey, identity);
     console.log('\n  [ created dusk/SHOES USB ♥ ] ');
@@ -1249,7 +1393,7 @@ async function initDusk() {
     if (!fs.existsSync(seedsdir)) {
       mkdirp.sync(seedsdir);
     }
-    peers = peers.concat(fs.readdirSync(seedsdir).map(fs.readFile).map(buf => {
+    peers = peers.concat(fs.readdirSync(seedsdir).map(fs.readFileSync).map(buf => {
       return buf.toString();
     }));
 
@@ -1474,21 +1618,25 @@ if (program.rpc || program.repl) {
 } else if (program.F) { // --logs
   _config();
 
+  const numLines = program.F === true 
+    ? 500
+    : parseInt(program.F);
+
   if (program.gui) {
-    const rawLogs = execSync('tail -n 500 ' + config.LogFilePath)
+    const rawLogs = execSync(`tail -n ${numLines} ${config.LogFilePath}`)
       .toString().split('\n');
     const values = [];
     const parsedLogs = rawLogs.map(l => {
       try {
         return JSON.parse(l);
       } catch (e) {
-        return {};
+        return { time: '', level: '', msg: '' };
       }
     });
     parsedLogs.forEach(log => {
       values.push([log.time, log.level, log.msg]);
     });
-    return Dialog.list('🝰 dusk', 'Debugging Logs', values, [
+    return Dialog.list('🝰 dusk', 'Debug Logs', values, [
       'Time', 'Type', 'Message'
     ], {
       width: 1024,
@@ -1498,7 +1646,7 @@ if (program.rpc || program.repl) {
     });
   }
 
-  const tail = spawn('tail', ['-f', config.LogFilePath]);
+  const tail = spawn('tail', ['-n', numLines, '-f', config.LogFilePath]);
   const pretty = spawn(
     path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
     ['--color']
@@ -1555,44 +1703,156 @@ if (program.rpc || program.repl) {
       console.log('');
     });
   });
-} else if (typeof program.link === 'string') {
+} else if (program.showLinks) {
+  const seedsdir = path.join(program.datadir, 'seeds');
+  const values = fs.readdirSync(seedsdir).map(v => {
+    const value = v.split('.');
+    value.push(fs.readFileSync(path.join(seedsdir, v)).toString());
+    return value;
+  });
+
+  if (!values.length) {
+    values.push(['-', '-', '-']);
+  }
+
+  if (program.gui) {
+    Dialog.list('🝰 dusk', 'Linked devices:', values, ['Name', 'Fingerprint', 'Link']);
+  } else {
+    values.forEach(v => {
+      console.log('');
+      console.log('Name:', v[1]);
+      console.log('Fingerprint:', v[0]);
+      console.log('Link:', v[2]);
+      console.log('');
+    });
+  }
+} else if (program.link) {
   console.log(description);
 
-  // TODO gui dialog
+  async function _link() {
+    if (program.link === true){
+      const questions = [{
+        type: 'text',
+        name: 'link',
+        message: 'Enter a device link to add? ~>',
+      }];
+      const answers = program.gui
+        ? { link: Dialog.entry('Enter a device link to add:', '🝰 dusk') }
+        : await inquirer.default.prompt(questions);
 
-  try {
-    const [id, contact] = dusk.utils.parseContactURL(program.link);
-    const seedsdir = path.join(program.datadir, 'seeds');
-    // TODO gui dialog
-    console.log('  saving seed to %s', seedsdir);
-    console.log('  i will connect to this node on startup');
-    fs.writeFileSync(path.join(seedsdir, id), program.link);
-    // TODO gui dialog
-    console.log('');
-    console.log('  [  done ♥  ]')
-  } catch (e) {
-    // TODO gui dialog
-    console.error(e.message);
-    process.exit(1);
+      if (!answers.link) {
+        process.exit(1);
+      }
+
+      program.link = answers.link;
+    }
+
+    try {
+      const [id, contact] = dusk.utils.parseContactURL(program.link);
+      const seedsdir = path.join(program.datadir, 'seeds');
+      const randomName = uniqueNamesGenerator({ 
+        dictionaries: [adjectives, colors, animals] 
+      });
+      console.log('  saving seed to %s', seedsdir);
+      console.log('  i will connect to this node on startup');
+      fs.writeFileSync(path.join(seedsdir, `${id}.${randomName}`), program.link);
+      
+      if (program.gui) {
+        Dialog.notify(`I will connect to device "${randomName}" on startup`, 
+          'Device linked!');
+      }
+      console.log('');
+      console.log(`  [  done ♥  device codename: ${randomName} ]`)
+    } catch (e) {
+      if (program.gui) {
+        Dialog.info(e.message, 'Sorry', 'error');
+      }
+      console.error(e.message);
+      process.exit(1);
+    }
   }
+  _link();
 } else if (program.unlink) {
   console.log(description);
-  try {
+  
+  async function _unlink() {
     const seedsdir = path.join(program.datadir, 'seeds');
-    // TODO gui dialog
-    console.log('  removing %s from %s', program.unlink, seedsdir);
-    console.log('');
-    console.log('  i will not connect to this node on startup');
-    fs.unlinkSync(path.join(seedsdir, program.unlink));
-    // TODO gui dialog
-    console.log('');
-    console.log('  [  done ♥  ]')
-  } catch (e) {
-    // TODO gui dialog
-    console.error(e.message);
-    process.exit(1);
+    let idOrShortname;
+
+    if (program.unlink === true) {
+      let answer;
+      const choices = {
+        message: 'Select a device to unlink? ~>',
+        choices: fs.readdirSync(seedsdir).map(val => {
+          const [id, shortname] = val;
+          return {
+            name: shortname,
+            value: id,
+            description: `(${id})`
+          }
+        })
+      };
+      if (program.gui) {
+        let d = new Dialog('🝰 dusk', {
+          text: 'Select the device to unlink...'
+        });
+        d.combo('unlink', 'Devices', fs.readdirSync(seedsdir).map(v => {
+          return v.split('.')[1];
+        }));
+        answer = { unlink: d.show() };
+
+      } else {
+        answer = await inquirer.default.prompt.prompts.select(choices);
+      }
+
+      if (!answer || !answer.unlink) {
+        process.exit(1);
+      }
+
+      idOrShortname = answer.unlink;
+    } else {
+      idOrShortname = program.unlink;
+    }
+
+    try {  
+      let match = null;
+      let links = fs.readdirSync(seedsdir);
+
+      for (let i = 0; i < links.length; i++) {
+        let [id, shortname] = links[i].split('.');
+        if (program.unlink === id || program.unlink === shortname) {
+          match = links[i];
+          break;
+        }
+      }
+
+      if (!match) {
+        if (program.gui) {
+          Dialog.info('I do not recognize that link', 'Sorry', 'error');
+        } else {
+          console.error('I do not recognize that link.');
+        }
+        process.exit(1);
+      }
+
+      console.log('  removing %s from %s', program.unlink, seedsdir);
+      console.log('');
+      console.log('  i will not connect to this node on startup');
+      fs.unlinkSync(path.join(seedsdir, program.unlink));
+      console.log('');
+      console.log('  [  done ♥  ]')
+      Dialog.notify('I will not connect the this link on startup anymore', 
+        'Device unlinked');
+    } catch (e) {
+      if (program.gui) {
+        Dialog.info(e, 'Fatal', 'error');
+      }
+      console.error(e.message);
+      process.exit(1);
+    }
   }
 
+  _unlink();
 } else {
   // Otherwise, kick everything off
   _init();
