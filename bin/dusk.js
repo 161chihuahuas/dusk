@@ -13,7 +13,7 @@ process.on('uncaughtException', (err) => {
   } catch (err) {
     console.warn(err.message);
   }
-  console.warn(err.message);
+  console.error(err);
   if (logger) {
     logger.error(err.message);
     logger.debug(err.stack);
@@ -91,6 +91,9 @@ program.option('--config, -C <file>',
 program.option('--datadir <path>', 
   'path to the default data directory',
   path.join(homedir(), '.config/dusk'));
+
+program.option('--setup', 
+  'runs initial configuration only then exits (does not connect to network)');
 
 program.option('--kill', 
   'sends the shutdown signal to the daemon');
@@ -236,7 +239,7 @@ function _setup() {
     }
 
     if (program.usb) {
-      program.datadir = await shoes.mount();
+      program.datadir = await shoes.mount(program, config, exitGracefully);
     }
 
     if (program.testnet) {
@@ -367,33 +370,22 @@ able to view your data.`
     let wordlist = words.split(' ').map((word, i) => `${i+1}.  ${word}`);
     words = wordlist.join('\n');
 
-    const text = `
-  Your key is protected, don\'t forget your password!
-  Write these words down, keep them safe.
-
-  You can also write down all but a few you can remember, 
-
-  I'll trust your judgement.
+    const text = `Your key is protected, don\'t forget your password! Write these words down, keep them safe. You can also write down all but a few you can remember, I'll trust your judgement.
   
-  If you lose these words, you can never recover access 
-  to this identity, including any data encrypted for 
-  your secret key.
-
-  ${words}     
-
-  Come back where you\'re ready. ♥
-    `;
+If you lose these words, you can never recover access to this identity, including any data encrypted for your secret key`;
 
     let savedWords = false;
     
     if (program.gui) {
+      Dialog.info(text, 'IMPORTANT', 'warning');
       savedWords = { 
         iPromise: await Dialog.textInfo(words, 'Recovery Words', { 
           checkbox: 'I have written down my recovery words.' 
         }) === 0 
       };
     } else {
-      console.log(text);
+      console.warn(text);
+      console.log(words);
       savedWords = await inquirer.default.prompt({
         name: 'iPromise',
         type: 'confirm',
@@ -1311,21 +1303,39 @@ Ready?
   console.log(`  proof [ ${identity.proof.toString('hex')} ]`);
   console.log(`  nonce [ ${identity.nonce} ]`);
   console.log(`  fingerprint [ ${identity.fingerprint.toString('hex')} ]`);
+  console.log('');
 
   if (program.usb) {
-    console.log('');
     await shoes.init(program, config, privkey, identity);
-    console.log('\n  [ created dusk/SHOES USB ♥ ] ');
-    process.exit(0);
-  } else {
-    initDusk();
   }
+    
+  if (program.setup) {
+    if (program.gui) {
+      Dialog.info('Setup complete! The device is ready to use. ♥ ', '🝰 dusk', 'info');
+    }
+    console.log('  Setup complete! The device is ready to use. ♥ ');
+    return exitGracefully();
+  }
+
+  if (program.usb) {
+    const warn = 'Running dusk online with configuration from a USB drive is not readily supported and may not function at all with the defaults.' +
+      '\n\nI hope you know what you\'re doing!';
+
+    if (program.gui) {
+      Dialog.info(warn, '🝰 dusk', 'warning');
+    }
+
+    console.warn(warn);
+  }
+
+  initDusk();
 }
 
 function showUserCrashReport(err) {
   if (program.gui) {
     Dialog.info(err, '🝰 dusk: fatal', 'error');
   }
+  console.log(err);
 }
 
 function exitGracefully() {
