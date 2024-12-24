@@ -536,16 +536,10 @@ If you lose these words, you can never recover access to this identity, includin
     }
 
     let progressBar;
-    
-    if (program.gui) {
-      progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
-        pulsate: true
-      });
-    }
-
+     
     if (program.usb) { 
       console.log('');
-      await shoes.shred(dagEntry, program, config, progressBar);
+      await shoes.shred(dagEntry, program, config, exitGracefully);
     } else if (program.dht) {
       console.log('');
       console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
@@ -599,6 +593,12 @@ Ready?
         });
       }
 
+      if (program.gui) {
+        progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
+          pulsate: true
+        });
+      }
+
       for (let i = 0; i < dagEntry.shards.length; i++) {
         let success;
         if (progressBar) {
@@ -639,6 +639,11 @@ Ready?
       console.log('');
     } else { 
       for (let s = 0; s < dagEntry.shards.length; s++) {
+        if (program.gui) {
+          progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
+            pulsate: true
+          });
+        }  
         if (progressBar) {
           progressBar.progress((s / dagEntry.shards.length) * 100);
         }
@@ -659,12 +664,12 @@ Ready?
         console.log('');
         if (program.usb) {
           if (program.gui) {
-            Dialog.notify('Be safe. ♥', 'Sneakernet created');
+            Dialog.info('Sneakernet created! Be safe. ♥', '🝰 dusk / SHOES', 'info');
           }
           console.log('sneakernet created ~ be safe  ♥ ');
         } else {
           if (program.gui) {
-            Dialog.notify('Metadata was written to ' + program.fileOut, 'File uploaded',); 
+            Dialog.info('Parts uploaded and metadata written to ' + program.fileOut, '🝰 dusk', 'info'); 
           }
           console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
         }
@@ -804,12 +809,6 @@ Ready?
     
     let missingPieces = 0;
     let progressBar;
-    
-    if (program.gui) {
-      progressBar = Dialog.progress('Retracing file ♥ ...', '🝰 dusk', {
-        pulsate: true
-      });
-    }
 
     console.log('  read meta file successfully ♥ ');
     console.log('');
@@ -818,14 +817,13 @@ Ready?
     let shards;
     
     if (program.usb) {
-      shards = (await shoes.retrace(metaData)).map(part => {
+      shards = (await shoes.retrace(metaData, program, config, exitGracefully)).map(part => {
         if (!part) {
           console.warn('missing part detected');
           missingPieces++;
         
           if (missingPieces > metaData.p) {
             if (program.gui) {
-              progressBar.progress(100);
               Dialog.info('Too many missing pieces to recover this file', 
                 'Sorry', 'error');
             }
@@ -838,6 +836,12 @@ Ready?
         return part;
       });
     } else if (program.dht) {
+      if (program.gui) {
+        progressBar = Dialog.progress('Retracing file ♥ ...', '🝰 dusk', {
+          pulsate: true
+        });
+      }
+        
       shards = [];
 
       console.log('');
@@ -868,7 +872,12 @@ Ready?
           `,
           '🝰 dusk',
           'question'
-        );
+        ).status === 0;
+
+        if (!ready) {
+          Dialog.info('Ok, cancelled.', '🝰 dusk', 'info');
+          exitGracefully();
+        }
       }
 
       while (!ready) {
@@ -1000,13 +1009,13 @@ Ready?
 
     if (program.usb) {
       if (program.gui) {
-        Dialog.info('USER 0, I am ready to finish retracing and save to you USB drive.', '🝰 dusk', 'info');
+        Dialog.info('USER 0, I am ready to finish retracing and save to your USB drive.', '🝰 dusk / SHOES', 'info');
       }
 
       console.log('  USER 0, I\'m ready to finish retracing and save to');
       console.log('  your dusk/SHOES USB.');
       console.log('');
-      program.datadir = await shoes.mount();
+      program.datadir = await shoes.mount(program, config, exitGracefully);
     }
 
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);

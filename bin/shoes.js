@@ -12,7 +12,7 @@ const Dialog = require('../lib/zenity.js');
 
 const dialogTitle = '🝰 dusk / SHOES '
 
-module.exports.shred = function(dagEntry, program, config, progressBar) {
+module.exports.shred = function(dagEntry, program, config, exitGracefully) {
   return new Promise(async (resolve, reject) => {
     // take a shard array and shoesmanifest and distribute the shards onto
     // shoes usbs through interactive prompt
@@ -42,13 +42,9 @@ module.exports.shred = function(dagEntry, program, config, progressBar) {
     
     let datadir;
 
-    const user0prompt = `  You are USER 0, which means this data will be
-  encrypted for you and only unlockable using the
-  dusk/SHOES USB that is CURRENTLY inserted.
+    const user0prompt = `You are USER 0, which means this data will be encrypted for you and only unlockable using the dusk/SHOES USB that is CURRENTLY inserted.
    
-  If you need other users to be able to unlock this
-  file, repeat this process for each user - starting
-  with THEIR dusk/SHOES USB from the beginning.
+If you need other users to be able to unlock this  file, repeat this process for each user - starting   with THEIR dusk/SHOES USB from the beginning.
     `;
 
     if (program.gui) {
@@ -76,7 +72,7 @@ module.exports.shred = function(dagEntry, program, config, progressBar) {
           console.log(`  I'm ready for USER ${i + 1}.`);
         }
         console.log('');
-        datadir = await module.exports.mount();
+        datadir = await module.exports.mount(program, config, exitGracefully);
       }
 
       mkdirp.sync(path.join(datadir, 'shoes.dat'));
@@ -98,7 +94,7 @@ module.exports.shred = function(dagEntry, program, config, progressBar) {
   });
 };
 
-module.exports.retrace = function(meta) {
+module.exports.retrace = function(meta, program, config, exitGracefully) {
   return new Promise(async (resolve, reject) => {
     let drivesChecked = 0;
     let setup;
@@ -112,13 +108,9 @@ module.exports.retrace = function(meta) {
       }
     ];
     
-    const user0prompt = `
-  You are USER 0, which means this data will be');
-  decrypted by you at the end of this process.');
+    const user0prompt = `You are USER 0, which means this data will be decrypted by you at the end of this process.
   
-  I will use the key located on the dusk/SHOES USB');
-  that is CURRENTLY inserted.');
-    `;
+I will use the key located on the dusk/SHOES USB that is CURRENTLY inserted.`;
 
     if (program.gui) {
       setup = { 
@@ -178,7 +170,7 @@ I will tell you when I have enough data. ♥`,
       console.log('  Ok, I\'m ready to retrace. It doesn\'t matter');
       console.log('  what order we go in, so decide amongst yourselves.');
       console.log('');
-      let datadir = await module.exports.mount();
+      let datadir = await module.exports.mount(program, config, exitGracefully);
       let foundParts = 0;
 
       for (let i = 0; i < meta.l.length; i++) {

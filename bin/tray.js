@@ -6,6 +6,9 @@ const path = require('node:path');
 const Dialog = require('../lib/zenity');
 const fs = require('node:fs');
 
+const shoesTitle = '🝰 dusk / SHOES '
+const duskTitle = '🝰 dusk'
+
 function _dusk(args) {
   return fork(path.join(__dirname, 'dusk.js'), args);
 }
@@ -129,9 +132,9 @@ function _init(rpc, program, config, exitGracefully) {
       case 3: // Mount virtual folders
         toggleMountVirtualFolders(action);
       case 4: // Encryption tools dialogs
-        encryptionUtilities(actions);
+        encryptionUtilities(action);
         break;
-      case 5: // Sneakernet shred and retracing
+      case 5: // Sneakernet setup, shred and retracing
         createSneakernet(action);
         break;
       case 6: // Edit preferences
@@ -165,7 +168,24 @@ function _init(rpc, program, config, exitGracefully) {
   }
 
   function createSneakernet(action) {
-
+    const tool = Dialog.list(shoesTitle, 'What would you like to do?', [
+      ['Setup a new USB drive'], 
+      ['Shred a file to sneakernet'],
+      ['Retrace a file from sneakernet']
+    ], ['Sneakernet Tools'],{ height: 400 });
+    
+    switch (tool) {
+      case 0:
+        _dusk(['--usb', '--setup', '--gui']);
+        break;
+      case 1:
+        _dusk(['--usb', '--shred', '--gui']);
+        break;
+      case 2:
+        _dusk(['--usb', '--retrace', '--gui']);
+      default:
+        // noop
+    }
   }
 
   function editPreferences(actions) {
