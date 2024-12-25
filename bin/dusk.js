@@ -177,7 +177,7 @@ program.option('--file-in [path]',
 program.option('--file-out [path]', 
   'specify file path to write or be prompted');
 
-program.option('--with-secret <hex_secret>',
+program.option('--with-secret [hex_secret]',
   'override the configured private key, use with --decrypt and --retrace');
 
 program.option('--shoes', 
@@ -686,7 +686,20 @@ Ready?
 
   // Initialize private key
   privkey = await (new Promise(async (resolve, reject) => {
-    if (program.withSecret && dusk.utils.isHexaString(program.withSecret)) {
+    if (program.withSecret === true) {
+      const questions = [{
+        type: 'password',
+        name: 'secret',
+        message: 'Enter the secret key to use? ~>',
+      }];
+      const answers = program.gui
+        ? { secret: Dialog.entry('Enter the secret key to use:', '🝰 dusk') }
+        : await inquirer.default.prompt(questions);
+
+      program.withSecret = answers.secret;
+    }
+
+    if (typeof program.withSecret === 'string' && dusk.utils.isHexaString(program.withSecret)) {
       return resolve(Buffer.from(program.withSecret, 'hex'));
     }
 
@@ -1129,12 +1142,19 @@ Ready?
           process.exit(1);
         }  
       }
+
+      if (program.gui) {
+        Dialog.entry('One-time secret:', '🝰 dusk', sk.toString('hex'));
+      } else {
+        console.log(`  ephemeral secret [ ${sk.toString('hex')} ]`);
+      }
     }
 
     if (!Buffer.isBuffer(program.pubkey)) {
       if (typeof program.pubkey === 'string') {
         pubkey = program.pubkey;
       } else if (program.pubkey === true) {
+        // TODO show list dialog of link/seeds pubkeys
         const questions = [{
           type: 'text',
           name: 'pubkey',
@@ -1151,6 +1171,8 @@ Ready?
       } else {
         pubkey = Buffer.from(secp256k1.publicKeyCreate(privkey)).toString('hex');
       }
+    } else {
+      pubkey = program.pubkey;
     }
 
     if (typeof program.fileIn === 'string') {
@@ -1255,7 +1277,8 @@ Ready?
         ? program.fileIn 
         : program.gui 
           ? Dialog.file('file', false, false)
-          : await fileSelector({ message: 'Select file to decrypt' });
+          : await fileSelector({ message: 'Select file to decrypt' }); 
+
       try {
         cleartext = dusk.utils.decrypt(privkey.toString('hex'), 
           fs.readFileSync(filepath));
@@ -1462,7 +1485,7 @@ async function initDusk() {
     }
     peers = peers.concat(fs.readdirSync(seedsdir).map(fs.readFileSync).map(buf => {
       return buf.toString();
-    }));
+    })).filter(p => !!p);
 
     if (peers.length === 0) {
       if (progress) {
@@ -1786,7 +1809,10 @@ if (program.rpc || program.repl) {
   }
 
   if (program.gui) {
-    Dialog.list('🝰 dusk', 'Linked devices:', values, ['Name', 'Fingerprint', 'Link']);
+    Dialog.list('🝰 dusk', 'Linked devices:', values, ['Name', 'Fingerprint', 'Link'], {
+      width: 800,
+      height:500
+    });
   } else {
     values.forEach(v => {
       console.log('');
@@ -1863,7 +1889,7 @@ if (program.rpc || program.repl) {
       const choices = {
         message: 'Select a device to unlink? ~>',
         choices: fs.readdirSync(seedsdir).map(val => {
-          const [id, shortname] = val;
+          const [id, shortname] = val.split('.');
           return {
             name: shortname,
             value: id,
@@ -1878,10 +1904,10 @@ if (program.rpc || program.repl) {
         d.combo('unlink', 'Devices', fs.readdirSync(seedsdir).map(v => {
           return v.split('.')[1];
         }));
-        answer = { unlink: d.show() };
+        answer = d.show();
 
       } else {
-        answer = await inquirer.default.prompt.prompts.select(choices);
+        answer = { unlink: await inquirer.default.prompt.prompts.select(choices) };
       }
 
       if (!answer || !answer.unlink) {
@@ -1899,7 +1925,7 @@ if (program.rpc || program.repl) {
 
       for (let i = 0; i < links.length; i++) {
         let [id, shortname] = links[i].split('.');
-        if (program.unlink === id || program.unlink === shortname) {
+        if (idOrShortname === id || idOrShortname === shortname) {
           match = links[i];
           break;
         }
@@ -1917,11 +1943,13 @@ if (program.rpc || program.repl) {
       console.log('  removing %s from %s', program.unlink, seedsdir);
       console.log('');
       console.log('  i will not connect to this node on startup');
-      fs.unlinkSync(path.join(seedsdir, program.unlink));
+      fs.unlinkSync(path.join(seedsdir, match));
       console.log('');
-      console.log('  [  done ♥  ]')
-      Dialog.notify('I will not connect the this link on startup anymore', 
-        'Device unlinked');
+      console.log('  [  done ♥  ]');
+      if (program.gui) {
+        Dialog.notify('I will not connect the this link on startup anymore', 
+          'Device unlinked');
+      }
     } catch (e) {
       if (program.gui) {
         Dialog.info(e, 'Fatal', 'error');

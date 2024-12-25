@@ -156,7 +156,29 @@ function _init(rpc, program, config, exitGracefully) {
   }
 
   function manageDeviceLinks(actions) {
-
+    const option = Dialog.list(duskTitle, 'What would you like to do?', [
+      ['Show my device link'], 
+      ['View linked devices'], 
+      ['Link a new device'], 
+      ['Remove a linked device'], 
+    ], ['Device Links / Network Seeds'],{ height: 600 });
+    
+    switch (option) {
+      case 0:
+        _dusk(['--export-link', '--gui']);
+        break;
+      case 1:
+        _dusk(['--show-links', '--gui']);
+        break;
+      case 2:
+        _dusk(['--link', '--gui']);
+        break;
+      case 3:
+        _dusk(['--unlink', '--gui']);
+        break;
+      default:
+        // noop
+    }
   }
 
   function toggleMountVirtualFolders(action) {
@@ -164,7 +186,48 @@ function _init(rpc, program, config, exitGracefully) {
   }
 
   function encryptionUtilities(action) {
-
+    const tool = Dialog.list(shoesTitle, 'What would you like to do?', [
+      ['Encrypt a message (for myself)'], 
+      ['Encrypt a message (for someone else)'], 
+      ['Encrypt a message (using a one-time secret)'], 
+      ['Decrypt a message (using my default secret)'],
+      ['Decrypt a message (using a provided secret)'],
+      ['Export my public key'],
+      ['Export my secret key'],
+      ['Show my recovery words']
+    ], ['Encryption Utilities'],{ height: 600 });
+    
+    switch (tool) {
+      case 0:
+        _dusk(['--encrypt', '--gui']);
+        break;
+      case 1:
+        _dusk(['--encrypt', '--pubkey', '--gui']);
+        break;
+      case 2:
+        _dusk(['--encrypt', '--ephemeral', '--gui']);
+        break;
+      case 3:
+        _dusk(['--decrypt', '--gui']);
+        break;
+      case 4:
+        _dusk(['--decrypt', '--with-secret', '--gui']);
+        break;
+      case 5:
+        _dusk(['--pubkey', '--gui']);
+        break;
+      case 6:
+        _dusk(['--export-secret', '--gui']);
+        break;
+      case 7:
+        _dusk(['--export-recovery', '--gui']);
+        break;
+      case 8:
+        
+        break;
+      default:
+        // noop
+    }
   }
 
   function createSneakernet(action) {
@@ -188,8 +251,65 @@ function _init(rpc, program, config, exitGracefully) {
     }
   }
 
-  function editPreferences(actions) {
+  async function editPreferences(action) {
+    const configMap = [];
+    for (let prop in config) {
+      if (['config', 'configs'].includes(prop)) {
+        continue;
+      }
+      configMap.push([prop, config[prop]]);
+    }
+    Dialog.info('You can break your installation if you are not careful! Consult the User Guide before making any changes!', 'WARNING', 'warning');
+    const newConfig = Dialog.list(
+      duskTitle, 
+      'Make desired changes, then select each item you wish to commit and press OK. (Hold CTRL for multiple.)', 
+      configMap, 
+      ['Option', 'Value'], 
+      {
+        editable: true,
+        height: 768,
+        width: 500,
+        multiple: true,
+        printColumn: 'ALL'
+      }
+    );
+    let writeOut = '';
+    let splitConfig = newConfig.split('|');
+    if (splitConfig.length >= 2) {
+      writeOut += '# Modified by user\n';
+      for (let i = 0; i < splitConfig.length; i += 2) {
+        writeOut += `${splitConfig[i]}=${splitConfig[i + 1]}\n`;
+      }
+    }
+    writeOut += '\n# Unmodified properties\n';
+    for (let prop in config) {
+      if (['config', 'configs'].includes(prop)) {
+        continue;
+      } else if (!splitConfig.includes(prop)) {
+        writeOut += `${prop}=${config[prop]}\n`;
+      }
+    }
 
+    const saveStatus = await Dialog.textInfo(writeOut, 'Update Configuration?', { 
+      checkbox: 'I understand mistakes can break my installation.',
+      width: 500,
+      height: 600
+    });
+
+    if (saveStatus === 0) {
+      const oldPath = path.join(program.datadir, 'config.old-' + Date.now());
+      const newPath = path.join(program.datadir, 'config');
+      const oldConf = fs.readFileSync(newPath);
+      const newConf = writeOut;
+
+      fs.writeFileSync(oldPath, oldConf);
+      fs.writeFileSync(newPath, newConf);
+
+      Dialog.info(
+        `New settings saved to ${newPath}. Old settings were backed up to ${oldPath}.
+
+You must restart dusk for the changes to take effect.`, duskTitle, 'info');
+    }
   }
 
   function viewDebugLogs(action) {
