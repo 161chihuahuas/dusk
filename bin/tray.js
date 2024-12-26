@@ -5,6 +5,8 @@ const { spawn, fork } = require('node:child_process');
 const path = require('node:path');
 const Dialog = require('../lib/zenity');
 const fs = require('node:fs');
+const fuse = require('./fuse.js');
+const mkdirp = require('mkdirp');
 
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
@@ -78,7 +80,7 @@ function _init(rpc, program, config, exitGracefully) {
       items: [
         NET_STATUS_CONNECTING.item,
         {
-          title: '🔍  Show network info',
+          title: 'ℹ️  Show about info',
           enabled: true,
           checked: false
         },
@@ -124,13 +126,14 @@ function _init(rpc, program, config, exitGracefully) {
       case 0: // Status indicator
         break;
       case 1: // Show network info
-        showNetworkInfo(action);
+        showAboutInfo(action);
         break;
       case 2: // Link peer device
         manageDeviceLinks(action);
         break;
       case 3: // Mount virtual folders
         toggleMountVirtualFolders(action);
+        break;
       case 4: // Encryption tools dialogs
         encryptionUtilities(action);
         break;
@@ -151,8 +154,31 @@ function _init(rpc, program, config, exitGracefully) {
     } 
   });
 
-  function showNetworkInfo(action) {
+  function showAboutInfo(action) {
+    rpc.invoke('getinfo', [], (err, info) => {
+      if (err) {
+        Dialog.info(err, 'Sorry', 'error');
+      } else {
+        _showInfo(info);
+      }
+    });
 
+    function _showInfo(info) {
+      const dialogOptions = {
+        width: 300,
+      };
+      const dialogTitle = `${duskTitle}`;
+      const version  = `${info.versions.software}:${info.versions.protocol}`
+
+      const dialogText = `Version: ${version}
+Peers: ${info.peers.length}
+
+anti-©opyright, 2024 tactical chihuahua 
+licensed under the agpl 3
+`;
+
+      Dialog.info(dialogText, dialogTitle, 'info', dialogOptions); 
+    }
   }
 
   function manageDeviceLinks(actions) {
@@ -181,8 +207,14 @@ function _init(rpc, program, config, exitGracefully) {
     }
   }
 
-  function toggleMountVirtualFolders(action) {
-
+  async function toggleMountVirtualFolders(action) {
+    try {
+      mkdirp.sync('/tmp/dusk.vfs');
+      await fuse('/tmp/dusk.vfs');
+    } catch (e) {
+      return Dialog.info(e, 'Sorry', 'error');
+    }
+    Dialog.notify('Virtual filesystem mounted.\n/tmp/dusk.vfs');
   }
 
   function encryptionUtilities(action) {
@@ -273,6 +305,11 @@ function _init(rpc, program, config, exitGracefully) {
         printColumn: 'ALL'
       }
     );
+
+    if (!newConfig) {
+      return;
+    }
+
     let writeOut = '';
     let splitConfig = newConfig.split('|');
     if (splitConfig.length >= 2) {

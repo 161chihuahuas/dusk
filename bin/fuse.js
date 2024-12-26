@@ -1,6 +1,8 @@
 'use strict';
 
 const Fuse = require('fuse-native');
+const { execSync } = require('node:child_process');
+const path = require('node:path');
 
 function _init(mnt) {
   return new Promise(async (resolve, reject) => {
@@ -10,8 +12,8 @@ function _init(mnt) {
         return cb(Fuse.ENOENT)
       },
       getattr: function (path, cb) {
-        if (path === '/') return cb(null, stat({ mode: 'dir', size: 4096 }))
-        if (path === '/test') return cb(null, stat({ mode: 'file', size: 11 }))
+        if (path === '/') return cb(null, { mode: 'dir', size: 4096 })
+        if (path === '/test') return cb(null, { mode: 'file', size: 11 })
         return cb(Fuse.ENOENT)
       },
       open: function (path, flags, cb) {
@@ -28,16 +30,30 @@ function _init(mnt) {
       }
     };
 
-    // TODO Fuse.isConfigured? pkexec
-     
-    const fuse = new Fuse(mnt, ops, { debug: true });
+    const fuseconfigpath = path.join(__dirname, '../node_modules/.bin/fuse-native');
 
-    fuse.mount(function(err) {
+    Fuse.isConfigured((err, isConfigured) => {
       if (err) {
         return reject(err);
       }
-      resolve();
-    })
+
+      if (!isConfigured) {
+        try {
+          execSync(`pkexec ${fuseconfigpath} configure`);
+        } catch (err) {
+          return reject(err);
+        }
+      }
+
+      const fuse = new Fuse(mnt, ops, { debug: true });
+
+      fuse.mount(function(err) {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
+    })     
   });
 }
 
