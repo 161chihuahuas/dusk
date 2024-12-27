@@ -47,7 +47,7 @@ function _init(rpc, program, config, exitGracefully) {
 
   const FUSE_STATUS_NOT_MOUNTED = {
     type: 'update-item',
-    seq_id: 2,
+    seq_id: 3,
     item: {
       title: '🗂  Mount virtual folders',
       enabled: true,
@@ -56,16 +56,16 @@ function _init(rpc, program, config, exitGracefully) {
   };
   const FUSE_STATUS_MOUNTED = {
     type: 'update-item',
-    seq_id: 2,
+    seq_id: 3,
     item: {
-      title: '🗂  Unmount virtual folders',
-      enabled: true,
+      title: '🗂  Virtual folders mounted',
+      enabled: false,
       checked: false
     }
   };
   const FUSE_STATUS_MOUNTING = {
     type: 'update-item',
-    seq_id: 2,
+    seq_id: 3,
     item: {
       title: '🗂  Mounting virtual folders...',
       enabled: false,
@@ -121,7 +121,7 @@ function _init(rpc, program, config, exitGracefully) {
     debug: false,
     copyDir: false
   });
- 
+
   tray.onClick(action => {
     switch (action.seq_id) {
       case 0: // Status indicator
@@ -209,13 +209,15 @@ licensed under the agpl 3
   }
 
   async function toggleMountVirtualFolders(action) {
-    const mnt = path.join(tmpdir(), `dusk.vfs.${Date.now()}`);
+    const mnt = path.join(tmpdir(), 'dusk.vfs.2');
+    tray.sendAction(FUSE_STATUS_MOUNTING);
     try {
-      mkdirp.sync(mnt);
       await fuse(mnt, program.datadir);
     } catch (e) {
+      tray.sendAction(FUSE_STATUS_NOT_MOUNTED)
       return Dialog.info(e, 'Sorry', 'error');
     }
+    tray.sendAction(FUSE_STATUS_MOUNTED)
     Dialog.notify('Virtual filesystem mounted.\n' + mnt);
     spawn('xdg-open', [mnt], { detached: true });
   }

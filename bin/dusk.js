@@ -71,6 +71,7 @@ const {
   colors, 
   animals 
 } = require('unique-names-generator');
+const fuse = require('./fuse.js');
 
 program.version(dusk.version.software);
 
@@ -116,9 +117,8 @@ program.option('--tray',
 program.option('--install',
   'writes linux .desktop entry to $HOME/.local/share/applications');
 
-program.option('--fuse <mountpath>',
-  'mount the virtual filesystem to the supplied path', 
-  path.join(homedir(), 'Desktop/dusk.virt'));
+program.option('--fuse [mountpath]',
+  'mount the virtual filesystem to the supplied path');
 
 program.option('--rpc [method] [params]', 
   'send a command to the daemon');
@@ -1379,6 +1379,10 @@ function exitGracefully() {
 
   process.removeListener('exit', exitGracefully);
 
+  if (program.fuse) {
+    Fuse.unmount(program.fuse, console.log);
+  }
+
   if (controller && parseInt(config.ControlSockEnabled)) {
     controller.server.close();
   }
@@ -1474,6 +1478,18 @@ async function initDusk() {
   // Cast network nodes to an array
   if (typeof config.NetworkBootstrapNodes === 'string') {
     config.NetworkBootstrapNodes = config.NetworkBootstrapNodes.trim().split();
+  }
+
+  if (program.fuse) {
+    program.fuse === true 
+      ? path.join(tmpdir(), 'dusk.vfs')
+      : program.fuse;
+    logger.info('mounting fuse virtual filesystem');
+    await fuse(program.fuse, program.datadir);
+    logger.info(`mounted to path ${mnt}`);
+    if (program.gui) {
+      Dialog.notify('Virtual filesystem mounted.\n' + mnt);
+    }
   }
 
   async function joinNetwork(callback) {
