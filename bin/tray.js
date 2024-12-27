@@ -7,6 +7,7 @@ const Dialog = require('../lib/zenity');
 const fs = require('node:fs');
 const fuse = require('./fuse.js');
 const mkdirp = require('mkdirp');
+const { tmpdir } = require('node:os');
 
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
@@ -208,13 +209,15 @@ licensed under the agpl 3
   }
 
   async function toggleMountVirtualFolders(action) {
+    const mnt = path.join(tmpdir(), `dusk.vfs.${Date.now()}`);
     try {
-      mkdirp.sync('/tmp/dusk.vfs');
-      await fuse('/tmp/dusk.vfs');
+      mkdirp.sync(mnt);
+      await fuse(mnt, program.datadir);
     } catch (e) {
       return Dialog.info(e, 'Sorry', 'error');
     }
-    Dialog.notify('Virtual filesystem mounted.\n/tmp/dusk.vfs');
+    Dialog.notify('Virtual filesystem mounted.\n' + mnt);
+    spawn('xdg-open', [mnt], { detached: true });
   }
 
   function encryptionUtilities(action) {
