@@ -27,6 +27,7 @@ module.exports = function(datadir) {
 
     // Database
     EmbeddedDatabaseDirectory: join(datadir, 'dusk.dat'),
+    MetadataDirectory: join(datadir, 'dusk.meta'),
 
     // Node Options
     NodeListenPort: '5274',
@@ -65,5 +66,8 @@ module.exports = function(datadir) {
     mkdirp.sync(join(datadir, 'dusk.dat'));
   }
 
+  if (!existsSync(join(datadir, 'dusk.meta'))) {
+    mkdirp.sync(join(datadir, 'dusk.meta'));
+  }
   return options;
 };

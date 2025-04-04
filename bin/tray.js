@@ -5,9 +5,8 @@ const { spawn, fork } = require('node:child_process');
 const path = require('node:path');
 const Dialog = require('../lib/zenity');
 const fs = require('node:fs');
-const fuse = require('./fuse.js');
 const mkdirp = require('mkdirp');
-const { tmpdir } = require('node:os');
+const { tmpdir, homedir } = require('node:os');
 
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
@@ -16,7 +15,7 @@ function _dusk(args) {
   return fork(path.join(__dirname, 'dusk.js'), args);
 }
 
-function _init(rpc, program, config, exitGracefully) {
+function _init(rpc, program, config, secret, exitGracefully) {
   const NET_STATUS_CONNECTING = { 
     type: 'update-item', 
     seq_id: 0, 
@@ -49,7 +48,7 @@ function _init(rpc, program, config, exitGracefully) {
     type: 'update-item',
     seq_id: 3,
     item: {
-      title: '🗂  Mount virtual folders',
+      title: '🗂  Mount virtual filesystem',
       enabled: true,
       checked: false
     }
@@ -58,7 +57,7 @@ function _init(rpc, program, config, exitGracefully) {
     type: 'update-item',
     seq_id: 3,
     item: {
-      title: '🗂  Virtual folders mounted',
+      title: '🗂  Virtual filesystem mounted',
       enabled: false,
       checked: false
     }
@@ -67,7 +66,7 @@ function _init(rpc, program, config, exitGracefully) {
     type: 'update-item',
     seq_id: 3,
     item: {
-      title: '🗂  Mounting virtual folders...',
+      title: '🗂  Mounting virtual filesystem...',
       enabled: false,
       checked: false
     }
@@ -209,14 +208,27 @@ licensed under the agpl 3
   }
 
   async function toggleMountVirtualFolders(action) {
-    const mnt = path.join(tmpdir(), 'dusk.vfs.2');
+    const mnt = path.join(homedir(), `dusk.vfs`);
+    let proc = null;
+
     tray.sendAction(FUSE_STATUS_MOUNTING);
+    
     try {
-      await fuse(mnt, program.datadir);
+      proc = _dusk([
+        '--datadir', program.datadir, 
+        '--fuse', mnt, 
+        '--with-secret', secret.toString('hex')
+      ]);
     } catch (e) {
       tray.sendAction(FUSE_STATUS_NOT_MOUNTED)
       return Dialog.info(e, 'Sorry', 'error');
     }
+    
+    proc.on('close', code => {
+      tray.sendAction(FUSE_STATUS_NOT_MOUNTED)
+      Dialog.info('The virtual filesystem was unmounted.', 'Sorry', 'error');
+    });
+
     tray.sendAction(FUSE_STATUS_MOUNTED)
     Dialog.notify('Virtual filesystem mounted.\n' + mnt);
     spawn('xdg-open', [mnt], { detached: true });

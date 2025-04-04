@@ -7,6 +7,7 @@
 process.on('exit', exitGracefully); 
 process.on('SIGTERM', exitGracefully); 
 process.on('SIGINT', exitGracefully);
+
 process.on('uncaughtException', (err) => {
   try {
     npid.remove(config.DaemonPidFilePath);
@@ -21,6 +22,7 @@ process.on('uncaughtException', (err) => {
   showUserCrashReport(err);
   process.exit(0);
 });
+
 process.on('unhandledRejection', (err) => {
   try {
     npid.remove(config.DaemonPidFilePath);
@@ -37,7 +39,6 @@ process.on('unhandledRejection', (err) => {
 });
 
 const { spawn, execSync } = require('node:child_process');
-const { homedir } = require('node:os');
 const assert = require('node:assert');
 const async = require('async');
 const program = require('commander');
@@ -60,7 +61,7 @@ const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
-const { tmpdir } = require('os');
+const { tmpdir, homedir } = require('node:os');
 const http = require('node:http');
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
 const Fuse = require('fuse-native');
@@ -182,15 +183,22 @@ program.option('--with-secret [hex_secret]',
 
 program.option('--shoes', 
   'setup a dusk/SHOES USB or use with --retrace, --shred');
-
-program.option('--usb', 
-  'alias for --shoes');
+program.option('--usb', 'alias for --shoes');
 
 program.option('--dht', 
   'use with --shred, --retrace to store/retrieve shards to/from network');
 
+program.option('--lazy', 
+  'store entries in the local database for later replication');
+
+program.option('--local', 
+  'use with --shred, --retrace to store/retrieve shards to/from local database');
+
 program.option('--test-hooks',
   'starts onion service that prints received hooks from subscribe() handlers');
+
+program.option('--yes',
+  'automatically confirm all y/n prompts');
 
 program.parse(process.argv);
 
@@ -345,10 +353,11 @@ able to view your data.`
 
       if (program.gui) {
         ignore = {
-          useBlankPassword: Dialog.info(message, 'Confirm', 'question').status !== 1
+          useBlankPassword: program.yes ||
+            Dialog.info(message, 'Confirm', 'question').status !== 1
         };
       } else {
-        ignore = await inquirer.default.prompt({
+        ignore = program.yes ? { useBlankPassword: true } : await inquirer.default.prompt({
           name: 'useBlankPassword',
           type: 'confirm',
           message
@@ -379,14 +388,14 @@ If you lose these words, you can never recover access to this identity, includin
     if (program.gui) {
       Dialog.info(text, 'IMPORTANT', 'warning');
       savedWords = { 
-        iPromise: await Dialog.textInfo(words, 'Recovery Words', { 
+        iPromise: program.yes || await Dialog.textInfo(words, 'Recovery Words', { 
           checkbox: 'I have written down my recovery words.' 
         }) === 0 
       };
     } else {
       console.warn(text);
       console.log(words);
-      savedWords = await inquirer.default.prompt({
+      savedWords = program.yes ? { iPromise: true } : await inquirer.default.prompt({
         name: 'iPromise',
         type: 'confirm',
         message: 'I have written down my recovery words.'
@@ -430,7 +439,7 @@ If you lose these words, you can never recover access to this identity, includin
     }
     process.exit(0);
   }
-
+    
   if (program.exportLink) {  
     let pubbundle
 
@@ -474,6 +483,7 @@ If you lose these words, you can never recover access to this identity, includin
     }
 
     console.log('  encrypting input...');
+
     const encryptedFile = dusk.utils.encrypt(publicKey, entry);
     console.log('  shredding input and normalizing shard sizes...');
     console.log('  creating parity shards...');
@@ -483,7 +493,7 @@ If you lose these words, you can never recover access to this identity, includin
     if (!program.Q) {
       for (let i = 0; i < dagEntry.merkle.levels(); i++) {
         console.log(`merkle level${i} ~ [`);;
-        const level = dagEntry.merkle.level(i).forEach(l => {
+        dagEntry.merkle.level(i).forEach(l => {
           console.log(`merkle level${i} ~ [  ${l.toString('hex')}  ] `);;
         });
         console.log(`merkle level${i} ~ [`);
@@ -503,12 +513,14 @@ If you lose these words, you can never recover access to this identity, includin
         program.fileOut = path.join(
           program.datadir,
           'shoes.meta',
+          path.dirname(program.fileOut).split('dusk.meta')[1],
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       } else {
         program.fileOut = path.join(
           program.datadir,
           'dusk.meta',
+          path.dirname(program.fileOut).split('dusk.meta')[1],
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       }
@@ -535,18 +547,53 @@ If you lose these words, you can never recover access to this identity, includin
       );
     }
 
-    let progressBar;
+    let progressBar, rpc;
      
     if (program.usb) { 
       console.log('');
       await shoes.shred(dagEntry, program, config, exitGracefully);
-    } else if (program.dht) {
+    } else if (program.dht || program.local) {
       console.log('');
       console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
-      const rpc = await getRpcControl();
+      rpc = await getRpcControl();
       console.log('');
       console.log('  [ we\'re connected ♥ ]')
       console.log('');
+    }
+
+    if (program.local || (program.dht && program.lazy)) {
+      console.log(`  I will attempt to write ${dagEntry.shards.length} to my local database...`);
+      
+      function storeLocal(hexValue) {
+        return new Promise((resolve, reject) => {
+          rpc.invoke('putlocal', [hexValue], (err, key) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve(key);
+          });
+        });
+      }
+
+      for (let i = 0; i < dagEntry.shards.length; i++) {
+        let success;
+        
+        console.log('  putlocal [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
+        
+        while (!success) {
+          try {
+            success = await storeLocal(dagEntry.shards[i].toString('hex'));
+            console.log('  [  done!  ]');
+          } catch (e) {
+            console.error(e.message);
+            console.log('');
+            exitGracefully();
+          }
+        }
+      }
+    }
+
+    if (program.dht) {
       console.log(`  I will attempt to store ${dagEntry.shards.length} shards in the DHT.`);
       console.log('  This can take a while depending on network conditions and the');
       console.log('  overall size of the file.');
@@ -572,7 +619,7 @@ Ready?
         );
       }
 
-      while (!ready) {
+      while (!ready && !program.yes) {
         let answers = await inquirer.default.prompt({
           type: 'confirm',
           name: 'ready',
@@ -582,7 +629,7 @@ Ready?
       }
 
       console.log('');
-      function store(hexValue) {
+      function storeNetwork(hexValue) {
         return new Promise((resolve, reject) => {
           rpc.invoke('storevalue', [hexValue], (err) => {
             if (err) {
@@ -608,24 +655,27 @@ Ready?
         console.log('  storevalue [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
         while (!success) {
           try {
-            success = await store(dagEntry.shards[i].toString('hex'));
+            success = await storeNetwork(dagEntry.shards[i].toString('hex'));
             console.log('  [  done!  ]');
           } catch (e) {
+            let tryAgain = { yes: program.yes && !(program.local && program.lazy) };
             console.error(e.message);
             console.log('');
-            if (program.gui) {
-              tryAgain = { yes: Dialog.info(
+            if (program.gui && (!program.lazy && program.local)) {
+              tryAgain = { yes: tryAgain.yes || Dialog.info(
                 `I wasn't able to store the shard. Would you like to try again? If not, I will exit.`, 
                   '🝰 dusk', 'question') };
-            } else {
-              tryAgain = await inquirer.default.prompt({
+            } else if (!program.lazy && program.local) {
+              tryAgain = tryAgain.yes ? { yes: true } : await inquirer.default.prompt({
                 type: 'confirm',
                 name: 'yes',
                 message: 'Would you like to try again? If not I will exit.'
               });
             }
-            if (!tryAgain.yes) {
+            if (!tryAgain.yes && !program.lazy) {
               process.exit(1);
+            } else {
+              success = true;
             }
           }
         }
@@ -748,6 +798,19 @@ Ready?
     }
   } 
 
+  if (program.fuse) {
+    program.fuse = program.fuse === true 
+      ? path.join(tmpdir(), `dusk.vfs.${Date.now()}`)
+      : program.fuse;
+    logger.info(`mounting fuse virtual filesystem to ${program.fuse}`);
+    await fuse(program.fuse, program.datadir, privkey, exitGracefully);
+    logger.info(`mounted to path ${program.fuse}`);
+    if (program.gui) {
+      Dialog.notify('Virtual filesystem mounted.\n' + program.fuse);
+    }
+    return; // just mount the fs
+  }
+
   if (program.retrace) {
     if (typeof program.retrace !== 'string') {
       program.retrace = '';
@@ -828,6 +891,7 @@ Ready?
     console.log('  retracing from merkle leaves... ');
 
     let shards;
+    let rpc;
     
     if (program.usb) {
       shards = (await shoes.retrace(metaData, program, config, exitGracefully)).map(part => {
@@ -848,7 +912,7 @@ Ready?
         }
         return part;
       });
-    } else if (program.dht) {
+    } else if (program.dht || program.local) {
       if (program.gui) {
         progressBar = Dialog.progress('Retracing file ♥ ...', '🝰 dusk', {
           pulsate: true
@@ -859,11 +923,61 @@ Ready?
 
       console.log('');
       console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
-      const rpc = await getRpcControl();
+      rpc = await getRpcControl();
       console.log('');
       console.log('  [ we\'re connected ♥ ]')
       console.log('');
-      console.log(`  I will attempt to find ${metaData.l.length} shards in the DHT.`);
+    }
+
+    if (program.local) {
+      function getLocal(hexKey) {
+        return new Promise((resolve, reject) => {
+          rpc.invoke('getlocal', [hexKey], (err, value) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve(Buffer.from(value, 'hex'));
+          });
+        });
+      }
+
+      for (let i = 0; i < metaData.l.length; i++) {
+        let success;
+        
+        console.log('  getlocal [  %s  ]', metaData.l[i].toString('hex'));
+        
+        while (!success) {
+          try {
+            let shard = await getLocal(metaData.l[i].toString('hex'));
+            console.log('  [  done!  ]');
+            shards.push(shard);
+            success = true;
+          } catch (e) {
+            console.error(e.message);
+            console.log('');
+
+            missingPieces++;
+              
+            if (missingPieces > metaData.p && !program.dht) {
+              if (program.gui) {
+                Dialog.info('Too many missing pieces to recover this file right now.', 
+                  'Sorry', 'error');
+              }
+
+              console.error('too many missing shards to recover this file');
+              process.exit(1);
+            }
+
+            shards.push(Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
+            console.log('  [  skip.  ]');
+            success = true;
+          }
+        }
+      }
+    }
+
+    if (program.dht && !missingPieces || (program.dht && (missingPieces && missingPieces > metaData.p))) {
+      console.log(`  I will attempt to find ${missingPieces || metaData.l.length} shards in the DHT.`);
       console.log('  This can take a while depending on network conditions and the');
       console.log('  overall size of the file.');
       console.log('');
@@ -871,10 +985,10 @@ Ready?
       console.log('  We will do 512Kib at a time, until we are done.');
       console.log(''); 
       
-      let ready = false;
+      let ready = { yes: program.yes };
 
       if (program.gui) {
-        ready = Dialog.info(
+        ready.yes = ready.yes || Dialog.info(
           `I connected to dusk's control port ♥ 
 
 I will attempt to find ${metaData.l.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
@@ -887,19 +1001,19 @@ Ready?
           'question'
         ).status === 0;
 
-        if (!ready) {
+        if (!ready.yes) {
           Dialog.info('Ok, cancelled.', '🝰 dusk', 'info');
           exitGracefully();
         }
       }
 
-      while (!ready) {
+      while (!ready.yes && !program.yes) {
         let answers = await inquirer.default.prompt({
           type: 'confirm',
-          name: 'ready',
+          name: 'yes',
           message: 'Ready?'
         });
-        ready = answers.ready;
+        ready.yes = answers.yes;
       }
 
       console.log('');
@@ -910,7 +1024,7 @@ Ready?
             if (err) {
               return reject(err);
             }
-            if (data.length && data.length > 1) {
+            if (!data.length || (data.length && data.length > 1)) {
               return reject(new Error('Could not find shard.'));
             }
             resolve(Buffer.from(data.value, 'hex'));
@@ -924,29 +1038,39 @@ Ready?
           progressBar.progress((i / metaData.l.length) * 100);
           progressBar.text(`Finding shard ${metaData.l[i].toString('hex')}...`);
         }
+
+        const emptyBuf = Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+        const currentShard = shards[i];
+
+        if (currentShard && Buffer.compare(emptyBuf, currentShard) !== 0) {
+          continue;
+        }
+
         console.log('  findvalue [  %s  ]', metaData.l[i].toString('hex'));
         while (!success) {
           try {
             let shard = await findvalue(metaData.l[i].toString('hex'));
             console.log('  [  done!  ]');
-            shards.push(shard);
+            shards[i] = shard;
             success = true;
           } catch (e) {
             console.error(e.message);
             console.log('');
-            let tryAgain;
+            let tryAgain = { yes: false };
 
-            if (program.gui) {
-              tryAgain = { yes: Dialog.info(
+            if (program.gui && !program.Q) {
+              tryAgain.yes = /*program.yes ||*/ Dialog.info(
                 `I wasn't able to find the shard. Would you like to try again? If not, I will skip it.`, 
-                  '🝰 dusk', 'question') };
-            } else {
-              tryAgain = await inquirer.default.prompt({
+                  '🝰 dusk', 'question').status === 0;
+            } else if (!program.Q) {
+              tryAgain = /*program.yes ? { yes: true } :*/ await inquirer.default.prompt({
                 type: 'confirm',
                 name: 'yes',
                 message: 'Would you like to try again? If not I will skip it.'
               });
             }
+
+            console.log(tryAgain)
 
             if (!tryAgain.yes) {
               missingPieces++;
@@ -961,7 +1085,7 @@ Ready?
                 process.exit(1);
               }
 
-              shards.push(Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
+              shards[i] = (Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
               console.log('  [  skip.  ]');
               success = true;
             }
@@ -1034,7 +1158,8 @@ Ready?
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
     const dirname = path.dirname(program.usb ? program.datadir : unbundledFilename);
-    const filename = path.join(dirname, `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
+    const filename = program.fileOut || 
+      path.join(dirname, `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
@@ -1112,20 +1237,19 @@ Ready?
   [  ${words}  ]
 
   If you lose these words, you won't be able to recover this file from
-  a reconstructed bundle - it will be gone forever.
-      `;
+  a reconstructed bundle - it will be gone forever.`;
 
-      let savedWords = false;
+      let savedWords = { iPromise: program.yes };
       
-      if (program.gui) {
-        savedWords = { 
-          iPromise: await Dialog.textInfo(words, 'Recovery Words', { 
+      if (program.gui && !savedWords.iPromise) {
+        savedWords = {
+          iPromise: await Dialog.textInfo(words, 'Recovery Words', {
             checkbox: 'I have written down my recovery words.' 
-          }) === 0 
+          }) === 0
         };
       } else {
         console.log(text);
-        savedWords = await inquirer.default.prompt({
+        savedWords = program.yes ? { isPromise: true } : await inquirer.default.prompt({
           name: 'iPromise',
           type: 'confirm',
           message: 'I have written down my recovery words.'
@@ -1480,18 +1604,6 @@ async function initDusk() {
     config.NetworkBootstrapNodes = config.NetworkBootstrapNodes.trim().split();
   }
 
-  if (program.fuse) {
-    program.fuse === true 
-      ? path.join(tmpdir(), 'dusk.vfs')
-      : program.fuse;
-    logger.info('mounting fuse virtual filesystem');
-    await fuse(program.fuse, program.datadir);
-    logger.info(`mounted to path ${mnt}`);
-    if (program.gui) {
-      Dialog.notify('Virtual filesystem mounted.\n' + mnt);
-    }
-  }
-
   async function joinNetwork(callback) {
     let peers = config.NetworkBootstrapNodes;
     const seedsdir = path.join(program.datadir, 'seeds');
@@ -1572,6 +1684,13 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
     });
   }
 
+  registerControlInterface();
+
+  if (program.tray) {
+    tray = require('./tray.js')(await getRpcControl(), program, config, 
+      privkey, exitGracefully);
+  }
+
   node.listen(parseInt(config.NodeListenPort), async () => {
     logger.info('dusk node is running! your identity is:');
     logger.info('');
@@ -1583,13 +1702,7 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
     fs.writeFileSync(
       config.DrefLinkPath,
       identBundle
-    );
-    
-    registerControlInterface();
-
-    if (program.tray) {
-      tray = require('./tray.js')(await getRpcControl(), program, config, exitGracefully);
-    }
+    ); 
 
     async.retry({
       times: Infinity,

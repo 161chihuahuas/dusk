@@ -36,6 +36,7 @@
     "leveldown": "^6.1.1",
     "levelup": "^5.1.1",
     "lru-cache": "^4.1.1",
+    "memfs": "^4.16.0",
     "merge": "^1.2.1",
     "metapipe": "^2.0.2",
     "mkdirp": "^0.5.1",
