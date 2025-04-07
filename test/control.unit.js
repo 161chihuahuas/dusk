@@ -13,7 +13,7 @@ describe('@class Control', function() {
     it('should return all the supported methods', function(done) {
       const control = new Control({});
       control.listrpcs((err, results) => {
-        expect(results).to.have.lengthOf(12);
+        expect(results).to.have.lengthOf(14);
         done();
       });
     });
