@@ -101,7 +101,7 @@ program.option('--kill',
 program.option('--testnet', 
   'runs with reduced identity difficulty');
 
-program.option('--menu',
+program.option('--menu, -I',
   'prompt user with interactive menu (default: text / graphical with --gui)');
 
 program.option('--daemon, -D', 
@@ -2300,7 +2300,7 @@ if (program.rpc || program.repl) {
       });
     }
   }
-} else if (program.menu) {
+} else if (program.I) {
   displayMenu();
 } else if (program.F) { // --logs
   _config();
