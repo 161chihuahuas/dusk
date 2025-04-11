@@ -32,9 +32,15 @@ module.exports = function(datadir) {
     // Node Options
     NodeListenPort: '5274',
     OnionVirtualPort: '80',
-    OnionHiddenServiceDirectory: join(datadir, 'tor'),
+    OnionHiddenServiceDirectory: join(datadir, 'dusk.hs'),
     OnionLoggingVerbosity: 'notice',
     OnionLoggingEnabled: '0',
+
+    // FTP Bridge
+    FTPBridgeEnabled: '1',
+    FTPBridgeListenPort: '5276',
+    FTPBridgeHiddenServiceDirectory: join(datadir, 'ftp.hs'),
+    FTPBridgeUsername: 'dusk',
 
     // Network Bootstrapping
     NetworkBootstrapNodes: [

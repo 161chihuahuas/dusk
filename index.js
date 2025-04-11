@@ -40,6 +40,9 @@ module.exports.DAGEntry = require('./lib/dag-entry');
 /** {@link MerkleTree } */
 module.exports.MerkleTree = require('./lib/merkle-tree');
 
+/** {@link VirtualFS } */
+module.exports.VirtualFS = require('./lib/virtual-fs');
+
 /** {@link module.reedsol } */
 module.exports.reedsol = require('./lib/reed-solomon');
 

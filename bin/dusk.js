@@ -44,6 +44,7 @@ const async = require('async');
 const program = require('commander');
 const dusk = require('../index');
 const bunyan = require('bunyan');
+const FtpSrv = require('ftp-srv');
 const RotatingLogStream = require('bunyan-rotating-file-stream');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -202,6 +203,7 @@ program.usb = program.usb || program.shoes;
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
+let ftp;
 
 let _didSetup = false;
 
@@ -1572,6 +1574,69 @@ async function initDusk() {
     node.plugin(dusk.logger(logger));
   }
 
+  // Setup the FTP Bridge
+  if (!!parseInt(config.FTPBridgeEnabled)) {
+    ftp = new FtpSrv({
+      url: `ftp://127.0.0.1:${config.FTPBridgeListenPort}`,
+      anonymous: false,
+      greeting: ['dusk FTP Bridge'],
+      log: logger
+    });
+    ftp.on('login', ({ connection, username, password }, resolve, reject) => {
+      if (username !== config.FTPBridgeUsername) {
+        return reject(new Error('Invalid username'));
+      }
+      
+      const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
+      const salt = fs.readFileSync(config.PrivateKeySaltPath);
+
+      let sk;
+
+      try {
+        sk = dusk.utils.passwordUnlock(password, salt, encryptedPrivKey);
+      } catch (e) {
+        return reject(e);
+      }
+
+      resolve({ fs: new dusk.VirtualFS(config, sk) });  
+    });
+
+    ftp.listen().then(() => {
+      logger.info(`ftp bridge is running locally on port ${config.FTPBridgeListenPort}`);
+       const tor = hsv3([
+        {
+          dataDirectory: path.join(config.FTPBridgeHiddenServiceDirectory, 'hidden_service'),
+          virtualPort: 21,
+          localMapping: '127.0.0.1:' + config.FTPBridgeListenPort
+        }
+      ], {
+        DataDirectory: config.FTPBridgeHiddenServiceDirectory
+      });
+
+      tor.on('error', (err) => {
+        console.error(err);
+        exitGracefully();
+      });
+
+      tor.on('ready', () => {
+        console.log('');
+        console.log('  [  ftp bridge onion created  ♥  ]');
+        const hostname = fs.readFileSync(path.join(
+          config.FTPBridgeHiddenServiceDirectory, 
+          'hidden_service', 
+          'hostname'
+        )).toString().trim();
+        console.log('  [  ftp://%s:21  ]', hostname);
+        console.log('');
+        node.ftpHsAddr = `ftp://${hostname}:21`;
+        node.ftpLocalAddr = `ftp://127.0.0.1:${config.FTPBridgeListenPort}`;
+      }); 
+    }, (err) => {
+      console.error(err);
+      exitGracefully();
+    });
+  }
+
   // Cast network nodes to an array
   if (typeof config.NetworkBootstrapNodes === 'string') {
     config.NetworkBootstrapNodes = config.NetworkBootstrapNodes.trim().split();
@@ -1918,6 +1983,10 @@ async function showAboutInfo() {
 
     const dialogText = `Version: ${version}
 Peers: ${info.peers.length}
+
+FTP Bridge: 
+  ${info.ftp.onion}
+  ${info.ftp.local}
 
 anti-©opyright, 2024 tactical chihuahua 
 licensed under the agpl 3
