@@ -10,7 +10,7 @@ process.on('SIGINT', exitGracefully);
 
 process.on('uncaughtException', (err) => {
   try {
-    npid.remove(config.DaemonPidFilePath);
+    //npid.remove(config.DaemonPidFilePath);
   } catch (err) {
     console.warn(err.message);
   }
@@ -25,7 +25,7 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (err) => {
   try {
-    npid.remove(config.DaemonPidFilePath);
+    //npid.remove(config.DaemonPidFilePath);
   } catch (err) {
     console.warn(err.message);
   }
@@ -38,7 +38,7 @@ process.on('unhandledRejection', (err) => {
   process.exit(0);
 });
 
-const { spawn, execSync } = require('node:child_process');
+const { fork, spawn, execSync, spawnSync } = require('node:child_process');
 const assert = require('node:assert');
 const async = require('async');
 const program = require('commander');
@@ -64,7 +64,6 @@ const mkdirp = require('mkdirp');
 const { tmpdir, homedir } = require('node:os');
 const http = require('node:http');
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
-const Fuse = require('fuse-native');
 const Dialog = require('../lib/zenity.js');
 const { 
   uniqueNamesGenerator, 
@@ -72,7 +71,6 @@ const {
   colors, 
   animals 
 } = require('unique-names-generator');
-const fuse = require('./fuse.js');
 
 program.version(dusk.version.software);
 
@@ -88,7 +86,7 @@ program.description(description);
 
 program.option('--config, -C <file>', 
   'path to a dusk configuration file',
-  path.join(homedir(), '.config/dusk/dusk.ini'));
+  path.join(homedir(), '.config/dusk/config'));
 
 program.option('--datadir <path>', 
   'path to the default data directory',
@@ -103,6 +101,9 @@ program.option('--kill',
 program.option('--testnet', 
   'runs with reduced identity difficulty');
 
+program.option('--menu',
+  'prompt user with interactive menu (default: text / graphical with --gui)');
+
 program.option('--daemon, -D', 
   'sends the dusk daemon to the background');
 
@@ -112,14 +113,8 @@ program.option('--quiet, -Q',
 program.option('--gui',
   'prompt with graphical dialogs instead of command line prompts');
 
-program.option('--tray', 
-  'show system try icon and menu applet');
-
 program.option('--install',
   'writes linux .desktop entry to $HOME/.local/share/applications');
-
-program.option('--fuse [mountpath]',
-  'mount the virtual filesystem to the supplied path');
 
 program.option('--rpc [method] [params]', 
   'send a command to the daemon');
@@ -207,7 +202,6 @@ program.usb = program.usb || program.shoes;
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
-let tray;
 
 let _didSetup = false;
 
@@ -217,7 +211,7 @@ if (program.install) {
 Name=dusk
 Comment=darknet under s/kademlia
 Terminal=false
-Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --tray %U
+Exec=${binpath} ${path.join(__dirname)}/dusk.js --menu --gui %U
 Icon=${path.join(__dirname, '../assets/images/favicon.png')}
 Categories=Utility;
 Type=Application
@@ -787,29 +781,12 @@ Ready?
   if (program.D) {
     console.log('');
     console.log('  [ starting dusk in the background ♥  ]');
-    require('daemon')({ cwd: process.cwd() });
-  
-    try {
-      logger.info(`writing pid file to ${config.DaemonPidFilePath}`);
-      npid.create(config.DaemonPidFilePath).removeOnExit();
-    } catch (err) {
-      console.error('Failed to create PID file, is dusk already running?');
-      process.exit(1);
-    }
-  } 
+    require('daemon').daemon(__filename, [
+      '--with-secret', privkey.toString('hex')
+    ], { cwd: process.cwd() }); 
 
-  if (program.fuse) {
-    program.fuse = program.fuse === true 
-      ? path.join(tmpdir(), `dusk.vfs.${Date.now()}`)
-      : program.fuse;
-    logger.info(`mounting fuse virtual filesystem to ${program.fuse}`);
-    await fuse(program.fuse, program.datadir, privkey, exitGracefully);
-    logger.info(`mounted to path ${program.fuse}`);
-    if (program.gui) {
-      Dialog.notify('Virtual filesystem mounted.\n' + program.fuse);
-    }
-    return; // just mount the fs
-  }
+    exitGracefully();
+  }  
 
   if (program.retrace) {
     if (typeof program.retrace !== 'string') {
@@ -1496,16 +1473,12 @@ function showUserCrashReport(err) {
 
 function exitGracefully() {
   try {
-    npid.remove(config.DaemonPidFilePath);
+    //npid.remove(config.DaemonPidFilePath);
   } catch (e) {
     
   }
 
   process.removeListener('exit', exitGracefully);
-
-  if (program.fuse) {
-    Fuse.unmount(program.fuse, console.log);
-  }
 
   if (controller && parseInt(config.ControlSockEnabled)) {
     controller.server.close();
@@ -1627,12 +1600,6 @@ Swap links with friends or team members and add them using the menu.
 I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
       }
 
-      if (program.tray && tray) {
-        tray.tray.onReady(() => {
-          tray.tray.sendAction(tray.NET_STATUS_LISTENING);
-        });
-      }
-
       logger.info('no bootstrap seeds provided');
       logger.info('running in seed mode (waiting for connections)');
 
@@ -1677,21 +1644,41 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
         callback(new Error('Failed to join network'));
       } else { 
         callback(null, result);
-        if (program.tray && tray) {
-          tray.tray.sendAction(tray.NET_STATUS_CONNECTED);
-        }
       }
     });
   }
 
   registerControlInterface();
 
-  if (program.tray) {
-    tray = require('./tray.js')(await getRpcControl(), program, config, 
-      privkey, exitGracefully);
-  }
+  node.listen(parseInt(config.NodeListenPort), async () => {    
+    function checkRunning(pid) {
+      try {
+        return process.kill(pid, 0);
+      } catch (error) {
+        return error.code === 'EPERM';
+      }
+    }
 
-  node.listen(parseInt(config.NodeListenPort), async () => {
+    if (fs.existsSync(config.DaemonPidFilePath)) {
+      const pid = parseInt(fs.readFileSync(config.DaemonPidFilePath).toString().trim());
+    
+      if (checkRunning(pid)) {
+        console.error(`It appears that dusk already running with pid ${pid}? Try dusk --kill`);
+        exitGracefully();
+      } else {
+        fs.unlinkSync(config.DaemonPidFilePath);
+      }
+    }
+
+    try {
+      logger.info(`writing pid file to ${config.DaemonPidFilePath}`);
+      npid.create(config.DaemonPidFilePath)//.removeOnExit();
+    } catch (err) {
+      console.error(err);
+      console.error('Failed to create PID file, is dusk already running?');
+      process.exit(1);
+    }
+
     logger.info('dusk node is running! your identity is:');
     logger.info('');
     logger.info('');
@@ -1745,9 +1732,12 @@ function getRpcControl() {
                parseInt(config.ControlSockEnabled)),
         'ControlSock and ControlPort cannot both be enabled');
     } catch (e) {
+      if (program.gui) {
+        // Dialog.info(`Failed to connect to the dusk daemon. Is it running? \n\n ${e.message}`, '🝰 dusk', 'error');
+      }
+
       reject(e);
       console.error(e.message);
-      process.exit(1);
     }
 
     const client = new boscar.Client();
@@ -1761,16 +1751,489 @@ function getRpcControl() {
     client.on('ready', () => resolve(client));
 
     client.socket.on('close', () => {
-      console.error('Connection terminated! :(');
-      process.exit(1);
+    
     });
 
     client.on('error', err => {
-      console.error(err);
-      process.exit(1)
+      if (program.gui) {
+        //Dialog.info(`Failed to connect to the dusk daemon. Is it running? \n\n ${err.message}`, '🝰 dusk', 'error');
+      }
+      reject(err);  
     });
   });
 }
+
+const shoesTitle = '🝰 dusk / SHOES '
+const duskTitle = '🝰 dusk'
+
+function _dusk(args, opts) {
+  return fork(path.join(__dirname, 'dusk.js'), args, opts);
+}
+
+let rpc;
+
+async function displayMenu() {
+
+  let progressBar;
+  let answer; 
+
+  if (!rpc) {
+    if (program.gui) {
+      progressBar = Dialog.progress('Connecting to dusk ♥ ...', '🝰 dusk', {
+        pulsate: true
+      });
+    } else {
+      console.log('Connecting to dusk ♥ ...');
+    }
+
+    try {
+      rpc = await getRpcControl();
+      if (program.gui) {
+        progressBar.progress(100);
+      }
+    } catch (e) {
+
+      if (program.gui) {
+        answer = { rundusk: Dialog.info('🝰 dusk does not appear to be running! Would you like to start it?', '🝰 dusk', 'question').status === 0 };
+        progressBar.progress(100);
+      } else {
+        console.warn('  🝰 dusk does not appear to be running');
+        answer = await inquirer.default.prompt({
+          type: 'confirm',
+          name: 'rundusk',
+          message: 'Should I try to start it?'
+        }); 
+      }
+    }
+
+    if (!answer) {
+      mainMenu();
+    } else if (answer && answer.rundusk) {
+      if (program.gui) {
+        progressBar = Dialog.progress('Starting up...',  '🝰 dusk', { pulsate: true });
+      }
+      
+      _dusk(['--daemon', `${program.gui?'--gui':''}`], { detached: false }).on('close', () => {
+        if (program.gui) {
+          setTimeout(() => progressBar.progress(100), 2000);
+        }
+        setTimeout(displayMenu, 2000);
+      });
+    } else {
+      console.warn('Ok, some features may not work, but you can try...');
+      mainMenu();
+    }
+  } else {
+    mainMenu();
+  }
+
+  async function mainMenu() {
+    let option;
+
+    if (program.gui) {
+      option = { option: Dialog.list(duskTitle, ' ', [
+        ['ℹ️   About'], 
+        ['🔗  Devices'], 
+        ['🔑  Encryption'], 
+        ['👟  Sneakernet'],
+        ['🗜  Preferences'],
+        ['🗒  Debug'], 
+        [`🔌  ${rpc ? 'Disconnect' : 'Connect'}`]
+      ], ['Main Menu'],{ height: 400 }) }; 
+    } else {
+      option = await inquirer.default.prompt({
+        type: 'list',
+        name: 'option',
+        message: 'Main Menu',
+        choices: [
+          {
+            name: 'ℹ️   About',
+            value: 0
+          },{
+            name: '🔗  Devices',
+            value: 1
+          },{
+            name: '🔑  Encryption',
+            value: 2
+          },{
+            name: '👟  Sneakernet',
+            value: 3
+          },{
+            name: '🗜   Preferences',
+            value: 4
+          },{
+            name: '🗒   Debug',
+            value: 5
+          },{
+            name: `🔌  ${rpc ? 'Disconnect' : 'Connect'}`,
+            value: 6
+          }
+        ]
+      });
+    }
+
+    switch (option && option.option) {
+        case 0:
+          showAboutInfo();
+          break;
+        case 1:
+          manageDeviceLinks();
+          break;
+        case 2:
+          encryptionUtilities();
+          break;
+        case 3:
+          createSneakernet();
+          break;
+        case 4:
+          editPreferences();
+          break;
+        case 5: 
+          viewDebugLogs();
+          break;
+        case 6:
+          toggleConnection();
+          break;
+        default:
+          // noop
+      }
+  }
+}
+
+async function showAboutInfo() {
+  rpc.invoke('getinfo', [], (err, info) => {
+    if (err) {
+      Dialog.info(err, 'Sorry', 'error');
+    } else {
+      _showInfo(info);
+    }
+  });
+
+  async function _showInfo(info) {
+    const dialogOptions = {
+      width: 300,
+    };
+    const dialogTitle = `${duskTitle}`;
+    const version  = `${info.versions.software}:${info.versions.protocol}`
+
+    const dialogText = `Version: ${version}
+Peers: ${info.peers.length}
+
+anti-©opyright, 2024 tactical chihuahua 
+licensed under the agpl 3
+`;
+
+    if (program.gui) {
+      Dialog.info(dialogText, dialogTitle, 'info', dialogOptions);
+      displayMenu();
+    } else {
+      console.info(`
+${dialogText}\n`);
+      let option = await inquirer.default.prompt({
+        type: 'list',
+        name: 'option',
+        message: 'ℹ️   About',
+        choices: [
+          new inquirer.default.Separator(),
+          {
+            name: '<<  Back',
+            value: null
+          }
+        ]
+      });
+      switch (option && option.option) {
+        default:
+          displayMenu();
+      }
+    }
+  }
+}
+
+async function manageDeviceLinks(actions) {
+  let option;
+
+  if (program.gui) {
+    option = { option: Dialog.list(duskTitle, 'What would you like to do?', [
+      ['Show my device link'], 
+      ['View linked devices'], 
+      ['Link a new device'], 
+      ['Remove a linked device'], 
+    ], ['Device Links / Network Seeds'],{ height: 600 }) };
+  } else {
+    option = await inquirer.default.prompt({
+      type: 'list',
+      name: 'option',
+      message: '🔗  Devices', 
+      choices: [
+        {
+          name: 'Show my device link',
+          value: 0
+        }, {
+          name: 'View linked devices',
+          value: 1
+        }, {
+          name: 'Link a new device',
+          value: 2
+        }, {
+          name: 'Remove a linked device',
+          value: 3
+        }, new inquirer.default.Separator(), {
+          name: '<< Back', 
+          value: null
+        }
+      ]
+    });
+  }
+
+  let f;
+
+  switch (option && option.option) {
+    case 0:
+      f = _dusk(['--export-link', `${program.gui?'--gui':''}`]);
+      break;
+    case 1:
+      f = _dusk(['--show-links', `${program.gui?'--gui':''}`]);
+      break;
+    case 2:
+      if (program.gui) {
+        f = _dusk(['--link', '--gui']);
+      } else {
+        f = _dusk(['--link']);
+      }
+      break;
+    case 3:
+      if (program.gui) {
+        f = _dusk(['--unlink', '--gui']);
+      } else {
+        f = _dusk(['--unlink']);
+      }
+      break;
+    default:
+      displayMenu();
+  }
+
+  f && f.on('close', manageDeviceLinks);
+}
+
+async function encryptionUtilities(action) {
+  let tool;
+
+  if (program.gui) {
+    tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
+      ['Encrypt a message (for myself)'], 
+      ['Encrypt a message (for someone else)'], 
+      ['Encrypt a message (using a one-time secret)'], 
+      ['Decrypt a message (using my default secret)'],
+      ['Decrypt a message (using a provided secret)'],
+      ['Export my public key'],
+      ['Export my secret key'],
+      ['Show my recovery words']
+    ], ['Encryption Utilities'],{ height: 600 }) };
+  } else {
+    tool = await inquirer.default.prompt({
+      type: 'list',
+      message: '🔑  Encryption',
+      name: 'option',
+      choices: [
+        {
+          name: 'Encrypt a message (for myself)',
+          value: 0
+        }, {
+          name: 'Encrypt a message (for someone else)',
+          value: 1
+        }, {
+          name: 'Encrypt a message (using a one-time secret)',
+          value: 2
+        }, new inquirer.default.Separator(), {
+          name: 'Decrypt a message (using my default secret)',
+          value: 3
+        }, {
+          name: 'Decrypt a message (using a provided secret)',
+          value: 4
+        }, new inquirer.default.Separator(), {
+          name: 'Export my public key',
+          value: 5
+        }, {
+          name: 'Export my secret key',
+          value: 6
+        }, {
+          name: 'Show my recovery words',
+          value: 7
+        }, new inquirer.default.Separator(), {
+          name: '<< Back',
+          value: null
+        }
+      ]
+    });
+  } 
+
+  let f;
+
+  switch (tool && tool.option) {
+    case 0:
+      if (program.gui) {
+        f = _dusk(['--encrypt', '--gui']);
+      } else {
+        f = _dusk(['--encrypt']);
+      }
+      break;
+    case 1:
+      if (program.gui) {
+        f = _dusk(['--encrypt', '--pubkey', '--gui']);
+      } else {
+        f = _dusk(['--encrypt', '--pubkey']);
+      }
+      break;
+    case 2:
+      if (program.gui) {
+        f = _dusk(['--encrypt', '--ephemeral', '--gui']);
+      } else {
+        f = _dusk(['--encrypt', '--ephemeral']);
+      }
+      break;
+    case 3: 
+      if (program.gui) {
+        f = _dusk(['--decrypt', '--gui']);
+      } else {
+        f = _dusk(['--decrypt']);
+      }      break;
+    case 4:
+      if (program.gui) {
+        f = _dusk(['--decrypt', '--with-secret', '--gui']);
+      } else {
+        f = _dusk(['--decrypt', '--with-secret']);
+      }
+      break;
+    case 5:
+      if (program.gui) {
+        f = _dusk(['--pubkey', '--gui']);
+      } else {
+        f = _dusk(['--pubkey']);
+      }
+      break;
+    case 6:
+      if (program.gui) {
+        f = _dusk(['--export-secret', '--gui']);
+      } else {
+        f = _dusk(['--export-secret']);
+      }
+      break;
+    case 7:
+      if (program.gui) {
+        f = _dusk(['--export-recovery', '--gui']);
+      } else {
+        f = _dusk(['--export-recovery']);
+      }
+      break;
+    default:
+      displayMenu();
+  }
+
+  f && f.on('close', encryptionUtilities);
+}
+
+async function createSneakernet() {
+  let tool;
+
+  if (program.gui) {
+    tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
+      ['Setup a new USB drive'], 
+      ['Shred a file to sneakernet'],
+      ['Retrace a file from sneakernet']
+    ], ['Sneakernet Tools'],{ height: 400 }) };
+  } else {
+    tool = await inquirer.default.prompt({
+      type: 'list',
+      name: 'option',
+      message: '👟  Sneakernet',
+      choices: [
+        {
+          name: 'Setup a new USB drive',
+          value: 0
+        }, {
+          name: 'Shred a file to sneakernet',
+          value: 1
+        }, {
+          name: 'Retrace a file from sneakernet',
+          value: 2
+        }, new inquirer.default.Separator(), {
+          name: '<< Back',
+          value: null
+        }
+      ]
+    });
+  }
+
+  let f;
+
+  switch (tool && tool.option) {
+    case 0:
+      f = _dusk(['--usb', '--setup', `${program.gui?'--gui':''}`]);
+      break;
+    case 1:
+      f = _dusk(['--usb', '--shred', `${program.gui?'--gui':''}`]);
+      break;
+    case 2:
+      f = _dusk(['--usb', '--retrace', `${program.gui?'--gui':''}`]);
+      break;
+    default:
+      displayMenu();
+  }
+
+  f && f.on('close', createSneakernet);
+}
+
+async function editPreferences() { 
+  if (program.gui) {
+    Dialog.info('You can break your installation if you are not careful! Consult the User Guide before making any changes!', 'WARNING', 'warning');
+  } else {
+    console.warn('You can break your installation if you are not careful! Consult the User Guide before making any changes!');
+  }
+
+  execSync(`xdg-open ${program.C}`);
+  if (program.gui) {
+    Dialog.info(`You must restart dusk for the changes to take effect.`, duskTitle, 'info');
+  } else {
+    console.info('You must restart dusk for the changes to take effect.');
+  }
+  displayMenu();
+}
+
+function viewDebugLogs() {
+  let f;
+
+  if (program.gui) {
+    f = _dusk(['--logs', '--gui']);
+  } else {
+    f = _dusk(['--logs']);
+  }
+
+  f.on('close', displayMenu);    
+}
+
+async function toggleConnection() {
+  let confirm, f;
+
+  if (rpc) {
+    if (program.gui) {
+      confirm = { discon: Dialog.info('You will be disconnected from dusk.', 'Exit?', 'question').status === 0 };
+    } else {
+      confirm = await inquirer.default.prompt({
+        type: 'confirm',
+        name: 'discon',
+        message: 'You will be disconnected from dusk. Exit?'
+      });
+    }
+
+    if (confirm.discon) {
+      f = _dusk(['--kill']);
+    } else {
+      displayMenu();
+    }
+  } else {
+    displayMenu();
+  }
+} 
 
 // Check if we are sending a command to a running daemon's controller
 if (program.rpc || program.repl) {
@@ -1837,6 +2300,8 @@ if (program.rpc || program.repl) {
       });
     }
   }
+} else if (program.menu) {
+  displayMenu();
 } else if (program.F) { // --logs
   _config();
 
@@ -1868,7 +2333,7 @@ if (program.rpc || program.repl) {
     });
   }
 
-  const tail = spawn('tail', ['-n', numLines, '-f', config.LogFilePath]);
+  const tail = spawn('tail', ['-n', numLines, config.LogFilePath]);
   const pretty = spawn(
     path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
     ['--color']

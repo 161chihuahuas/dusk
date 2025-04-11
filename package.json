@@ -26,7 +26,7 @@
     "drivelist": "^12.0.2",
     "eciesjs": "^0.4.12",
     "encoding-down": "^6.0.1",
-    "fuse-native": "^2.2.6",
+    "ftp-srv": "^4.6.3",
     "inquirer": "^12.1.0",
     "inquirer-file-selector": "^0.6.0",
     "ip": "^1.1.5",
@@ -50,7 +50,6 @@
     "socks": "^2.8.3",
     "socks-proxy-agent": "^8.0.4",
     "split": "^1.0.1",
-    "systray": "^1.0.5",
     "unique-names-generator": "^4.7.1",
     "usb": "^2.14.0",
     "uuid": "^3.2.1"
