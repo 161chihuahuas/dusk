@@ -1579,7 +1579,6 @@ async function initDusk() {
     ftp = new FtpSrv({
       url: `ftp://127.0.0.1:${config.FTPBridgeListenPort}`,
       anonymous: false,
-      greeting: ['dusk FTP Bridge'],
       log: logger
     });
     ftp.on('login', ({ connection, username, password }, resolve, reject) => {
@@ -1598,7 +1597,7 @@ async function initDusk() {
         return reject(e);
       }
 
-      resolve({ fs: new dusk.VirtualFS(config, sk) });  
+      resolve({ fs: new dusk.VirtualFS(connection, config, sk) });  
     });
 
     ftp.listen().then(() => {

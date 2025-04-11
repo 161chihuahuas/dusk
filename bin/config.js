@@ -27,7 +27,7 @@ module.exports = function(datadir) {
 
     // Database
     EmbeddedDatabaseDirectory: join(datadir, 'dusk.dat'),
-    MetadataDirectory: join(datadir, 'dusk.meta'),
+    MetadataDirectory: join(datadir, 'meta'),
 
     // Node Options
     NodeListenPort: '5274',
