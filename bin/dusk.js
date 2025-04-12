@@ -1603,7 +1603,7 @@ async function initDusk() {
         return reject(e);
       }
 
-      resolve({ fs: new dusk.VirtualFS(connection, config, sk) });  
+      resolve({ fs: new dusk.VirtualFS(connection, config, sk, pk) });  
     });
 
     ftp.listen().then(() => {
