@@ -1168,7 +1168,7 @@ Ready?
       spawn('xdg-open', [filename], { detached: true });
     }
 
-    process.exit(0);
+    exitGracefully();
   }
  
   if (program.exportSecret) {
@@ -1179,7 +1179,7 @@ Ready?
     } else {
       console.log('secret key ♥ ~ [  %s  ] ', privkey.toString('hex'));
     }
-    process.exit(0);
+    exitGracefully();
   }
 
   if (program.exportRecovery) {
@@ -1910,7 +1910,7 @@ async function displayMenu() {
         ['🗜  Preferences'],
         ['🗒  Debug'], 
         [`🔌  ${rpc ? 'Disconnect' : 'Connect'}`]
-      ], ['Main Menu'],{ height: 400 }) }; 
+      ], ['Main Menu'],{ height: 500 }) }; 
     } else {
       option = await inquirer.default.prompt({
         type: 'list',
@@ -1972,7 +1972,7 @@ async function displayMenu() {
           toggleConnection();
           break;
         default:
-          // noop
+          exitGracefully();
       }
   }
 }
