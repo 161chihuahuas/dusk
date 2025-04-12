@@ -2075,7 +2075,25 @@ ${dialogText}\n`);
           f = spawn('xdg-open', [info.ftp.local]);
         } else {
           let addr = info.ftp.local.split('ftp://')[1];
-          f = spawn('ftp', [`ftp://${config.FTPBridgeUsername}@${addr}`]);
+          let hasFtpCli;
+
+          try {
+            hasFtpCli = !!execSync('which ftp').toString().trim();
+          } catch (err) {
+            console.log('');
+            console.error('The ftp program was not in your PATH. Is it installed?');
+            return showAboutInfo();
+          }
+
+          if (!hasFtpCli) {
+            console.log('');
+            console.error('The ftp program was not in your PATH. Is it installed?');
+            return showAboutInfo();
+          }
+
+          f = spawn('ftp', [`ftp://${config.FTPBridgeUsername}@${addr}`], {
+            stdio: 'inherit'
+          });
         }
         f && f.on('close', showAboutInfo);
         break;
