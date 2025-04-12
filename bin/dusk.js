@@ -38,9 +38,10 @@ process.on('unhandledRejection', (err) => {
   process.exit(0);
 });
 
-const { fork, spawn, execSync, spawnSync } = require('node:child_process');
+const { fork, spawn, execSync, exec } = require('node:child_process');
 const assert = require('node:assert');
 const async = require('async');
+const qrcode = require('qrcode');
 const program = require('commander');
 const dusk = require('../index');
 const bunyan = require('bunyan');
@@ -72,6 +73,7 @@ const {
   colors, 
   animals 
 } = require('unique-names-generator');
+const { randomBytes } = require('node:crypto');
 
 program.version(dusk.version.software);
 
@@ -1910,8 +1912,8 @@ async function displayMenu() {
         ['🔗  Devices'], 
         ['🔑  Encryption'], 
         ['👟  Sneakernet'],
-        ['🗜  Preferences'],
-        ['🗒  Debug'], 
+        ['🛠️  Preferences'],
+        ['🐛  Debug'], 
         [`🔌  ${rpc ? 'Disconnect' : 'Connect'}`],
         [`❌  Exit`]
       ], ['Main Menu'],{ height: 500 }) }; 
@@ -1937,10 +1939,10 @@ async function displayMenu() {
             name: '👟  Sneakernet',
             value: 4
           },{
-            name: '🗜   Preferences',
+            name: '🛠️   Preferences',
             value: 5
           },{
-            name: '🗒   Debug',
+            name: '🐛  Debug',
             value: 6
           },{
             name: `🔌  ${rpc ? 'Disconnect' : 'Connect'}`,
@@ -2000,28 +2002,40 @@ async function showAboutInfo() {
     const dialogTitle = `${duskTitle}`;
     const version  = `${info.versions.software}:${info.versions.protocol}`
 
+    let option;
+
     const dialogText = `Version: ${version}
 Peers: ${info.peers.length}
 
 FTP Bridge: 
-  ${info.ftp.onion}
-  ${info.ftp.local}
+${info.ftp.onion}
+${info.ftp.local}
 
 anti-©opyright, 2024 tactical chihuahua 
 licensed under the agpl 3
 `;
 
     if (program.gui) {
-      Dialog.info(dialogText, dialogTitle, 'info', dialogOptions);
-      displayMenu();
+      option = { option: Dialog.list(duskTitle, dialogText, [
+        ['📷  Show FTP Address QR'],
+        ['🗃️  Open FTP Bridge']
+      ], ['ℹ️   About'],{ height: 200 }) }; 
     } else {
       console.info(`
 ${dialogText}\n`);
-      let option = await inquirer.default.prompt({
+      option = await inquirer.default.prompt({
         type: 'list',
         name: 'option',
         message: 'ℹ️   About',
         choices: [
+          {
+            name: '📷  Show FTP Address QR',
+            value: 0
+          },
+          {
+            name: '🗃️  Open Local FTP Bridge',
+            value: 1
+          },
           new inquirer.default.Separator(),
           {
             name: '⮈  Back',
@@ -2030,10 +2044,43 @@ ${dialogText}\n`);
           new inquirer.default.Separator()
         ]
       });
-      switch (option && option.option) {
-        default:
-          displayMenu();
-      }
+    }
+
+    let f;
+
+    switch (option && option.option) {
+      case 0:
+        if (program.gui) {
+          let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
+          console.log(tmpcode, info.ftp.onion)
+          qrcode.toFile(tmpcode, info.ftp.onion, { scale: 20 }).then(() => {
+            spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
+          }, exitGracefully);
+        } else {
+          qrcode.toString(info.ftp.onion, { terminal: true }, (err, code) => {
+            if (err) {
+              console.error(err);
+              exitGracefully();
+            }
+
+            console.log('  Scan the QR code below and open the URL in your FTP client.');
+            console.log('    ~~> Need help? See https://rundusk.org.');
+            console.log(code);
+            showAboutInfo();
+          });
+        }
+        break;
+      case 1:
+        if (program.gui) {
+          f = spawn('xdg-open', [info.ftp.local]);
+        } else {
+          let addr = info.ftp.local.split('ftp://')[1];
+          f = spawn('ftp', [`ftp://${config.FTPBridgeUsername}@${addr}`]);
+        }
+        f && f.on('close', showAboutInfo);
+        break;
+      default:
+        displayMenu();
     }
   }
 }
@@ -2043,9 +2090,9 @@ async function fileUtilities(actions) {
 
   if (program.gui) {
     option = { option: Dialog.list(duskTitle, 'What would you like to do?', [
-      ['Upload a file'], 
-      ['Download a file'] 
-    ], ['File Utilities'],{ height: 600 }) };
+      ['📤  Upload a file'], 
+      ['📥  Download a file'] 
+    ], ['📁  File Utilities'],{ height: 600 }) };
   } else {
     option = await inquirer.default.prompt({
       type: 'list',
@@ -2053,10 +2100,10 @@ async function fileUtilities(actions) {
       message: '📁  Files', 
       choices: [
         {
-          name: 'Upload a file',
+          name: '📤  Upload a file',
           value: 0
         }, {
-          name: 'Download a file',
+          name: '📥  Download a file',
           value: 1
         }, new inquirer.default.Separator(), {
           name: '⮈  Back', 
@@ -2095,11 +2142,11 @@ async function manageDeviceLinks(actions) {
 
   if (program.gui) {
     option = { option: Dialog.list(duskTitle, 'What would you like to do?', [
-      ['Show my device link'], 
-      ['View linked devices'], 
-      ['Link a new device'], 
-      ['Remove a linked device'], 
-    ], ['Device Links / Network Seeds'],{ height: 600 }) };
+      ['🔍  Show my device link'], 
+      ['🫂  View linked devices'], 
+      ['🖇️  Link a new device'], 
+      ['📵  Remove a linked device'], 
+    ], ['🔗  Device Links / Network Seeds'],{ height: 600 }) };
   } else {
     option = await inquirer.default.prompt({
       type: 'list',
@@ -2107,16 +2154,16 @@ async function manageDeviceLinks(actions) {
       message: '🔗  Devices', 
       choices: [
         {
-          name: 'Show my device link',
+          name: '🔍  Show my device link',
           value: 0
         }, {
-          name: 'View linked devices',
+          name: '🫂  View linked devices',
           value: 1
         }, {
-          name: 'Link a new device',
+          name: '🖇️  Link a new device',
           value: 2
         }, {
-          name: 'Remove a linked device',
+          name: '📵  Remove a linked device',
           value: 3
         }, new inquirer.default.Separator(), {
           name: '⮈  Back', 
@@ -2161,15 +2208,15 @@ async function encryptionUtilities(action) {
 
   if (program.gui) {
     tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
-      ['Encrypt a message (for myself)'], 
-      ['Encrypt a message (for someone else)'], 
-      ['Encrypt a message (using a one-time secret)'], 
-      ['Decrypt a message (using my default secret)'],
-      ['Decrypt a message (using a provided secret)'],
-      ['Export my public key'],
-      ['Export my secret key'],
-      ['Show my recovery words']
-    ], ['Encryption Utilities'],{ height: 600 }) };
+      ['🤳  Encrypt a message (for myself)'], 
+      ['🎁  Encrypt a message (for someone else)'], 
+      ['💣  Encrypt a message (using a one-time secret)'], 
+      ['📖  Decrypt a message (using my default secret)'],
+      ['🗝️  Decrypt a message (using a provided secret)'],
+      ['🔒  Export my public key'],
+      ['🔐  Export my secret key'],
+      ['🔏  Show my recovery words']
+    ], ['🔑  Encryption Utilities'],{ height: 600 }) };
   } else {
     tool = await inquirer.default.prompt({
       type: 'list',
@@ -2177,28 +2224,28 @@ async function encryptionUtilities(action) {
       name: 'option',
       choices: [
         {
-          name: 'Encrypt a message (for myself)',
+          name: '🤳  Encrypt a message (for myself)',
           value: 0
         }, {
-          name: 'Encrypt a message (for someone else)',
+          name: '🎁  Encrypt a message (for someone else)',
           value: 1
         }, {
-          name: 'Encrypt a message (using a one-time secret)',
+          name: '💣  Encrypt a message (using a one-time secret)',
           value: 2
         }, new inquirer.default.Separator(), {
-          name: 'Decrypt a message (using my default secret)',
+          name: '📖  Decrypt a message (using my default secret)',
           value: 3
         }, {
-          name: 'Decrypt a message (using a provided secret)',
+          name: '🗝️  Decrypt a message (using a provided secret)',
           value: 4
         }, new inquirer.default.Separator(), {
-          name: 'Export my public key',
+          name: '🔒  Export my public key',
           value: 5
         }, {
-          name: 'Export my secret key',
+          name: '🔐  Export my secret key',
           value: 6
         }, {
-          name: 'Show my recovery words',
+          name: '🔏  Show my recovery words',
           value: 7
         }, new inquirer.default.Separator(), {
           name: '⮈  Back',
@@ -2278,10 +2325,10 @@ async function createSneakernet() {
 
   if (program.gui) {
     tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
-      ['Setup a new USB drive'], 
-      ['Shred a file to sneakernet'],
-      ['Retrace a file from sneakernet']
-    ], ['Sneakernet Tools'],{ height: 400 }) };
+      ['💽  Setup a new USB drive'], 
+      ['🪄  Shred a file to sneakernet'],
+      ['🧩  Retrace a file from sneakernet']
+    ], ['👟  Sneakernet Tools'],{ height: 400 }) };
   } else {
     tool = await inquirer.default.prompt({
       type: 'list',
@@ -2289,13 +2336,13 @@ async function createSneakernet() {
       message: '👟  Sneakernet',
       choices: [
         {
-          name: 'Setup a new USB drive',
+          name: '💽  Setup a new USB drive',
           value: 0
         }, {
-          name: 'Shred a file to sneakernet',
+          name: '🪄  Shred a file to sneakernet',
           value: 1
         }, {
-          name: 'Retrace a file from sneakernet',
+          name: '🧩  Retrace a file from sneakernet',
           value: 2
         }, new inquirer.default.Separator(), {
           name: '⮈  Back',
@@ -2451,36 +2498,16 @@ if (program.rpc || program.repl) {
     : parseInt(program.F);
 
   if (program.gui) {
-    const rawLogs = execSync(`tail -n ${numLines} ${config.LogFilePath}`)
-      .toString().split('\n');
-    const values = [];
-    const parsedLogs = rawLogs.map(l => {
-      try {
-        return JSON.parse(l);
-      } catch (e) {
-        return { time: '', level: '', msg: '' };
-      }
-    });
-    parsedLogs.forEach(log => {
-      values.push([log.time, log.level, log.msg]);
-    });
-    return Dialog.list('🝰 dusk', 'Debug Logs', values, [
-      'Time', 'Type', 'Message'
-    ], {
-      width: 1024,
-      height: 768,
-      multiple: true,
-      editable: true
-    });
+    spawn('xdg-open', [config.LogFilePath]);
+  } else {
+    const tail = spawn('tail', ['-n', numLines, config.LogFilePath]);
+    const pretty = spawn(
+      path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
+      ['--color']
+    );
+    pretty.stdout.pipe(process.stdout);
+    tail.stdout.pipe(pretty.stdin);
   }
-
-  const tail = spawn('tail', ['-n', numLines, config.LogFilePath]);
-  const pretty = spawn(
-    path.join(__dirname, '../node_modules/bunyan/bin/bunyan'),
-    ['--color']
-  );
-  pretty.stdout.pipe(process.stdout);
-  tail.stdout.pipe(pretty.stdin);
 } else if (program.testHooks) {
   console.log(description);
   console.log('');

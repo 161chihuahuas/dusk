@@ -41,6 +41,8 @@ module.exports = function(datadir) {
     FTPBridgeListenPort: '5276',
     FTPBridgeHiddenServiceDirectory: join(datadir, 'ftp.hs'),
     FTPBridgeUsername: 'dusk',
+    FTPBridgeDropboxEnabled: '1',
+    FTPBridgeDropboxUsername: 'anon',
 
     // Network Bootstrapping
     NetworkBootstrapNodes: [
