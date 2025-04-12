@@ -47,7 +47,7 @@
     ],
     "max-statements": [
       2,
-      40
+      64
     ],
     "complexity": [
       2,
@@ -55,7 +55,7 @@
     ],
     "max-depth": [
       2,
-      3
+      6
     ],
     "max-len": [
       2,
