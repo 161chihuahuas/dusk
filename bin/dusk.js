@@ -1587,7 +1587,7 @@ async function initDusk() {
       anonymous: false,
       log: logger
     });
-    ftp.on('login', ({ connection, username, password }, resolve, reject) => {
+    ftp.on('login', async ({ connection, username, password }, resolve, reject) => {
       if (username !== config.FTPBridgeUsername) {
         return reject(new Error('Invalid username'));
       }
@@ -1595,15 +1595,18 @@ async function initDusk() {
       const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
       const salt = fs.readFileSync(config.PrivateKeySaltPath);
 
-      let sk;
+      let sk, pk;
 
       try {
         sk = dusk.utils.passwordUnlock(password, salt, encryptedPrivKey);
+        pk = secp256k1.publicKeyCreate(sk);
       } catch (e) {
         return reject(e);
       }
 
-      resolve({ fs: new dusk.VirtualFS(connection, config, sk, pk) });  
+      resolve({ 
+        fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
+      });  
     });
 
     ftp.listen().then(() => {
@@ -1909,7 +1912,8 @@ async function displayMenu() {
         ['👟  Sneakernet'],
         ['🗜  Preferences'],
         ['🗒  Debug'], 
-        [`🔌  ${rpc ? 'Disconnect' : 'Connect'}`]
+        [`🔌  ${rpc ? 'Disconnect' : 'Connect'}`],
+        [`❌  Exit`]
       ], ['Main Menu'],{ height: 500 }) }; 
     } else {
       option = await inquirer.default.prompt({
@@ -1941,7 +1945,10 @@ async function displayMenu() {
           },{
             name: `🔌  ${rpc ? 'Disconnect' : 'Connect'}`,
             value: 7
-          }
+          }, new inquirer.default.Separator(), {
+            name: '❌  Exit',
+            value: null
+          }, new inquirer.default.Separator()
         ]
       });
     }
@@ -2017,9 +2024,10 @@ ${dialogText}\n`);
         choices: [
           new inquirer.default.Separator(),
           {
-            name: '<<  Back',
+            name: '⮈  Back',
             value: null
-          }
+          },
+          new inquirer.default.Separator()
         ]
       });
       switch (option && option.option) {
@@ -2051,9 +2059,9 @@ async function fileUtilities(actions) {
           name: 'Download a file',
           value: 1
         }, new inquirer.default.Separator(), {
-          name: '<< Back', 
+          name: '⮈  Back', 
           value: null
-        }
+        }, new inquirer.default.Separator()
       ]
     });
   }
@@ -2111,9 +2119,9 @@ async function manageDeviceLinks(actions) {
           name: 'Remove a linked device',
           value: 3
         }, new inquirer.default.Separator(), {
-          name: '<< Back', 
+          name: '⮈  Back', 
           value: null
-        }
+        }, new inquirer.default.Separator()
       ]
     });
   }
@@ -2193,9 +2201,9 @@ async function encryptionUtilities(action) {
           name: 'Show my recovery words',
           value: 7
         }, new inquirer.default.Separator(), {
-          name: '<< Back',
+          name: '⮈  Back',
           value: null
-        }
+        }, new inquirer.default.Separator()
       ]
     });
   } 
@@ -2290,9 +2298,9 @@ async function createSneakernet() {
           name: 'Retrace a file from sneakernet',
           value: 2
         }, new inquirer.default.Separator(), {
-          name: '<< Back',
+          name: '⮈  Back',
           value: null
-        }
+        }, new inquirer.default.Separator()
       ]
     });
   }
