@@ -534,7 +534,7 @@ If you lose these words, you can never recover access to this identity, includin
       process.exit(1);
     }
 
-    const meta = dagEntry.toMetadata(`${Date.now()}-${program.fileIn}` || '');
+    const meta = dagEntry.toMetadata(`${Date.now()}-${path.basename(program.fileIn)}` || '');
     const metaEnc = dusk.utils.encrypt(publicKey, meta);
     const metaHash160 = dusk.utils.hash160(metaEnc).toString('hex');
 
