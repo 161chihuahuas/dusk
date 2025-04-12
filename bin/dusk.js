@@ -156,6 +156,8 @@ program.option('--shred [message]',
 program.option('--retrace [bundle]', 
   're-assembles a dusk bundle created by --shred');
 
+program.option('--open', 'runs xdg-open after retrace');
+
 program.option('--ephemeral', 
   'use with --shred --encrypt to generate a one-time use identity key');
 
@@ -508,15 +510,15 @@ If you lose these words, you can never recover access to this identity, includin
       if (program.usb) {
         program.fileOut = path.join(
           program.datadir,
-          'shoes.meta',
-          path.dirname(program.fileOut).split('dusk.meta')[1],
+          'shoes',
+          path.dirname(program.fileOut).split('shoes')[1],
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       } else {
+        console.log(program.datadir, 'meta', path.dirname(program.fileOut))
         program.fileOut = path.join(
           program.datadir,
-          'dusk.meta',
-          path.dirname(program.fileOut).split('dusk.meta')[1],
+          'meta',
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       }
@@ -604,7 +606,7 @@ If you lose these words, you can never recover access to this identity, includin
         ready = Dialog.info(
           `I connected to dusk's control port ♥ 
 
-I will attempt to store ${metaData.l.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
+I will attempt to store ${dagEntry.shards.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
 
 Make sure you are safe to sit here for a moment and babysit me. We will do 512Kib at a time, until we are done.
 
@@ -802,9 +804,9 @@ Ready?
         let basePath;
 
         if (program.usb) {
-          basePath = path.join(program.datadir, 'shoes.meta');
+          basePath = path.join(program.datadir, 'shoes');
         } else {
-          basePath = path.join(program.datadir, 'dusk.meta');
+          basePath = path.join(program.datadir, 'meta');
         }
         
         if (program.gui) {
@@ -1136,9 +1138,8 @@ Ready?
 
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
-    const dirname = path.dirname(program.usb ? program.datadir : unbundledFilename);
     const filename = program.fileOut || 
-      path.join(dirname, `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
+      path.join(`unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
@@ -1162,6 +1163,11 @@ Ready?
     console.log(`  [ File retraced successfully ♥ ]`);
     console.log(`  [ I saved it to ${filename} ♥ ]`);
     console.log('');
+
+    if (program.open) {
+      spawn('xdg-open', [filename], { detached: true });
+    }
+
     process.exit(0);
   }
  
@@ -1896,7 +1902,8 @@ async function displayMenu() {
 
     if (program.gui) {
       option = { option: Dialog.list(duskTitle, ' ', [
-        ['ℹ️   About'], 
+        ['ℹ️   About'],
+        ['📁  Files'],
         ['🔗  Devices'], 
         ['🔑  Encryption'], 
         ['👟  Sneakernet'],
@@ -1914,23 +1921,26 @@ async function displayMenu() {
             name: 'ℹ️   About',
             value: 0
           },{
-            name: '🔗  Devices',
+            name: '📁  Files',
             value: 1
           },{
-            name: '🔑  Encryption',
+            name: '🔗  Devices',
             value: 2
           },{
-            name: '👟  Sneakernet',
+            name: '🔑  Encryption',
             value: 3
           },{
-            name: '🗜   Preferences',
+            name: '👟  Sneakernet',
             value: 4
           },{
-            name: '🗒   Debug',
+            name: '🗜   Preferences',
             value: 5
           },{
-            name: `🔌  ${rpc ? 'Disconnect' : 'Connect'}`,
+            name: '🗒   Debug',
             value: 6
+          },{
+            name: `🔌  ${rpc ? 'Disconnect' : 'Connect'}`,
+            value: 7
           }
         ]
       });
@@ -1941,21 +1951,24 @@ async function displayMenu() {
           showAboutInfo();
           break;
         case 1:
-          manageDeviceLinks();
+          fileUtilities();
           break;
         case 2:
-          encryptionUtilities();
+          manageDeviceLinks();
           break;
         case 3:
-          createSneakernet();
+          encryptionUtilities();
           break;
         case 4:
+          createSneakernet();
+          break;
+        case 5:
           editPreferences();
           break;
-        case 5: 
+        case 6: 
           viewDebugLogs();
           break;
-        case 6:
+        case 7:
           toggleConnection();
           break;
         default:
@@ -2015,6 +2028,58 @@ ${dialogText}\n`);
       }
     }
   }
+}
+
+async function fileUtilities(actions) {
+  let option;
+
+  if (program.gui) {
+    option = { option: Dialog.list(duskTitle, 'What would you like to do?', [
+      ['Upload a file'], 
+      ['Download a file'] 
+    ], ['File Utilities'],{ height: 600 }) };
+  } else {
+    option = await inquirer.default.prompt({
+      type: 'list',
+      name: 'option',
+      message: '📁  Files', 
+      choices: [
+        {
+          name: 'Upload a file',
+          value: 0
+        }, {
+          name: 'Download a file',
+          value: 1
+        }, new inquirer.default.Separator(), {
+          name: '<< Back', 
+          value: null
+        }
+      ]
+    });
+  }
+
+  let f;
+
+  switch (option && option.option) {
+    case 0:
+      if (program.gui) {
+        f = _dusk(['--shred', '--file-in', '--dht', '--lazy', '--gui']);
+      } else {
+        f = _dusk(['--shred', '--file-in', '--dht', '--lazy']);
+      }
+      break;
+    case 1:
+      if (program.gui) {
+        f = _dusk(['--retrace', '--file-in', '--dht', '--local', '--open', '--gui']);
+      } else {
+        f = _dusk(['--retrace', '--file-in', '--dht', '--local', '--open']);
+      }
+      break;
+    default:
+      displayMenu();
+  }
+
+  f && f.on('close', fileUtilities);
 }
 
 async function manageDeviceLinks(actions) {
