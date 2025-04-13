@@ -1,42 +1,51 @@
 # [🝰 dusk](https://rundusk.org)
 
-## user guide
+## User Guide
 
 * [Installation](#installation)
 * [Setup](#setup)
 * [Basics](#basics)
 * [Advanced](#advanced)
 * [Configuration](#configuration)
-* [Testing](#testing)
 * [Sneakernets](#sneakernets)
 
 ---
 
 ### Installation
 
-The simplest way to install dusk on a Debian-based system is running the install script from the console.
+The simplest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/)) with persistence on a USB or inside a virtual machine on any operating system is recommended.
 
 ```
 curl -o- https://rundusk.org/install.sh | bash
 ```
 
-> TODO note on OS compatibility and cross platform usage
+You may be prompted for your password.
 
-#### Library
+#### Virtualization
 
-This package exposes a module providing a complete reference implementation 
-of the protocol. To use it in your project, from your project's root 
-directory, install as a dependency.
+TODO
+> What? Why? How?
 
-```
-npm install @tacticalchihuahua/dusk --save
-```
+#### Debian Users
 
-Then you can require the library with:
+TODO
+> Developed on Debian Testing under GNOME desktop
+> Mac users should consider migrating ;)
+> Directly on host
+> On a Tails USB
+> GNOME boxes, port access, etc
+> Docker
 
-```
-const dusk = require('@tacticalchihuahua/dusk');
-```
+#### MacOS Users
+
+TODO
+> UTM, port access, ftp, etc
+> Docker
+
+#### Windows Users
+
+TODO
+> Windows users should expect a similar process as macOS with VirtualBox, but Windows installation is not officially supported.
 
 ### Setup
 
@@ -232,69 +241,6 @@ The path to the file to use for the control interface.
 
 Places dusk into test mode, significantly lowering the identity solution
 difficulty and the permission solution difficulty.
-
-### Testing
-
-It is mostly straightforward to setup a test environment so you can learn about dusk and how it works. This is also very helpful if you are contributing to the project or developing an application on top of dusk. First you'll want to clone the `main` branch from the git repository and install dependencies. 
-
-```
-git clone https://github.com/161chihuahuas/dusk
-cd dusk
-npm install
-```
-
-From here, you can run the automated test suites:
-
-```
-npm run unit-tests
-npm run integration-tests
-npm run e2e-tests
-npm run linter
-```
-
-> Running `npm test` will do all of the above.
-
-Next, you'll probably want to setup a disposable test network to play with. A test network is a "live" network in that nodes communicate with each other like they otherwise would through Tor. The difference is that the difficulty parameters for identity creation are reduced and the secret keys are never saved. You can setup a testnet just using the `dusk` command line, but it may also be desirable to use Docker.
-
-Setting up a testnet without Docker involves creating separate data directories for each node you want to run and modifying each configuration file to listen on different control sockets. Then starting each `dusk` process, letting them each bootstrap, then connecting each one to another using another `dusk` process to send them RPCs.
-
-Using Docker, this can be reduced to a few commands and no configuration since each container is isolated and won't conflict with the others. Here is how to setup a testnet using Docker. 
-
-**First**, build the Docker image (from the dusk source root directory):
-
-```
-docker build . -t dusk
-```
-
-Once completed, we can start our dusk nodes. We **only need 3** to form a functional network, so in 3 separate terminal windows, run:
-
-```
-docker run --publish 6275:5275 -it dusk --testnet --ephemeral
-```
-```
-docker run --publish 7275:5275 -it dusk --testnet --ephemeral
-```
-```
-docker run --publish 8275:5275 -it dusk --testnet --ephemeral
-```
-
-The `--publish [port:port]` option tells Docker to bind the first port on the host to the second port inside the container. Port `5275` is the default `ControlPort` that dusk receives local RPC messages on. We are exposing these to our host so we can use our host installation of dusk to control the nodes. The `--testnet` and `--ephemeral` options tell dusk to use lower solution difficulty and to create a disposable secret key. Eventually, all three nodes will say they are in "seed mode"/waiting for connections.
-
-Now, we are going to find the dusk links for nodes 2 and 3 then use them to link from node 1. From a *new* terminal window:
-
-```
-dusk --rpc 'getinfo' --control-port 7275
-dusk --rpc 'getinfo' --control-port 8275
-```
-
-Each of these commands will print a JSON object with a `dref` property. We want to issue node 1 a `connect` RPC for each of these.
-
-```
-dusk --rpc 'connect <dref from node 2>' --control-port 6275
-dusk --rpc 'connect <dref from node 3>' --control-port 6275
-```
-
-They'll all find each other pretty quick. Check your terminal windows for your nodes. You should see that they are chatting and are aware of each other. You can repeat this process for as many nodes as you want to test against. You can also use `dusk --shred --dht --control-port 6275` and `dusk --retrace --dht --control-port 6275` to test file shredding and retracing over your testnet.
 
 ### Sneakernets
 
