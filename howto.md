@@ -20,6 +20,8 @@ The simplest way to install dusk on a Debian-based system is running the install
 curl -o- https://rundusk.org/install.sh | bash
 ```
 
+> TODO note on OS compatibility and cross platform usage
+
 #### Library
 
 This package exposes a module providing a complete reference implementation 
@@ -38,8 +40,6 @@ const dusk = require('@tacticalchihuahua/dusk');
 
 ### Setup
 
-dusk itself does not (yet?) have a graphical interface. It comes with a `dusk` text-based command line interface. Low level node control is achieved by sending RPC commands to `dusk`. The `dusk` CLI also provides tools for configuration, encryption, encoding, key sharing, sneakernet setup, and even a REPL (read-eval-print-loop) - which acts as it's own command-line.
-
 Once you have installed dusk or linked it as a global package, open your Terminal and run `dusk --help`.
 
 The CLI will print a list of options and what they do. This is where you'll find tools to interact with dusk. But first you have to start dusk for the first time! In that same Terminal just run `dusk`.
@@ -57,6 +57,9 @@ You need a minimum of 3 dusk nodes to form a functioning network. These could be
 Run your dusk node in the background with `dusk --daemon`. 
 
 ### Basics
+
+> TODO graphical and text menus howto
+> TODO FTP Bridge
 
 The dusk CLI provides a number of tools for interacting with dusk and the network, but there are 2 primary operations to familiarize yourself with first: shred and retrace. 
 
