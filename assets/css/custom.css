@@ -18,7 +18,6 @@ body {
   letter-spacing: .2rem;
   font-weight: 600; }
 .docs-section {
-  border-top: 1px solid #eee;
   padding: 4rem 0;
   margin-bottom: 0;}
 .value-img {
@@ -64,7 +63,7 @@ body {
   margin-top: 4rem; }
 .example-header {
   font-weight: 600;
-  margin-top: 1.5rem;
+  margin-top: 5.5rem;
   margin-bottom: .5rem; }
 .example-description {
   margin-bottom: 1.5rem; }
@@ -73,8 +72,7 @@ body {
   position: relative;
   overflow: hidden;
   border-radius: 6px;
-  border: 1px solid #eee;
-  height: 250px; }
+  height: 276px; }
 .example-screenshot {
   width: 100%;
   height: auto; }
@@ -110,7 +108,7 @@ body {
   .example-screenshot-wrapper {
     position: absolute;
     width: 48%;
-    height: 100%;
+    height: 276px;
     left: 0;
     max-height: none; }
 }

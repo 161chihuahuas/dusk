@@ -5,9 +5,9 @@
   <!-- Basic Page Needs
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <meta charset="utf-8">
-  <title>dusk</title>
-  <meta name="description" content="darknet under s/kademlia">
-  <meta name="author" content="lily@rundusk.org">
+  <title>dusk ~ deniable cloud drive</title>
+  <meta name="description" content="deniable cloud drive">
+  <meta name="author" content="161chihuahuas@disroot.org">
 
   <!-- Mobile Specific Metas
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -38,9 +38,10 @@
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <div class="container">
     <section class="header">
-      <h2 class="title"><strong>🝰 dusk</strong> is a darknet for your affinity group</h2>
-      <a class="button button-primary" href="#install">Install the app</a>
-      <a class="button button" href="whitepaper">Read the paper</a>
+      <h2 class="title"><strong>🝰 dusk</strong> is a deniable cloud drive</h2>
+      <a class="button button-primary" href="install.sh">Install</a>
+      <a class="button button" href="howto">User Guide</a>
+      <pre><code>curl -o- https://rundusk.org/install.sh | bash</code></pre>
       <div class="value-props row">
         <div class="four columns value-prop">
           <img class="value-img" src="assets/images/peer-to-peer.png">
@@ -67,6 +68,40 @@
       <p>Your files are encrypted, shredded into uniform blocks, encoded with recovery information, and spread across a network of Tor hidden services. Files can only be retraced with an encrypted pointer that you keep and secret key that only you can unlock. If you work in a high-risk environment under threat of physical device seizure, dusk can help protect your data and shield your personal networks.</p>
     </div>
 
+    <!-- Apps -->
+    <div class="docs-section examples" id="install">
+      <h6 class="docs-header">Features</h6>
+      <div class="row example">
+        <a class="example-screenshot-wrapper" target="_blank" href="#">
+          <img class="example-screenshot" src="assets/images/ftp.png">
+        </a>
+        <div class="one-half offset-by-one-half column">
+          <h6 class="example-header">FTP Bridge</h6>
+          <p class="example-description">Manage files through a familiar interface using any FTP client. Access your data remotely using built-in Tor onion services.</p>
+        </div>
+      </div>
+      <div class="row example">
+        <a class="example-screenshot-wrapper" target="_blank" href="#">
+          <img class="example-screenshot" src="assets/images/cli.png">
+        </a>
+        <div class="one-half offset-by-one-half column">
+          <h6 class="example-header">Command Line Interface</h6>
+          <p class="example-description">Command line for power users to connect your network, encrypt, shred, store, retrace your files, and build applications on dusk.</p>
+        </div>
+      </div>
+      <div class="row example">
+        <div class="example-screenshot-wrapper">
+          <div class="example-screenshot">
+            <img class="example-screenshot" src="assets/images/ftp.png">
+          </div>
+        </div>
+        <div class="one-half offset-by-one-half column">
+          <h6 class="example-header">GNOME Desktop Integration</h6>
+          <p class="example-description">Simple desktop menu to manage settings, link other devices, and use a graphical wizard for creating USB sneakernets completely offline.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Offline Mode -->
     <div class="docs-section">
       <h6 class="docs-header">Offline Mode</h6>
@@ -75,40 +110,14 @@
       <p><strong>If someone is compromised, data is still safe from adversaries and recoverable by uncompromised members.</strong></p>
     </div>
 
-    <!-- Apps -->
-    <div class="docs-section examples" id="install">
-      <h6 class="docs-header">Install</h6>
-      <div class="row example">
-        <a class="example-screenshot-wrapper" target="_blank" href="#">
-          <img class="example-screenshot" src="assets/images/landing.jpg">
-        </a>
-        <div class="one-half offset-by-one-half column">
-          <h6 class="example-header"><code>dusk</code> CLI</h6>
-          <p class="example-description">Run dusk from the command line to connect your network, encrypt, shred, store, and retrace your files. Subscribe to network topics, integrate anonymous webhooks, and build applications on dusk. This is a low-level interface for developers and technical users.</p>
-          <a class="button button-primary" href="https://github.com/lilyannehall/dusk/releases/latest" target="_blank">Download</a>
-          <a class="button" href="howto" target="_blank">User Guide</a>
-        </div>
-      </div>
-      <div class="row example">
-        <div class="example-screenshot-wrapper">
-          <div class="example-screenshot">
-            <img class="example-screenshot" src="assets/images/thunar-sample-files.jpg">
-          </div>
-        </div>
-        <div class="one-half offset-by-one-half column">
-          <h6 class="example-header">Desktop App</h6>
-          <p class="example-description">Run dusk using a simple desktop application. Manage your settings and mount a virtual drive on your computer. Shred and retrace files automatially using your familiar desktop file explorer. Graphical wizard for sneakernet creation.</p>
-          <a class="button" href="#install">Soon &hearts;</a>
-        </div>
-      </div>
+    <div class="docs-section examples" id="copy">
+      <p style="text-align:center;">
+        anti-copyright, 2024 tactical chihuahua<br> 
+        licensed agpl 3 | <a href="https://github.com/161chihuahuas/dusk">source</a>
+      </p>
+      <hr>
+      <p style="text-align:center">this project is proudly antifascist &hearts;</p>
     </div>
-
-      <div class="docs-section examples" id="copy">
-        <p style="text-align:center;">
-          anti-©opyright, 2024 tactical chihuahua<br> 
-          licensed agpl 3 | <a href="https://github.com/lilyannehall/dusk">source</a>
-        </p>
-      </div>
 
   </div>
 

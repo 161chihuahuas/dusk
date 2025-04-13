@@ -14,66 +14,10 @@
 
 ### Installation
 
-Make sure you have the following prerequisites installed:
-
-* [Git](https://git-scm.org)
-* [Node.js LTS (22.x)](https://nodejs.org)
-* Python3
-* GCC/G++/Make
-* libudev-dev
-
-You can also skip all of this and use Docker:
+The simplest way to install dusk on a Debian-based system is running the install script from the console.
 
 ```
-docker pull tacticalchihuahua/dusk
-```
-
-#### Node.js + NPM
-
-##### GNU+Linux & Mac OSX
-
-```
-wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-```
-
-Close your shell and open an new one. Now that you can call the `nvm` program,
-install Node.js (which comes with NPM):
-
-```
-nvm install --lts
-```
-
-#### Build Dependencies
-
-##### GNU+Linux
-
-Debian / Ubuntu / Mint / Trisquel / and Friends
-
-```
-apt install git python build-essential libudev-dev
-```
-
-Red Hat / Fedora / CentOS
-
-```
-yum groupinstall 'Development Tools' libudev-dev
-```
-
-You might also find yourself lacking a C++11 compiler - 
-[see this](http://hiltmon.com/blog/2015/08/09/c-plus-plus-11-on-centos-6-dot-6/).
-
-##### Mac OSX
-
-```
-xcode-select --install
-```
-
-#### Daemon
-
-This package exposes the program `dusk`. To install, use the `--global` flag.
-
-```
-npm install -g @tacticalchihuahua/dusk
+curl -o- https://rundusk.org/install.sh | bash
 ```
 
 #### Library
@@ -98,21 +42,13 @@ dusk itself does not (yet?) have a graphical interface. It comes with a `dusk` t
 
 Once you have installed dusk or linked it as a global package, open your Terminal and run `dusk --help`.
 
-![dusk --help](./assets/images/dusk_--help.png) 
-
 The CLI will print a list of options and what they do. This is where you'll find tools to interact with dusk. But first you have to start dusk for the first time! In that same Terminal just run `dusk`.
 
-![dusk first run](./assets/images/dusk.png) 
-
 The CLI will prompt you to enter a password to protect the key it generated. Then, it will print a list of words and tell you to write them down. Do that and run `dusk` again.
-
-![dusk](./assets/images/dusk_.png) 
 
 Now dusk will start bootstrapping the Tor network connection and eventually it will say it's listening for connections. Now you'll want to connect to someone to discover more of the network. But how? There is no signaling server, no DNS seeds, or list of operating nodes (yet). So, here is where your IRL network comes into play.
 
 Maybe it's your affinity group, your research team, your friends - they need to run dusk too. And you'll exchange "identity bundles" to bootstrap from each other. To do that, we need to ask our dusk node for it. In *another* Terminal, run `dusk --link`.
-
-![dusk --link](./assets/images/dusk_--link.png) 
 
 This is like your username. It contains information about how to communicate with your dusk node. Note that your link contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged links, run `dusk --rpc "connect <link>"`.
 
@@ -136,8 +72,6 @@ dusk --shred --dht --control-port 5275
 
 dusk will talk you through the process and keep you updated on progress.
 
-![dusk shred](assets/images/dusk_--shred_--dht.png) 
-
 #### `--retrace`
 
 **Retrace** takes an encrypted metadata pointer, decrypts it then depending on your choice either: reads the pieces from a `duskbundle`, downloads the pieces from the network, or reads them from an array of USB drives. Then, retrace will reassmble the pieces, encode any corrupted or missing pieces, decrypt the original file, and save it.
@@ -150,8 +84,6 @@ dusk --retrace --dht --control-port 5275
 
 dusk will talk you through the process and keep you updated on progress.
 
-![dusk shred](assets/images/dusk_--retrace_--dht.png) 
-
 ### Advanced
 
 The next most important feature is dusk's publish/subscribe system. Nodes can receive arbitrary publications announced through the network by adding the fingerprint of the publisher to their subscriptions. Whenever dusk is handed a PUBLISH message it is interested in, it can trigger a webhook to a onion address.
@@ -162,10 +94,6 @@ If you are developing an application that uses the pub/sub system, your applicat
 
 You can test this out using the `--test-hooks` option - which will start a simple onion service that prints messages it receives from dusk to the console. *Do not use this AS IS in production.*
 
-![test hooks](assets/images/dusk_--test-hooks.png) 
-
-In the screenshot above, one terminal is running `dusk --test-hooks`, one subscribes to publications from a node running in the pictured test network using `dusk --rpc 'subscribe <fingerprint>'`, and the third (the publisher) publishes a message using `dusk --rpc 'publish <hex data>'`.
- 
 ### Configuration
 
 A dusk node requires a configuration file to get up and running. The path to this 
@@ -307,7 +235,7 @@ difficulty and the permission solution difficulty.
 It is mostly straightforward to setup a test environment so you can learn about dusk and how it works. This is also very helpful if you are contributing to the project or developing an application on top of dusk. First you'll want to clone the `main` branch from the git repository and install dependencies. 
 
 ```
-git clone https://github.com/lilyannehall/dusk
+git clone https://github.com/161chihuahuas/dusk
 cd dusk
 npm install
 ```
@@ -349,16 +277,12 @@ docker run --publish 8275:5275 -it dusk --testnet --ephemeral
 
 The `--publish [port:port]` option tells Docker to bind the first port on the host to the second port inside the container. Port `5275` is the default `ControlPort` that dusk receives local RPC messages on. We are exposing these to our host so we can use our host installation of dusk to control the nodes. The `--testnet` and `--ephemeral` options tell dusk to use lower solution difficulty and to create a disposable secret key. Eventually, all three nodes will say they are in "seed mode"/waiting for connections.
 
-![docker testnet](assets/images/docker-testnet.png) 
-
 Now, we are going to find the dusk links for nodes 2 and 3 then use them to link from node 1. From a *new* terminal window:
 
 ```
 dusk --rpc 'getinfo' --control-port 7275
 dusk --rpc 'getinfo' --control-port 8275
 ```
-
-![dusk rpc getinfo](assets/images/dusk_--rpc_--control-port.png) 
 
 Each of these commands will print a JSON object with a `dref` property. We want to issue node 1 a `connect` RPC for each of these.
 
@@ -386,11 +310,4 @@ The dusk CLI includes a `--shoes` option that can be used in 3 ways:
 * `dusk --retrace --shoes` will retrace a file from `n` USB drives, then decrypt and save
 
 Setting up a dusk/SHOES USB functions a lot like setting up dusk on first run. All of the configuration, identity keys, and data directories are created on the USB. The dusk/SHOES USB can even be used to run dusk online later.
-
-![dusk --shoes](assets/images/dusk_--shoes.png) 
-
-Shredding a file follows a guided prompt.
-
-![shred shoes](assets/images/dusk_--shred_--shoes.png) 
-
-Retracing follows a similar process.
+Shredding a file follows a guided prompt. Retracing follows a similar process.
