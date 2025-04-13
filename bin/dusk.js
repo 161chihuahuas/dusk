@@ -1852,22 +1852,11 @@ async function displayMenu() {
   let progressBar;
   let answer; 
 
-  if (!rpc) {
-    if (program.gui) {
-      progressBar = Dialog.progress('Connecting to dusk ♥ ...', '🝰 dusk', {
-        pulsate: true
-      });
-    } else {
-      console.log('Connecting to dusk ♥ ...');
-    }
-
+  if (!rpc) { 
     try {
       rpc = await getRpcControl();
-      if (program.gui) {
-        progressBar.progress(100);
-      }
     } catch (e) {
-
+/*
       if (program.gui) {
         answer = { rundusk: Dialog.info('🝰 dusk does not appear to be running! Would you like to start it?', '🝰 dusk', 'question').status === 0 };
         progressBar.progress(100);
@@ -1879,24 +1868,19 @@ async function displayMenu() {
           message: 'Should I try to start it?'
         }); 
       }
+*/
+      answer = { rundusk: true };
     }
 
     if (!answer) {
       mainMenu();
     } else if (answer && answer.rundusk) {
-      if (program.gui) {
-        progressBar = Dialog.progress('Starting up...',  '🝰 dusk', { pulsate: true });
-      }
-      
-      _dusk(['--daemon', `${program.gui?'--gui':''}`], { detached: false }).on('close', () => {
-        if (program.gui) {
-          setTimeout(() => progressBar.progress(100), 2000);
-        }
-        setTimeout(displayMenu, 2000);
+      _dusk(['--daemon', `${program.gui?'--gui':''}`], { 
+        stdio: 'inherit', 
+        detached: false 
+      }).on('close', () => {
+        setTimeout(displayMenu, 1000);
       });
-    } else {
-      console.warn('Ok, some features may not work, but you can try...');
-      mainMenu();
     }
   } else {
     mainMenu();
