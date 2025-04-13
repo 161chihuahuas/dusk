@@ -31,7 +31,8 @@ describe('@class Control', function() {
         contact: {
           hostname: 'localhost',
           port: 8080
-        }
+        },
+        ftpHsAddr: '.onion'
       });
       control.node.router.addContactByNodeId(
         utils.getRandomKeyString(),
