@@ -1,6 +1,24 @@
 body {
-  background: #111;
+  background: #280303;
   color: #eee;
+}
+.button:hover {
+  color: #eee;
+}
+.button {
+  color: #eee;
+  background-color: #1C0000;
+  border-color: #1C0000;
+}
+.button.button-primary:hover {
+  color: #eee;
+  border-color: #eee;
+  background-color: #462222;
+}
+.button.button-primary {
+  color: #eee;
+  background-color: #462222;
+  border-color: #462222;
 }
 code{overflow:auto;}
 .container {
@@ -73,7 +91,8 @@ code{overflow:auto;}
   position: relative;
   overflow: hidden;
   border-radius: 6px;
-  height: 276px; }
+  height: 276px;
+background: rgba(0,0,0,0.5);}
 .example-screenshot {
   width: 100%;
   height: auto; }
