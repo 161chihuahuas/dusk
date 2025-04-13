@@ -2,6 +2,8 @@ body {
   background: #280303;
   color: #eee;
 }
+a{color: inherit;}
+a:hover {color: #fff }
 .button:hover {
   color: #eee;
 }
