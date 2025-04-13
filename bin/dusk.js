@@ -119,6 +119,9 @@ program.option('--gui',
 program.option('--install',
   'writes linux .desktop entry to $HOME/.local/share/applications');
 
+program.option('--uninstall',
+  'deletes linux .desktop entry from $HOME/.local/share/applications');
+
 program.option('--rpc [method] [params]', 
   'send a command to the daemon');
 
@@ -158,7 +161,7 @@ program.option('--shred [message]',
 program.option('--retrace [bundle]', 
   're-assembles a dusk bundle created by --shred');
 
-program.option('--open', 'runs xdg-open after retrace');
+program.option('--open', 'runs xdg-open on things when possible');
 
 program.option('--ephemeral', 
   'use with --shred --encrypt to generate a one-time use identity key');
@@ -213,19 +216,40 @@ let _didSetup = false;
 
 if (program.install) {
   const binpath = execSync('which node').toString().trim();
-  const desktop = `[Desktop Entry]
+  const desktop1 = `[Desktop Entry]
 Name=dusk
 Comment=darknet under s/kademlia
 Terminal=false
-Exec=${binpath} ${path.join(__dirname)}/dusk.js --menu --gui %U
+Exec=${binpath} ${path.join(__dirname)}/dusk.js --open --gui --menu %U
 Icon=${path.join(__dirname, '../assets/images/favicon.png')}
 Categories=Utility;
 Type=Application
   `;
+  const desktop2 = `[Desktop Entry]
+Name=dusk settings
+Comment=darknet under s/kademlia
+Terminal=false
+Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --menu %U
+Icon=${path.join(__dirname, '../assets/images/favicon.png')}
+Categories=Utility;
+Type=Application
+  `;
+  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk.desktop');
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk settings.desktop');
+  console.log(`  Installing desktop entries to ${writeOut1},${writeOut2}...`);
+  fs.writeFileSync(writeOut1, desktop1);
+  fs.writeFileSync(writeOut2, desktop2);
+  console.log('');
+  console.log('  [ done! ♥ ]');
+  process.exit(0);
+}
 
-  const writeOut = path.join(homedir(), '.local/share/applications/dusk.desktop');
-  console.log(`  Installing desktop entry to ${writeOut}...`);
-  fs.writeFileSync(writeOut, desktop);
+if (program.uninstall) {
+  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk.desktop');
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk settings.desktop');
+  console.log(`  Removing desktop entries from ${writeOut1},${writeOut2}...`);
+  fs.unlinkSync(writeOut1);
+  fs.unlinkSync(writeOut2);
   console.log('');
   console.log('  [ done! ♥ ]');
   process.exit(0);
@@ -1612,8 +1636,12 @@ async function initDusk() {
     });
 
     ftp.listen().then(() => {
+      if (program.gui && program.open) {
+        spawn('xdg-open', [`ftp://127.0.0.1:${config.FTPBridgeListenPort}`]);
+      } 
+
       logger.info(`ftp bridge is running locally on port ${config.FTPBridgeListenPort}`);
-       const tor = hsv3([
+      const tor = hsv3([
         {
           dataDirectory: path.join(config.FTPBridgeHiddenServiceDirectory, 'hidden_service'),
           virtualPort: 21,
@@ -1640,6 +1668,8 @@ async function initDusk() {
         console.log('');
         node.ftpHsAddr = `ftp://${hostname}:21`;
         node.ftpLocalAddr = `ftp://127.0.0.1:${config.FTPBridgeListenPort}`;
+
+        registerControlInterface();
       }); 
     }, (err) => {
       console.error(err);
@@ -1723,7 +1753,6 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
     });
   }
 
-  registerControlInterface();
 
   node.listen(parseInt(config.NodeListenPort), async () => {    
     function checkRunning(pid) {
@@ -1848,40 +1877,55 @@ function _dusk(args, opts) {
 let rpc;
 
 async function displayMenu() {
-
   let progressBar;
   let answer; 
+
+  if (program.gui) {
+    progressBar = Dialog.progress('Connecting ♥ ...', '🝰 dusk', {
+      pulsate: true
+    });
+  }
 
   if (!rpc) { 
     try {
       rpc = await getRpcControl();
     } catch (e) {
-/*
-      if (program.gui) {
-        answer = { rundusk: Dialog.info('🝰 dusk does not appear to be running! Would you like to start it?', '🝰 dusk', 'question').status === 0 };
-        progressBar.progress(100);
-      } else {
-        console.warn('  🝰 dusk does not appear to be running');
-        answer = await inquirer.default.prompt({
-          type: 'confirm',
-          name: 'rundusk',
-          message: 'Should I try to start it?'
-        }); 
-      }
-*/
-      answer = { rundusk: true };
-    }
-
-    if (!answer) {
-      mainMenu();
-    } else if (answer && answer.rundusk) {
       _dusk(['--daemon', `${program.gui?'--gui':''}`], { 
         stdio: 'inherit', 
         detached: false 
-      }).on('close', () => {
-        setTimeout(displayMenu, 1000);
       });
+
+      while (!rpc) {
+        try { rpc = await getRpcControl() } catch (err) {}
+      }    
     }
+  }
+
+  if (progressBar) {
+    progressBar.progress(100);
+  }
+
+  if (program.open) {
+    rpc.invoke('getinfo', [], (err, info) => {
+      if (program.gui) {
+        if (err) {
+          Dialog.info(err, 'Sorry', 'error');
+        } else {
+          spawn('xdg-open', [info.ftp.local])
+          exitGracefully();
+        }
+      } else {
+        if (err) {
+          console.error(err);
+        } else {
+          let addr = info.ftp.local.split('ftp://')[1];
+          let f = spawn('ftp', [`ftp://${config.FTPBridgeUsername}@${addr}`], {
+            stdio: 'inherit'
+          });
+          f.on('close', mainMenu);
+        }
+      }
+    });
   } else {
     mainMenu();
   }
