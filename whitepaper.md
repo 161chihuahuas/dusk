@@ -1,8 +1,7 @@
-# <center><a href="https://rundusk">dusk</a></center> 
+# <center><a href="https://rundusk">🝰 dusk</a></center> 
 # <center><em>darknet under s/kademlia</em></center>
 ## --
-#### <center>Lily Anne (mail@tacticalchihuahua.lol)</center>
-#### <center>November 22, 2024</center>
+#### <center>Lily H (161chihuahuas@disroot.org)</center>
 ## --
 
 >
@@ -36,7 +35,7 @@ The purpose of this text is to explain the motivation, design concepts, network 
 
 ### History
 
-In 2014, I picked up a book in which a well known editor and activist abstractly describes a hypothetical system where documents can be stored across some number of computers. The files are indexed by their hash. This property is called "content-addressable" and it means that every piece of data can be reduced to a single unique number and that number is used as a lookup key. He discusses how this could resist censorship and how such a system could be relevant to WikiLeaks.
+In 2014, I picked up a book in which a well known editor and activist abstractly describes a hypothetical system where documents can be stored across some number of computers. The files are indexed by their hash. This property is called "content-addressable" and it means that every piece of data can be reduced to a single unique number and that number is used as a lookup key. He discusses how this could resist censorship.
 
 About a year later, I found myself participating in a hackathon. Several months before, I had begun working on an implementation of [Kademlia](https://www.scs.stanford.edu/~dm/home/papers/kpos.pdf), which is an algorithm for a [distributed hash table](https://en.wikipedia.org/wiki/Distributed_hash_table) . A DHT is a way of storing a simple data structure across a number of computers. I had started working on this implementation as a learning exercise.
 
@@ -46,7 +45,7 @@ The metadata (the information about where the pieces were, what order they go in
 
 I was job searching at the time and had been introduced to a few people working on a new startup called [Storj](https://storj.io). They had heard about the hackathon project and it sounded similar to their whitepaper - absent the inclusion of a blockchain. I joined Storj, excited about the opportunity to work full time developing the kind of technology that could enable platforms like BYRD to help journalists and whistle blowers. 
 
-I knew from the beginning that Storj could never be the project I wanted BYRD to be, but it was an opportunity to further the development of related technology that would be free and open source. We had some interesting problems to solve. How do you manage an autonomous customer-provider relationship? How do you ensure quality of service when your infrastructure runs in the basements of strangers? How do you protect the privacy of users? How do you... **not do an "economy"??**
+I knew from the beginning that Storj could never be the project I wanted BYRD to be, but it was an opportunity to further the development of related technology that would be free and open source. They had some difficult problems to solve. How do you manage an autonomous customer-provider relationship? How do you ensure quality of service when your infrastructure runs in the basements of strangers? How do you protect the privacy of users? How do you... **not do an "economy"??**
 
 There were conflicting interests between building a network like the one I envisioned and sustaining a for-profit business. In many ways, it was these conflicts that ultimately led me to move on. Yet, everything we had developed together was still free and open source software and I was determined to keep the project that I always wanted alive.
 
@@ -62,13 +61,13 @@ Later, the founder of a privacy-oriented social network donated the funds needed
 
 Over the course of several years, the project lost momentum. I had little support in keeping the project up-to-date and other software like [SecureDrop](https://securedrop.org/) was far more suitable, better maintained and well supported for it's use case. As a result, I shifted focus to improving the underlying implementation of [S/Kademlia](https://telematics.tm.kit.edu/publications/Files/267/SKademlia_2007.pdf)  and released it as a general purpose framework for building peer-to-peer networks. It was called [Kadence](https://github.com/lilyannehall/kadence).
 
-This project finds itself full-circle in this history. The focus on the underlying framework yielded a solid base to build on that didn't have dragons afoot - programming bugs from another lifetime or design decisions made in the haste of a venture-backed startup racing towards the moon. From that solid base, I distilled down the framework to a maintainable subset of components and used them to build dusk. 
+This project finds itself full-circle in this history. The focus on the underlying framework yielded a solid base to build on that didn't have dragons afoot - programming bugs from another lifetime or design decisions made in the haste of a venture-backed startup racing to the bottom. From that solid base, I distilled down the framework to a maintainable subset of components and used them to build dusk. 
 
 So, what is dusk?
 
 ### Purpose
 
-The answer to this question surely depends on who is asking.
+The answer to this question surely depends on who is asking, but in practice it's **a deniable cloud drive**.
 
 **If you were a journalist,** I would say it's a way to sync your notes between devices without revealing the location of your devices. You can publish your writing free from censorship and protect your audience. Even communicate with sources and share files anonymously.
 
@@ -80,8 +79,6 @@ The answer to this question surely depends on who is asking.
 
 This is certainly not an exhaustive list. If you share in the spirit of this work but are not any of the above, then dusk is a program you can run and forget about. And you get to help me - us - make this work possible.
 
-With all of that said, right now, dusk isn't any of these things. It's an anonymous content-addressable distributed hash table. The *purpose* of dusk is to do some of the hardest parts of building the applications described above. This project is an *invitation* to build more tools to keep us safe.
-
 I'm of the mind that technology is not neutral. It is an expression of our values and interests. This project is an expression of my value for autonomy in the midst of rising fascism. This project is an expression of my interest in keeping my friends safe while we oppose it.
 
 In short, dusk is a platform for privacy respecting applications that serve people at risk of experiencing censorship, coercion, and state violence. And with that, let's talk about risk.
@@ -92,7 +89,7 @@ In 2014, I co-founded an anarchist hackerspace with a small group of friends. Du
 
 I was doing regular workshops on counter-surveillance tactics and digital privacy. The majority of this workshop included collaboratively defining a threat model, both digitally and physically. There are a lot of ways to do this exercise, but I'm going to use the basic structure from my workshop to explain dusk's threat model. Hopefully it will also be helpful in defining your own before using dusk.
 
-I have designed dusk's threat model around a particular type of journalist that exists at a contradictory intersection of being vital to the success of more established "traditional" media while those same organizations turn away from offering them support when they are targeted by the state. 
+I have designed dusk's threat model around a particular type of movement journalism that exists at a contradictory intersection of being vital to the success of more established "traditional" media while those same organizations turn away from offering them support when they are targeted by the state. 
 
 Independent journalists that are openly aligned with social movements are targeted by the state *because* of their vital role in spreading information *and* because of this lack of support from organizations that can - and should - protect them. So, I spoke with an antifascist independent journalist. 
 
@@ -100,35 +97,35 @@ Here, I share her responses to the questions in the modeling exercise alongside 
 
 #### Who am I?
 
-> "Journalist. Woman. Queer. Arab. I cover far-right activity, far-right extremism, police brutality, and environmentalism."
+> "Well, I'm a journalist. A woman. Queer and Arab. I cover far-right activity, far-right extremism, police brutality, and environmentalism in the Pacific Northwest."
 
-The answer to this question may seem like a softball opener to the exercise, but it's actually the most critical component. That's because *who we are* often determines the **likelihood** and **extremity** to which our adversaries may leverage their capabilities.
+The answer to this question may seem like a softball opener to the exercise, but it's actually the most critical component. That's because *who we are* often determines the **likelihood** and **extremity** to which our adversaries may leverage their capabilities. 
+
+In this case, our user is multiply marginalized *and* gathers information about groups and indidivuals who may retaliate and target her more aggressively because of her identity. Keeping her data safe from state-level adversaries is critical.
 
 dusk assumes that it will be targeted and has been designed to withstand large-scale network attacks - this is described in detail in the Specification section.
 
 #### What am I trying to protect?
 
-> "Sources. Identities of people in certain targeted communities. Data people send - like photos and messages."
+> "My sources and the identities of people in communities actively being targeted and fascists and the state. This includes data people send - like photos and messages."
 
 Sender/destination anonymity is achieved in dusk by operating exclusively over Tor. dusk also encrypts data, shreds it into uniform blocks, and spreads those blocks around the world. It can only be retrieved with a special code it can only be decrypted by a separate key.
 
 #### Who are my adversaries?
 
-> "Law enforcement - both local and federal. Nazis, far-right militias, and various hate groups."
-
-dusk follows a *trustless* model, meaning it is designed to operate under the assumption that every computer your data touches or that you communicate with is adversarial. Even if every dusk node on the network was malicious or under surveillance, they still would be unable to access your data.
+> "Law enforcement, both local and federal. Nazis, far-right militias, and various hate groups."
 
 #### What are their capabilities?
 
-> "The thing is... law enforcement and non law enforcement adversaries both have vast resources. Many non-law enforcement adversaries have connections to law enforcement. They have money, weapons, and technology."
+> "The thing is... law enforcement and non law enforcement adversaries both have vast resources. Many non-law enforcement adversaries have connections to law enforcement. They have money, weapons, and sophisticated technology."
 
 Researchers have invested many years into [finding vulnerabilities in Tor](https://github.com/Attacks-on-Tor/Attacks-on-Tor). Law enforcement [has been successful in this](https://www.dailydot.com/debug/government-contractor-tor-malware/) as well. It must be noted that dusk relies on the anonymity provided by Tor and therefore if Tor is subverted, so is the sender/destination anonymity dusk relies on.
 
 That said, dusk's *privacy* properties do not. Data is still encrypted and can be protected from theft, seizures, and even coercion. This is outlined in the User Guide section.
 
-#### What are my capabilities?
+#### What are my own capabilities?
 
-> "Knowledge of tools that they utilize, knowledge of their tactics and what drives them. Encryption, but often things come up where I have to enlist help of someone in the community for that specific knowledge subset."
+> "Knowledge of tools that they utilize, knowledge of their tactics and what motivates them. Encryption, but often things come up where I have to enlist help of someone in the community for that specific knowledge subset."
 
 Privacy and anonymity software has long been plagued by a usability problem. Often, the people who need it most are unable to navigate the technical learning curve and integrate it's use into their workflow. Even with thorough documentation, it still asks a lot of end users to invest the time.
 
@@ -379,9 +376,9 @@ Upon receipt of an UPDATE message we merge the delivered attenuated bloom filter
 
 The dusk reference implementation is written in JavaScript and runs under Node.js. It is developed and tested first on Debian Bookworm and is intended to be run on GNU/Linux systems. I suggest [Qubes](https://www.qubes-os.org/) if you wish to run a support node and [Tails](https://tails.net/) for disposable nodes (more on "node types" later). 
 
-**I will support macOS** as the assumed primary platform that dusk end-users will be using. This is based on personal observations and again to make dusk accessible to it's audience. Windows support is unlikely unless contributed and maintained by any community that might develop around this work.
+Ubiquitous interfaces for all platforms is critical. This is based on personal observations and again to make dusk accessible to it's audience. This is achieved through an FTP bridge that can be accessed remotely over Tor on any operating system. The actual dusk software runs on Linux, tested and developed on Debian Bookworm and integrated with the GNOME desktop environment.
 
-JavaScript/Node\.js was chosen for it's low learning curve, ubiquity across platforms, and event driven I/O model which lends itself to handling asynchronous networking code well. Future work may include an implementation in [Rust](https://www.rust-lang.org/).
+JavaScript/Node\.js was chosen for it's low learning curve, ubiquity across platforms, and event driven I/O model which lends itself to handling asynchronous networking code well.
 
 #### Cryptography and Secrets
 
