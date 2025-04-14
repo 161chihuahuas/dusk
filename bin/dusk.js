@@ -217,20 +217,20 @@ let _didSetup = false;
 if (program.install) {
   const binpath = execSync('which node').toString().trim();
   const desktop1 = `[Desktop Entry]
-Name=dusk
+Name=dusk:Files
 Comment=darknet under s/kademlia
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --open --gui --menu %U
-Icon=${path.join(__dirname, '../assets/images/favicon.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-files.png')}
 Categories=Utility;
 Type=Application
   `;
   const desktop2 = `[Desktop Entry]
-Name=dusk settings
+Name=dusk:Settings
 Comment=darknet under s/kademlia
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --menu %U
-Icon=${path.join(__dirname, '../assets/images/favicon.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
 Categories=Utility;
 Type=Application
   `;
@@ -1637,7 +1637,7 @@ async function initDusk() {
 
     ftp.listen().then(() => {
       if (program.gui && program.open) {
-        spawn('xdg-open', [`ftp://127.0.0.1:${config.FTPBridgeListenPort}`]);
+        spawn('xdg-open', [`ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`]);
       } 
 
       logger.info(`ftp bridge is running locally on port ${config.FTPBridgeListenPort}`);
@@ -1664,10 +1664,10 @@ async function initDusk() {
           'hidden_service', 
           'hostname'
         )).toString().trim();
-        console.log('  [  ftp://%s:21  ]', hostname);
+        console.log('  [  ftp://%s@%s:21  ]', config.FTPBridgeUsername, hostname);
         console.log('');
-        node.ftpHsAddr = `ftp://${hostname}:21`;
-        node.ftpLocalAddr = `ftp://127.0.0.1:${config.FTPBridgeListenPort}`;
+        node.ftpHsAddr = `ftp://${config.FTPBridgeUsername}@${hostname}:21`;
+        node.ftpLocalAddr = `ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`;
 
         registerControlInterface();
       }); 
@@ -1911,7 +1911,7 @@ async function displayMenu() {
         if (err) {
           Dialog.info(err, 'Sorry', 'error');
         } else {
-          spawn('xdg-open', [info.ftp.local])
+          spawn('nautilus', [info.ftp.local])
           exitGracefully();
         }
       } else {
@@ -1919,7 +1919,7 @@ async function displayMenu() {
           console.error(err);
         } else {
           let addr = info.ftp.local.split('ftp://')[1];
-          let f = spawn('ftp', [`ftp://${config.FTPBridgeUsername}@${addr}`], {
+          let f = spawn('ftp', [info.ftp.local], {
             stdio: 'inherit'
           });
           f.on('close', mainMenu);
@@ -2100,7 +2100,7 @@ ${dialogText}\n`);
         break;
       case 1:
         if (program.gui) {
-          f = spawn('xdg-open', [info.ftp.local]);
+          f = spawn('nautilus', [info.ftp.local]);
         } else {
           let addr = info.ftp.local.split('ftp://')[1];
           let hasFtpCli;
