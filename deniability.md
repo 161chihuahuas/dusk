@@ -1,7 +1,5 @@
-# <center><a href="https://rundusk">🝰 dusk:</a></center> 
-# <center><em>deniability as a security property</em></center>
-## --
-#### <center>Lily H (161chihuahuas@disroot.org)</center>
+# [🝰 dusk](https://rundusk.org)
+# *deniability as a security property*
 ## --
 
 Cloud storage providers have a business incentive to provide availability, durability, and speed. Sometimes providers market privacy and end-to-end encryption, but the concept of deniability is unheard of in the cloud services sector. So, why is that?

@@ -1,4 +1,6 @@
 # [🝰 dusk](https://rundusk.org)
+# *contributor guide*
+## --
 
 > Looking for _user_ documentation? You're probably looking for the [User Guide](howto.md). ♥
 

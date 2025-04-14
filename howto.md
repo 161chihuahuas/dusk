@@ -1,6 +1,6 @@
 # [🝰 dusk](https://rundusk.org)
-
-## User Guide
+# *user guide*
+## --
 
 * [Installation](#installation)
 * [Setup](#setup)
@@ -13,7 +13,9 @@
 
 ### Installation
 
-The simplest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/)) with persistence on a USB or inside a virtual machine on any operating system is recommended.
+#### Quick Setup
+
+The simplest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
 
 ```
 curl -o- https://rundusk.org/install.sh | bash
@@ -23,31 +25,93 @@ You may be prompted for your password.
 
 #### Virtualization
 
-TODO
-> What? Why? How?
+The dusk software is designed and tested to run on Debian under the GNOME desktop environment. Debian is a well-maintained and tested operating system and the GNOME desktop environment provides an excellent experience to users coming to Linux from macOS.
+
+You can run Debian and Dusk inside the operating system of your choosing by using a virtual machine: this allows you to run dusk's environment without making changes to your operating system.
+
+If this sounds scary or hard - don't worry! It's easier than it sounds. The next sections provide a detailed guide on how to get up and running in a virtual machine on Debian, macOS, or Windows.
+
+There are many options for virtualization software for every platform, but this guide will show you how to use the ones that have the simplest feature set to get the job done and are free and open-source
 
 #### Debian Users
 
-TODO
-> Developed on Debian Testing under GNOME desktop
-> Mac users should consider migrating ;)
-> Directly on host
-> On a Tails USB
-> GNOME boxes, port access, etc
-> Docker
+First, download and install [GNOME Boxes](https://apps.gnome.org/Boxes/).
+
+```
+sudo apt install gnome-boxes
+```
+
+Once installed, open Boxes, click the **Plus +** icon and select Download OS.
+
+![debian vm install](assets/images/deb-001.png)
+
+Select "Debian Testing x86_64 (netinst)".
+
+![debian vm install](assets/images/deb-002.png)
+
+Enter **dusk** for the name, ensure **Express Installation** is enabled, enter **dusk** for your username and set a password. Set *Memory* to at least **8.0GiB** and storage to whatever you like (you can change this later).
+
+When you're finished, click **Create**. Wait for the download and installation to finish, it may take a bit.
+
+![debian vm install](assets/images/deb-003.png)
+
+Once complete, you should have a Debian 12 login screen. Enter the password you set during installation to login.
+
+![debian vm install](assets/images/deb-004.png)
+
+To install dusk, you'll need administrator privileges. Open the **Terminal** app by pressing the *Super Key* ("Windows" key or "Command" on macOS), typing "Terminal", and pressing enter or clicking the icon that appears.
+
+![debian vm install](assets/images/deb-005.png)
+
+In **Terminal**, type `su --login` and press **Enter**. Type your password and press Enter again. 
+
+Add the dusk user to the administrator group, by typing `adduser dusk sudo` and pressing Enter. Now restart the virtual machine by clicking the **Power** icon in the top right of the menu bar and selecting **Restart**.
+
+![debian vm install](assets/images/deb-006.png)
+
+The virtual machine should restart and you'll be returned to the login screen. Log back in and open **Firefox**. Navigate to [rundusk.org](https://rundusk.org) and copy the install command from the homepage.
+
+![debian vm install](assets/images/deb-007.png)
+![debian vm install](assets/images/deb-008.png)
+
+Open **Terminal** again (*Super Key* , then type "Terminal"). Install cURL, by typing `sudo apt install curl` and pressing *Enter*. Then, right click and paste the install command and press *Enter*.
+
+![debian vm install](assets/images/deb-009.png)
+
+When the installer is finished, press the *Super Key* and type **Files** or **dusk**. You should see two apps: **dusk:Files** and **dusk:Settings**. Click on **dusk:Files**.
+
+![debian vm install](assets/images/deb-010.png)
+![debian vm install](assets/images/deb-011.png)
+
+Follow the initial setup prompts.
+
+![debian vm install](assets/images/deb-012.png)
+![debian vm install](assets/images/deb-013.png)
+![debian vm install](assets/images/deb-014.png)
+![debian vm install](assets/images/deb-015.png)
+
+After dusk is finished, you'll be prompted a final time for the *password you set for dusk* in the previous steps. Enter it to open the **Files** view.
+
+![debian vm install](assets/images/deb-016.png)
+![debian vm install](assets/images/deb-0017.png)
+
+Dusk is now installed and running. Use the virtual operating system to manage your sensitive material. Open **dusk:Settings** to link to other devices, create sneakernets, and more.
 
 #### MacOS Users
 
-TODO
-> UTM, port access, ftp, etc
-> Docker
+* Download and install [UTM](https://mac.getutm.app/).
+* Download the [Debian Trixie ISO](https://cdimage.debian.org/cdimage/trixie_di_alpha1/amd64/iso-cd/debian-trixie-DI-alpha1-amd64-netinst.iso)
+* Create a VM in UTM using the Trixie .iso file you downloaded
+* Once installed, the steps are the same as in the Debian section above
+
 
 #### Windows Users
 
-TODO
-> Windows users should expect a similar process as macOS with VirtualBox, but Windows installation is not officially supported.
+Windows users should expect a similar process as macOS, but using [VirtualBox](https://www.virtualbox.org/wiki/Downloads), although Windows is not currently supported.
 
 ### Setup
+
+#### Command Line Interface
 
 Once you have installed dusk or linked it as a global package, open your Terminal and run `dusk --help`.
 
@@ -66,9 +130,6 @@ You need a minimum of 3 dusk nodes to form a functioning network. These could be
 Run your dusk node in the background with `dusk --daemon`. 
 
 ### Basics
-
-> TODO graphical and text menus howto
-> TODO FTP Bridge
 
 The dusk CLI provides a number of tools for interacting with dusk and the network, but there are 2 primary operations to familiarize yourself with first: shred and retrace. 
 
