@@ -93,7 +93,7 @@ Follow the initial setup prompts.
 After dusk is finished, you'll be prompted a final time for the *password you set for dusk* in the previous steps. Enter it to open the **Files** view.
 
 ![debian vm install](assets/images/deb-016.png)
-![debian vm install](assets/images/deb-0017.png)
+![debian vm install](assets/images/deb-017.png)
 
 Dusk is now installed and running. Use the virtual operating system to manage your sensitive material. Open **dusk:Settings** to link to other devices, create sneakernets, and more.
 
