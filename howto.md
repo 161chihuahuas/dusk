@@ -5,9 +5,9 @@
 * [Installation](#installation)
 * [Setup](#setup)
 * [Basics](#basics)
-* [Advanced](#advanced)
 * [Configuration](#configuration)
 * [Sneakernets](#sneakernets)
+* [Advanced](#advanced)
 
 ---
 
@@ -15,7 +15,7 @@
 
 #### Quick Setup
 
-The simplest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
+The fastest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
 
 ```
 curl -o- https://rundusk.org/install.sh | bash
@@ -111,61 +111,35 @@ Windows users should expect a similar process as macOS, but using [VirtualBox](h
 
 ### Setup
 
-#### Command Line Interface
+After installation, you immediately have the ability to store files. However, dusk is running in **seed mode**. This means that you haven't given it any device links to others who are also running dusk. In it's current mode, it is an encrypted virtual filesystem that you can access remotely.
 
-Once you have installed dusk or linked it as a global package, open your Terminal and run `dusk --help`.
+This is useful and provides security, anonymity, and ease of access. However it does not provide durability (ability to recover lost files) or deniability (all your data is stored on a device that you possess). To gain those properties you need some human affinity.
 
-The CLI will print a list of options and what they do. This is where you'll find tools to interact with dusk. But first you have to start dusk for the first time! In that same Terminal just run `dusk`.
+Dusk is not a single unified network - it is ad-hoc and designed to be highly segmented, meaning there are *many* dusk networks that can appear and disappear as their individual group members change and regenerate. In simple terms, you run dusk with your friends, your community, your affinity group.
 
-The CLI will prompt you to enter a password to protect the key it generated. Then, it will print a list of words and tell you to write them down. Do that and run `dusk` again.
+#### Linking Devices
 
-Now dusk will start bootstrapping the Tor network connection and eventually it will say it's listening for connections. Now you'll want to connect to someone to discover more of the network. But how? There is no signaling server, no DNS seeds, or list of operating nodes (yet). So, here is where your IRL network comes into play.
+To take advantage of dusk's deniability properties and strengthen your data security, you'll need to link some devices.
 
-Maybe it's your affinity group, your research team, your friends - they need to run dusk too. And you'll exchange "identity bundles" to bootstrap from each other. To do that, we need to ask our dusk node for it. In *another* Terminal, run `dusk --link`.
+Press the *Super Key*, and type **dusk:Settings** to open the menu. Then, select **Devices** and click OK.
 
-This is like your username. It contains information about how to communicate with your dusk node. Note that your link contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged links, run `dusk --rpc "connect <link>"`.
+![linking](assets/images/link-001.png)
+![linking](assets/images/link-002.png)
 
-You need a minimum of 3 dusk nodes to form a functioning network. These could be friends, family, colleagues, members of your affinity group, etc. dusk can operate segmented to a small community or connected to a wider global network. 
+Selecting *Show my device link* and pressing OK will show your unique device link - which you share with members of your affinity network. To link a device, select *Link a new device*, paste the the link you received into the prompt and press OK.
 
-Run your dusk node in the background with `dusk --daemon`. 
+A random short name will be assigned to this device so you can remember who it came from. This device is now a **Link**. Links can be added or removed at any time.
+
+![linking](assets/images/link-003.png)
+![linking](assets/images/link-004.png)
+
+##### Links vs. Peers
+
+Devices that you *link* will be devices that dusk connects to *first*. Through doing so, dusk may discover other devices that add to your network. Those devices are **Peers**. They serve most of the same function as Links, with the exception that dusk will not remember them or try to connect to them on startup.
 
 ### Basics
 
-The dusk CLI provides a number of tools for interacting with dusk and the network, but there are 2 primary operations to familiarize yourself with first: shred and retrace. 
-
-#### `--shred`
-
-**Shred** takes a file, encrypts it to your key, splits it up into equal segments, generates parity segments (for recovery from data loss), creates a metadata pointer, encrypts the metadata, and depending on your choice either: writes the pieces to a special folder called a `duskbundle`, stores the pieces in the network using the DHT, or transfers them across an array of USB drives (see [Sneakernets](#sneakernets).
-
-To shred a file and store the pieces in the DHT using the control port:
-
-```
-dusk --shred --dht --control-port 5275
-```
-
-dusk will talk you through the process and keep you updated on progress.
-
-#### `--retrace`
-
-**Retrace** takes an encrypted metadata pointer, decrypts it then depending on your choice either: reads the pieces from a `duskbundle`, downloads the pieces from the network, or reads them from an array of USB drives. Then, retrace will reassmble the pieces, encode any corrupted or missing pieces, decrypt the original file, and save it.
-
-To retrace the same file from the previous example from the DHT:
-
-```
-dusk --retrace --dht --control-port 5275
-```
-
-dusk will talk you through the process and keep you updated on progress.
-
-### Advanced
-
-The next most important feature is dusk's publish/subscribe system. Nodes can receive arbitrary publications announced through the network by adding the fingerprint of the publisher to their subscriptions. Whenever dusk is handed a PUBLISH message it is interested in, it can trigger a webhook to a onion address.
-
-#### `--test-hooks`
-
-If you are developing an application that uses the pub/sub system, your application will expose an onion service where dusk can send POST requests with the publication contents in the body. Your application can then validate and process those messages according to your needs.
-
-You can test this out using the `--test-hooks` option - which will start a simple onion service that prints messages it receives from dusk to the console. *Do not use this AS IS in production.*
+TODO
 
 ### Configuration
 
@@ -321,3 +295,58 @@ The dusk CLI includes a `--shoes` option that can be used in 3 ways:
 
 Setting up a dusk/SHOES USB functions a lot like setting up dusk on first run. All of the configuration, identity keys, and data directories are created on the USB. The dusk/SHOES USB can even be used to run dusk online later.
 Shredding a file follows a guided prompt. Retracing follows a similar process.
+
+### Advanced
+
+#### Command Line Interface
+
+Once you have installed dusk or linked it as a global package, open your Terminal and run `dusk --help`.
+
+The CLI will print a list of options and what they do. This is where you'll find tools to interact with dusk. But first you have to start dusk for the first time! In that same Terminal just run `dusk`.
+
+The CLI will prompt you to enter a password to protect the key it generated. Then, it will print a list of words and tell you to write them down. Do that and run `dusk` again.
+
+Now dusk will start bootstrapping the Tor network connection and eventually it will say it's listening for connections. Now you'll want to connect to someone to discover more of the network. But how? There is no signaling server, no DNS seeds, or list of operating nodes (yet). So, here is where your IRL network comes into play.
+
+Maybe it's your affinity group, your research team, your friends - they need to run dusk too. And you'll exchange "identity bundles" to bootstrap from each other. To do that, we need to ask our dusk node for it. In *another* Terminal, run `dusk --link`.
+
+This is like your username. It contains information about how to communicate with your dusk node. Note that your link contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged links, run `dusk --rpc "connect <link>"`.
+
+You need a minimum of 3 dusk nodes to form a functioning network. These could be friends, family, colleagues, members of your affinity group, etc. dusk can operate segmented to a small community or connected to a wider global network. 
+
+Run your dusk node in the background with `dusk --daemon`. 
+
+The dusk CLI provides a number of tools for interacting with dusk and the network, but there are 2 primary operations to familiarize yourself with first: shred and retrace. 
+
+##### `--shred`
+
+**Shred** takes a file, encrypts it to your key, splits it up into equal segments, generates parity segments (for recovery from data loss), creates a metadata pointer, encrypts the metadata, and depending on your choice either: writes the pieces to a special folder called a `duskbundle`, stores the pieces in the network using the DHT, or transfers them across an array of USB drives (see [Sneakernets](#sneakernets).
+
+To shred a file and store the pieces in the DHT using the control port:
+
+```
+dusk --shred --dht --control-port 5275
+```
+
+dusk will talk you through the process and keep you updated on progress.
+
+##### `--retrace`
+
+**Retrace** takes an encrypted metadata pointer, decrypts it then depending on your choice either: reads the pieces from a `duskbundle`, downloads the pieces from the network, or reads them from an array of USB drives. Then, retrace will reassmble the pieces, encode any corrupted or missing pieces, decrypt the original file, and save it.
+
+To retrace the same file from the previous example from the DHT:
+
+```
+dusk --retrace --dht --control-port 5275
+```
+
+dusk will talk you through the process and keep you updated on progress.
+
+
+The next most important feature is dusk's publish/subscribe system. Nodes can receive arbitrary publications announced through the network by adding the fingerprint of the publisher to their subscriptions. Whenever dusk is handed a PUBLISH message it is interested in, it can trigger a webhook to a onion address.
+
+##### `--test-hooks`
+
+If you are developing an application that uses the pub/sub system, your application will expose an onion service where dusk can send POST requests with the publication contents in the body. Your application can then validate and process those messages according to your needs.
+
+You can test this out using the `--test-hooks` option - which will start a simple onion service that prints messages it receives from dusk to the console. *Do not use this AS IS in production.*

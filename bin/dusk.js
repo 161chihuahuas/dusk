@@ -2253,7 +2253,7 @@ async function encryptionUtilities(action) {
   let tool;
 
   if (program.gui) {
-    tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
+    tool = { option: Dialog.list(duskTitle, 'What would you like to do?', [
       ['🤳  Encrypt a message (for myself)'], 
       ['🎁  Encrypt a message (for someone else)'], 
       ['💣  Encrypt a message (using a one-time secret)'], 
