@@ -265,6 +265,10 @@ function _update() {
   });
 }
 
+if (program.update) {
+  _update();
+}
+
 if (program.install) {
   const binpath = execSync('which node').toString().trim();
   const desktop1 = `[Desktop Entry]
