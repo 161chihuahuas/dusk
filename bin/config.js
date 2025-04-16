@@ -14,6 +14,8 @@ module.exports = function(datadir) {
 
   const options = {
 
+    AlwaysPromptToUpdate: '1',
+
     // Process PID
     DaemonPidFilePath: join(datadir, 'dusk.pid'),
 

@@ -239,28 +239,30 @@ let ftp;
 
 let _didSetup = false;
 
-if (program.update) {
-  let progress;
-  if (program.gui) {
-    progress = progressBar = Dialog.progress('Updating to latest version, hang tight ♥ ...', '🝰 dusk', {
-      pulsate: true
-    });
-  } else {
-    console.log('  Updating 🝰 dusk, this can take a moment ...');
-  }
-  try {
-    execSync('curl -o- https://rundusk.org/install.sh | bash');
-  } catch (e) {
-    if (!program.gui) {
-      console.error('  Failed to update:', e.message);
+function _update() {
+  return new Promise((resolve) => {
+    let progress;
+    if (program.gui) {
+      progress = Dialog.progress('Updating to latest version, hang tight ♥ ...', '🝰 dusk', {
+        pulsate: true
+      });
     } else {
-      progress.progress(100);
+      console.log('  Updating 🝰 dusk, this can take a moment ...');
     }
-    exitGracefully();
-  }
-  if (!program.restart) {
-    exitGracefully();
-  }
+    try {
+      execSync('curl -o- https://rundusk.org/install.sh | bash');
+    } catch (e) {
+      if (!program.gui) {
+        console.error('  Failed to update:', e.message);
+      } else {
+        progress.progress(100);
+      }
+      resolve();
+    }
+    if (!program.restart) {
+      exitGracefully();
+    }
+  });
 }
 
 if (program.install) {
@@ -506,6 +508,29 @@ async function _init() {
 
   if (!_didSetup) {
     await _setup();
+  }
+
+  if (!!parseInt(config.AlwaysPromptToUpdate)) {
+    let shouldUpdate;
+    const message = 'Would you like to check for updates?';
+
+    if (program.gui) {
+      shouldUpdate = {
+        yes: program.yes ||
+          Dialog.info(message, '🝰 dusk', 'question').status !== 1
+      };
+    } else {
+      shouldUpdate = program.yes ? { yes: true } : await inquirer.default.prompt({
+        name: 'yes',
+        type: 'confirm',
+        message
+      });
+    }
+
+    if (shouldUpdate.yes) {
+      program.restart = true;
+      await _update();
+    } 
   }
 
   if (parseInt(config.TestNetworkEnabled)) {
