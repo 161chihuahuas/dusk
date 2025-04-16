@@ -48,6 +48,7 @@ const bunyan = require('bunyan');
 const FtpSrv = require('ftp-srv');
 const RotatingLogStream = require('bunyan-rotating-file-stream');
 const fs = require('node:fs');
+const fsP = require('node:fs/promises');
 const path = require('node:path');
 const options = require('./config');
 const npid = require('npid');
@@ -101,6 +102,15 @@ program.option('--setup',
 program.option('--kill', 
   'sends the shutdown signal to the daemon');
 
+program.option('--shutdown', 
+  'alias for --kill');
+
+program.option('--reset', 
+  'restores the default configuration');
+
+program.option('--destroy', 
+  'prompts to shutdown dusk and deletes the entire data directory');
+
 program.option('--testnet', 
   'runs with reduced identity difficulty');
 
@@ -109,6 +119,12 @@ program.option('--menu, -I [submenu]',
 
 program.option('--daemon, -D', 
   'sends the dusk daemon to the background');
+
+program.option('--background', 
+  'alias for --daemon, -D');
+
+program.option('--restart', 
+  'gracefully shuts down dusk and restarts it in the background');
 
 program.option('--quiet, -Q', 
   'silence terminal output that is not necessary');
@@ -121,6 +137,15 @@ program.option('--install',
 
 program.option('--uninstall',
   'deletes linux .desktop entry from $HOME/.local/share/applications');
+
+program.option('--update',
+  'checks if a newer version is available, installs it, and restarts dusk');
+
+program.option('--enable-autostart',
+  'adds linux .desktop entry to $HOME/.config/autostart');
+
+program.option('--disable-autostart',
+  'removes linux .desktop entry from $HOME/.config/autostart');
 
 program.option('--rpc [method] [params]', 
   'send a command to the daemon');
@@ -214,11 +239,35 @@ let ftp;
 
 let _didSetup = false;
 
+if (program.update) {
+  let progress;
+  if (program.gui) {
+    progress = progressBar = Dialog.progress('Updating to latest version, hang tight ♥ ...', '🝰 dusk', {
+      pulsate: true
+    });
+  } else {
+    console.log('  Updating 🝰 dusk, this can take a moment ...');
+  }
+  try {
+    execSync('curl -o- https://rundusk.org/install.sh | bash');
+  } catch (e) {
+    if (!program.gui) {
+      console.error('  Failed to update:', e.message);
+    } else {
+      progress.progress(100);
+    }
+    exitGracefully();
+  }
+  if (!program.restart) {
+    exitGracefully();
+  }
+}
+
 if (program.install) {
   const binpath = execSync('which node').toString().trim();
   const desktop1 = `[Desktop Entry]
 Name=dusk:Files
-Comment=darknet under s/kademlia
+Comment=deniable cloud drive file browser
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --open --gui --menu %U
 Icon=${path.join(__dirname, '../assets/images/icon-files.png')}
@@ -227,34 +276,169 @@ Type=Application
   `;
   const desktop2 = `[Desktop Entry]
 Name=dusk:Settings
-Comment=darknet under s/kademlia
+Comment=deniable cloud drive settings
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --menu %U
 Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
 Categories=Utility;
 Type=Application
   `;
-  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk.desktop');
-  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk settings.desktop');
+  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk:Files.desktop');
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk:Settings.desktop');
   console.log(`  Installing desktop entries to ${writeOut1},${writeOut2}...`);
-  fs.writeFileSync(writeOut1, desktop1);
-  fs.writeFileSync(writeOut2, desktop2);
-  console.log('');
-  console.log('  [ done! ♥ ]');
-  process.exit(0);
+  try {
+    fs.writeFileSync(writeOut1, desktop1);
+    fs.writeFileSync(writeOut2, desktop2);
+  } catch (e) {
+    console.error('  Failed to create desktop entries:', e.message);
+    exitGracefully();
+  }
+  if (!program.enableAutostart) {
+    console.log('');
+    console.log('  [ done! ♥ ]');
+    exitGracefully();
+  }
 }
 
 if (program.uninstall) {
-  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk.desktop');
-  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk settings.desktop');
+  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk:Files.desktop');
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk:Settings.desktop');
   console.log(`  Removing desktop entries from ${writeOut1},${writeOut2}...`);
-  fs.unlinkSync(writeOut1);
-  fs.unlinkSync(writeOut2);
-  console.log('');
-  console.log('  [ done! ♥ ]');
-  process.exit(0);
+  try {
+    fs.unlinkSync(writeOut1);
+    fs.unlinkSync(writeOut2);
+  } catch (e) {
+    console.error('  Failed to remove desktop entries:', e.message);
+    exitGracefully();
+  }
+  if (!program.disableAutostart) {
+    console.log('');
+    console.log('  [ done! ♥ ]');
+    exitGracefully();
+  }
 }
 
+if (program.enableAutostart) {
+  const binpath = execSync('which node').toString().trim();
+  const autostart1 = `[Desktop Entry]
+Name=dusk
+Comment=deniable cloud drive
+Terminal=false
+Exec=${binpath} ${path.join(__dirname)}/dusk.js --background --gui %U
+Icon=${path.join(__dirname, '../assets/images/favicon.png')}
+Categories=Utility;
+Type=Application
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=1
+  `;
+  const writeOut3 = path.join(homedir(), '.config/autostart/dusk:Autostart.desktop');
+  console.log(`  Adding autostart entry to ${writeOut3}...`);
+  try {
+    fs.writeFileSync(writeOut3, autostart1);
+  } catch (e) {
+    console.error('Failed to create autostart entry', e.message);
+    exitGracefully();
+  }
+  console.log('');
+  console.log('  [ done! ♥ ]');
+  exitGracefully();
+}
+
+if (program.disableAutostart) {
+  const writeOut3 = path.join(homedir(), '.config/autostart/dusk:Autostart.desktop');
+  console.log(`  Removing autostart entry from ${writeOut3}...`);
+  try {
+    fs.unlinkSync(writeOut3);
+  } catch (e) {
+    console.error('  Failed to remove autostart entry:', e.message);
+    exitGracefully();
+  }
+  console.log('');
+  console.log('  [ done! ♥ ]');
+  exitGracefully();
+}
+
+function _reset() {
+  let areYouSure;
+  const message = 'Reset dusk to default configuration? Your data will not be deleted.'
+
+  return new Promise(async () => {
+    if (!fs.existsSync(program.C)) {
+      if (program.gui) {
+        Dialog.info(`Configuration file ${program.C} does not exist`, 'Sorry', 'error');
+      } else {
+        console.error(`  Configuration file ${program.C} does not exist? Sorry.`);
+      }
+      exitGracefully();
+    } 
+
+    if (program.gui) {
+      areYouSure = {
+        yes: program.yes ||
+          Dialog.info(message, 'Confirm', 'question').status !== 1
+      };
+    } else {
+      areYouSure = program.yes ? { yes: true } : await inquirer.default.prompt({
+        name: 'yes',
+        type: 'confirm',
+        message
+      });
+    }
+
+    if (!areYouSure.yes) {
+      console.log('  Ok, cancelled.');
+      exitGracefully();
+    }
+
+    console.log(`  Removing ${program.C} to restore default configuration...`);
+    fs.unlinkSync(program.C);
+    console.log('');
+    console.log('  [ done! ♥ ]');
+    exitGracefully();
+  });
+}
+
+function _destroy() {
+  let areYouSure;
+  const message = 'Completely reset dusk? You will lose everything!';
+
+  return new Promise(async (resolve) => {
+    if (!fs.existsSync(program.datadir)) {
+      if (program.gui) {
+        Dialog.info(`Data directory ${program.datadir} does not exist`, 'Sorry', 'error');
+      } else {
+        console.error(`  Data directory ${program.datadir} does not exist? Sorry.`);
+      }
+      exitGracefully();
+    } 
+
+    if (program.gui) {
+      areYouSure = {
+        yes: program.yes ||
+          Dialog.info(message, 'Confirm', 'question').status !== 1
+      };
+    } else {
+      areYouSure = program.yes ? { yes: true } : await inquirer.default.prompt({
+        name: 'yes',
+        type: 'confirm',
+        message
+      });
+    }
+
+    if (!areYouSure.yes) {
+      console.log('  Ok, cancelled.');
+      exitGracefully();
+    }
+
+    console.log(`  Removing ${program.datadir} ...`);
+    await fsP.rm(program.datadir, { recursive: true });
+    console.log('');
+    console.log('  [ done! ♥ ]');
+    program.shutdown = true;
+    resolve()
+  });
+}
 function _config() {
   if (program.datadir) {
     argv = { config: path.join(program.datadir, 'config') };
@@ -316,6 +500,10 @@ async function _init() {
   const fileSelector = (await import('inquirer-file-selector')).default;
   // import es modules
   
+  if (program.reset) {
+    await _reset();
+  }
+
   if (!_didSetup) {
     await _setup();
   }
@@ -451,6 +639,8 @@ If you lose these words, you can never recover access to this identity, includin
     nonce = parseInt(fs.readFileSync(config.IdentityNoncePath).toString());
   }
 
+  program.kill = program.kill || program.shutdown || program.destroy || program.restart;
+
   if (program.kill) {
     try {
       const pid = fs.readFileSync(config.DaemonPidFilePath).toString().trim()
@@ -458,10 +648,19 @@ If you lose these words, you can never recover access to this identity, includin
       process.kill(parseInt(pid), 'SIGTERM');
       console.log(`  [ done ♥ ]`);
     } catch (err) {
+      console.error(err);
       console.error('I couldn\'t shutdown the daemon, is it running?');
-      process.exit(1);
     }
-    process.exit(0);
+
+    if (program.destroy) {
+      await _destroy();
+    }
+    
+    if (program.restart) {
+      program.D = true;
+    } else {
+      exitGracefully();
+    }
   }
     
   if (program.exportLink) {  
@@ -808,13 +1007,21 @@ Ready?
   );
 
   // are we starting the daemon?
+  program.D = program.background;
+
   if (program.D) {
     console.log('');
     console.log('  [ starting dusk in the background ♥  ]');
-    require('daemon').daemon(__filename, [
-      '--with-secret', privkey.toString('hex')
-    ], { cwd: process.cwd() }); 
 
+    const args =  [
+      '--with-secret', privkey.toString('hex')
+    ];
+
+    if (program.gui) {
+      args.push('--gui');
+    }
+
+    require('daemon').daemon(__filename, args, { cwd: process.cwd() }); 
     exitGracefully();
   }  
 
@@ -1694,11 +1901,8 @@ async function initDusk() {
     })).filter(p => !!p);
 
     if (peers.length === 0) {
-      if (progress) {
-        progress.progress(100);
-      }
-
       if (program.gui) {
+        progress.progress(100);
         Dialog.notify(`You are online, but have not added any peer links. 
 Swap links with friends or team members and add them using the menu.
 
@@ -1890,11 +2094,14 @@ async function displayMenu() {
     try {
       rpc = await getRpcControl();
     } catch (e) {
-      _dusk(['--daemon', `${program.gui?'--gui':''}`], { 
+      const args = ['--background'];
+      if (program.gui) {
+        args.push('--gui');
+      }
+      _dusk(args, { 
         stdio: 'inherit', 
         detached: false 
       });
-
       while (!rpc) {
         try { rpc = await getRpcControl() } catch (err) {}
       }    
