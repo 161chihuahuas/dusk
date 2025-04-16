@@ -104,7 +104,7 @@ program.option('--kill',
 program.option('--testnet', 
   'runs with reduced identity difficulty');
 
-program.option('--menu, -I',
+program.option('--menu, -I [submenu]',
   'prompt user with interactive menu (default: text / graphical with --gui)');
 
 program.option('--daemon, -D', 
@@ -1918,7 +1918,6 @@ async function displayMenu() {
         if (err) {
           console.error(err);
         } else {
-          let addr = info.ftp.local.split('ftp://')[1];
           let f = spawn('ftp', [info.ftp.local], {
             stdio: 'inherit'
           });
@@ -1932,8 +1931,26 @@ async function displayMenu() {
 
   async function mainMenu() {
     let option;
+    let submenu = typeof program.I === 'string'
+      ? program.I
+      : null;
 
-    if (program.gui) {
+    const submenus = [
+      'about',
+      'files',
+      'devices',
+      'crypt',
+      'shoes',
+      'config',
+      'debug',
+      'network',
+      'exit'
+    ];
+
+    if (submenu) {
+      option = { option: submenus.indexOf(program.I) };
+      program.I = true;
+    } else if (program.gui) {
       option = { option: Dialog.list(duskTitle, ' ', [
         ['ℹ️   About'],
         ['📁  Files'],

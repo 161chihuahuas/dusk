@@ -3,7 +3,6 @@
 ## --
 
 * [Installation](#installation)
-* [Setup](#setup)
 * [Basics](#basics)
 * [Configuration](#configuration)
 * [Sneakernets](#sneakernets)
@@ -12,8 +11,6 @@
 ---
 
 ### Installation
-
-#### Quick Setup
 
 The fastest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
 
@@ -33,7 +30,18 @@ If this sounds scary or hard - don't worry! It's easier than it sounds. The next
 
 There are many options for virtualization software for every platform, but this guide will show you how to use the ones that have the simplest feature set to get the job done and are free and open-source
 
-#### Debian Users
+#### MacOS
+
+* Download and install [UTM](https://mac.getutm.app/).
+* Download the [Debian Trixie ISO](https://cdimage.debian.org/cdimage/trixie_di_alpha1/amd64/iso-cd/debian-trixie-DI-alpha1-amd64-netinst.iso)
+* Create a VM in UTM using the Trixie .iso file you downloaded
+* Once installed, the steps are the same as in the Debian section below.
+
+#### Windows
+
+Windows users should expect a similar process as macOS, but using [VirtualBox](https://www.virtualbox.org/wiki/Downloads).
+
+#### Debian
 
 First, download and install [GNOME Boxes](https://apps.gnome.org/Boxes/).
 
@@ -97,19 +105,7 @@ After dusk is finished, you'll be prompted a final time for the *password you se
 
 Dusk is now installed and running. Use the virtual operating system to manage your sensitive material. Open **dusk:Settings** to link to other devices, create sneakernets, and more.
 
-#### MacOS Users
-
-* Download and install [UTM](https://mac.getutm.app/).
-* Download the [Debian Trixie ISO](https://cdimage.debian.org/cdimage/trixie_di_alpha1/amd64/iso-cd/debian-trixie-DI-alpha1-amd64-netinst.iso)
-* Create a VM in UTM using the Trixie .iso file you downloaded
-* Once installed, the steps are the same as in the Debian section above
-
-
-#### Windows Users
-
-Windows users should expect a similar process as macOS, but using [VirtualBox](https://www.virtualbox.org/wiki/Downloads), although Windows is not currently supported.
-
-### Setup
+### Basics
 
 After installation, you immediately have the ability to store files. However, dusk is running in **seed mode**. This means that you haven't given it any device links to others who are also running dusk. In it's current mode, it is an encrypted virtual filesystem that you can access remotely.
 
@@ -137,24 +133,63 @@ A random short name will be assigned to this device so you can remember who it c
 
 Devices that you *link* will be devices that dusk connects to *first*. Through doing so, dusk may discover other devices that add to your network. Those devices are **Peers**. They serve most of the same function as Links, with the exception that dusk will not remember them or try to connect to them on startup.
 
-### Basics
+#### Mobile / Remote Access
+
+Dusk exposes its encrypted virtual file system as a local FTP server. FTP stands for *File Transfer Protocol*. It's an ancient standard from the early internet. It's simple and widely supported on every platform.
+
+> **SFTP** and **WebDAV** support is coming and will provide additional compatibility and ways to access dusk.
+
+FTP does not offer encryption on it's own, but dusk tunnels FTP connections through Tor onion services, which provides end-to-end encryption between your devices. Accessing dusk from another device, such as a phone or tablet (or another computer) just requires an FTP client and a Tor proxy.
+
+Both of these are readily available on every platform. You just need your **FTP Bridge** address. Press the *Super Key* and type **dusk:Settings** and launch the app. Select **About** and click OK.
+
+> You can also run `dusk --menu about` from **Terminal** to print the FTP Bridge onion URL.
+
+You will also be shown the option to display a QR code for easier setup on mobile devices. Follow the guide for your operating system below.
+
+##### Debian
+
+Open the system **Settings** app by pressing the *Super Key* and typing *Settings*. Select **Network** from the left sidebar, click **Proxy** and set **SOCKS Host, URL** to *localhost* and **SOCKS Host, Port** to *9050*. This will tell apps to proxy connections through Tor - which is the only way to connect to your devices running dusk.
+
+![ftp debian](assets/images/ftp-001.png)
+
+From your device running dusk, retrieve your **FTP Bridge** onion address. This can be found in **dusk:Settings, About** or by running `dusk --menu about`.
+
+![ftp debian](assets/images/ftp-002.png)
+
+Open the *system's* **Files** app (also called Nautilus), select **Network** from the sidebar, and paste or type the onion address. Click *Connect*. 
+
+![ftp debian](assets/images/ftp-003.png)
+
+You will see your remote dusk drive in the **Files** app and can use it as you would on the device running dusk.
+
+![ftp debian](assets/images/ftp-004.png)
+
+##### MacOS
+
+TODO
+
+##### Windows
+
+TODO
+
+##### iOS
+
+TODO
+
+##### Android
 
 TODO
 
 ### Configuration
 
-A dusk node requires a configuration file to get up and running. The path to this 
-file is given to `dusk` when starting a node (or the defaults will be used).
+A dusk node requires a configuration file to get up and running. The path to this file is given to `dusk` when starting a node (or the defaults will be used).
 
 ```
 dusk --config myconfig.ini
 ```
 
-If a configuration file is not supplied, a minimal default configuration is 
-automatically created and used, which will generate a private key, database, 
-and other necessary files. All of this data will be created and stored in 
-`$HOME/.config/dusk`, unless a `--datadir` option is supplied. Valid configuration 
-files may be in either INI or JSON format.
+If a configuration file is not supplied, a minimal default configuration is automatically created and used, which will generate a private key, database, and other necessary files. All of this data will be created and stored in `$HOME/.config/dusk`, unless a `--datadir` option is supplied. Valid configuration files may be in either INI or JSON format.
 
 #### DaemonPidFilePath
 
@@ -215,9 +250,7 @@ Maximum number of rotated log files to keep.
 
 ##### Default: `(empty)`
 
-Add a map of network bootstrap nodes to this section to use for discovering 
-other peers. Default configuration should come with a list of known and 
-trusted contacts.
+Add a map of network bootstrap nodes to this section to use for discovering other peers. Default configuration should come with a list of known and trusted contacts.
 
 #### OnionVirtualPort
 
@@ -229,28 +262,25 @@ The virtual port to use for the hidden service.
 
 ##### Default: `$HOME/.config/dusk/hidden_service`
 
-The directory to store hidden service keys and other information required by 
-the Tor process.
+The directory to store hidden service keys and other information required by the Tor process.
 
 #### OnionLoggingEnabled
 
 ##### Default: `0`
 
-Redirects the Tor process log output through dusk's logger for the purpose of 
-debugging.
+Redirects the Tor process log output through dusk's logger for the purpose of debugging.
 
 #### OnionLoggingVerbosity
 
 ##### Default: `notice`
 
-Defines the verbosity level of the Tor process logging. Valid options are: 
-`debug`, `info`, `notice`.
+Defines the verbosity level of the Tor process logging. Valid options are: `debug`, `info`, `notice`.
 
 #### ControlPortEnabled
 
 ##### Default: `0`
 
-Enables the {@link Control} interface over a TCP socket.
+Enables the RPC control interface over a TCP socket.
 
 #### ControlPort
 
@@ -274,8 +304,7 @@ The path to the file to use for the control interface.
 
 ##### Default: `0`
 
-Places dusk into test mode, significantly lowering the identity solution
-difficulty and the permission solution difficulty.
+Places dusk into test mode, significantly lowering the identity solution difficulty and the permission solution difficulty.
 
 ### Sneakernets
 
@@ -294,29 +323,14 @@ The dusk CLI includes a `--shoes` option that can be used in 3 ways:
 * `dusk --retrace --shoes` will retrace a file from `n` USB drives, then decrypt and save
 
 Setting up a dusk/SHOES USB functions a lot like setting up dusk on first run. All of the configuration, identity keys, and data directories are created on the USB. The dusk/SHOES USB can even be used to run dusk online later.
+
 Shredding a file follows a guided prompt. Retracing follows a similar process.
 
 ### Advanced
 
 #### Command Line Interface
 
-Once you have installed dusk or linked it as a global package, open your Terminal and run `dusk --help`.
-
-The CLI will print a list of options and what they do. This is where you'll find tools to interact with dusk. But first you have to start dusk for the first time! In that same Terminal just run `dusk`.
-
-The CLI will prompt you to enter a password to protect the key it generated. Then, it will print a list of words and tell you to write them down. Do that and run `dusk` again.
-
-Now dusk will start bootstrapping the Tor network connection and eventually it will say it's listening for connections. Now you'll want to connect to someone to discover more of the network. But how? There is no signaling server, no DNS seeds, or list of operating nodes (yet). So, here is where your IRL network comes into play.
-
-Maybe it's your affinity group, your research team, your friends - they need to run dusk too. And you'll exchange "identity bundles" to bootstrap from each other. To do that, we need to ask our dusk node for it. In *another* Terminal, run `dusk --link`.
-
-This is like your username. It contains information about how to communicate with your dusk node. Note that your link contains your onion address. Sharing it online could create a anonymity compromise. Share it with your network out of band. When you have exchanged links, run `dusk --rpc "connect <link>"`.
-
-You need a minimum of 3 dusk nodes to form a functioning network. These could be friends, family, colleagues, members of your affinity group, etc. dusk can operate segmented to a small community or connected to a wider global network. 
-
-Run your dusk node in the background with `dusk --daemon`. 
-
-The dusk CLI provides a number of tools for interacting with dusk and the network, but there are 2 primary operations to familiarize yourself with first: shred and retrace. 
+TODO
 
 ##### `--shred`
 
