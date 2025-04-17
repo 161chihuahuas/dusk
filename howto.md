@@ -346,7 +346,7 @@ dusk will talk you through the process and keep you updated on progress.
 
 ##### `--retrace`
 
-**Retrace** takes an encrypted metadata pointer, decrypts it then depending on your choice either: reads the pieces from a `duskbundle`, downloads the pieces from the network, or reads them from an array of USB drives. Then, retrace will reassmble the pieces, encode any corrupted or missing pieces, decrypt the original file, and save it.
+**Retrace** takes an encrypted metadata pointer, decrypts it then depending on your choice either: reads the pieces from a `duskbundle`, downloads the pieces from the network, or reads them from an array of USB drives. Then, retrace will reassemble the pieces, encode any corrupted or missing pieces, decrypt the original file, and save it.
 
 To retrace the same file from the previous example from the DHT:
 
@@ -356,7 +356,6 @@ dusk --retrace --dht --control-port 5275
 
 dusk will talk you through the process and keep you updated on progress.
 
-
 The next most important feature is dusk's publish/subscribe system. Nodes can receive arbitrary publications announced through the network by adding the fingerprint of the publisher to their subscriptions. Whenever dusk is handed a PUBLISH message it is interested in, it can trigger a webhook to a onion address.
 
 ##### `--test-hooks`
@@ -364,3 +363,7 @@ The next most important feature is dusk's publish/subscribe system. Nodes can re
 If you are developing an application that uses the pub/sub system, your application will expose an onion service where dusk can send POST requests with the publication contents in the body. Your application can then validate and process those messages according to your needs.
 
 You can test this out using the `--test-hooks` option - which will start a simple onion service that prints messages it receives from dusk to the console. *Do not use this AS IS in production.*
+
+#### Remote Procedure Calls
+
+TODO
