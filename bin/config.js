@@ -45,6 +45,7 @@ module.exports = function(datadir) {
     FTPBridgeUsername: 'dusk',
     FTPBridgeDropboxEnabled: '1',
     FTPBridgeDropboxUsername: 'anon',
+    FTPBridgeLinkShareEnabled: '1',
 
     // Network Bootstrapping
     NetworkBootstrapNodes: [

@@ -38,14 +38,14 @@ process.on('unhandledRejection', (err) => {
   process.exit(0);
 });
 
-const { fork, spawn, execSync, exec } = require('node:child_process');
+const { fork, spawn, execSync } = require('node:child_process');
 const assert = require('node:assert');
 const async = require('async');
+const split = require('split');
 const qrcode = require('qrcode');
 const program = require('commander');
 const dusk = require('../index');
 const bunyan = require('bunyan');
-const FtpSrv = require('ftp-srv');
 const RotatingLogStream = require('bunyan-rotating-file-stream');
 const fs = require('node:fs');
 const fsP = require('node:fs/promises');
@@ -64,8 +64,9 @@ const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
-const { tmpdir, homedir } = require('node:os');
+const { tmpdir, homedir, networkInterfaces } = require('node:os');
 const http = require('node:http');
+const granax = require('@tacticalchihuahua/granax');
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
 const Dialog = require('../lib/zenity.js');
 const { 
@@ -1844,32 +1845,51 @@ async function initDusk() {
 
   // Setup the FTP Bridge
   if (!!parseInt(config.FTPBridgeEnabled)) {
-    ftp = new FtpSrv({
-      url: `ftp://127.0.0.1:${config.FTPBridgeListenPort}`,
-      anonymous: false,
-      log: logger
-    });
-    ftp.on('login', async ({ connection, username, password }, resolve, reject) => {
-      if (username !== config.FTPBridgeUsername) {
-        return reject(new Error('Invalid username'));
-      }
-      
-      const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
-      const salt = fs.readFileSync(config.PrivateKeySaltPath);
+    function setupFtpServer() {  
+       const server = new dusk.ftp.FtpSrv({
+        url: `ftp://127.0.0.1:${config.FTPBridgeListenPort}`,
+        anonymous: false, // TODO implement FTPBridgeDropboxEnabled
+        log: logger,
+        greeting: `🝰 dusk ~ deniable cloud drive`,
+        tls: false, // Is FTPS worth implementing? we get E2EE for free through tor onions
+        blacklist: [],
+        file_format: 'ls' // ls/ep/function(fstat){}
+      });
 
-      let sk, pk;
+      server.on('login', async ({ connection, username, password }, resolve, reject) => {
+        // TODO implement device link shares
+        if (username !== config.FTPBridgeUsername) {
+          return reject(new Error('Invalid username'));
+        }
 
-      try {
-        sk = dusk.utils.passwordUnlock(password, salt, encryptedPrivKey);
-        pk = secp256k1.publicKeyCreate(sk);
-      } catch (e) {
-        return reject(e);
-      }
+        logger.debug('ftp bridge login requested from %s', username);
 
-      resolve({ 
-        fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
-      });  
-    });
+        const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
+        const salt = fs.readFileSync(config.PrivateKeySaltPath);
+
+        let sk, pk;
+
+        try {
+          sk = dusk.utils.passwordUnlock(password, salt, encryptedPrivKey);
+          pk = secp256k1.publicKeyCreate(sk);
+        } catch (e) {
+          return reject(e);
+        }
+
+        resolve({ 
+          fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
+        });  
+      });
+
+      return server;
+    }
+ 
+    node.ftpLocalAddr = `ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`;
+
+    console.log('  local ftp server [  %s  ]', node.ftpLocalAddr);
+    console.log('');
+
+    ftp = setupFtpServer();
 
     ftp.listen().then(() => {
       if (program.gui && program.open) {
@@ -1877,36 +1897,7 @@ async function initDusk() {
       } 
 
       logger.info(`ftp bridge is running locally on port ${config.FTPBridgeListenPort}`);
-      const tor = hsv3([
-        {
-          dataDirectory: path.join(config.FTPBridgeHiddenServiceDirectory, 'hidden_service'),
-          virtualPort: 21,
-          localMapping: '127.0.0.1:' + config.FTPBridgeListenPort
-        }
-      ], {
-        DataDirectory: config.FTPBridgeHiddenServiceDirectory
-      });
-
-      tor.on('error', (err) => {
-        console.error(err);
-        exitGracefully();
-      });
-
-      tor.on('ready', () => {
-        console.log('');
-        console.log('  [  ftp bridge onion created  ♥  ]');
-        const hostname = fs.readFileSync(path.join(
-          config.FTPBridgeHiddenServiceDirectory, 
-          'hidden_service', 
-          'hostname'
-        )).toString().trim();
-        console.log('  [  ftp://%s@%s:21  ]', config.FTPBridgeUsername, hostname);
-        console.log('');
-        node.ftpHsAddr = `ftp://${config.FTPBridgeUsername}@${hostname}:21`;
-        node.ftpLocalAddr = `ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`;
-
-        registerControlInterface();
-      }); 
+      registerControlInterface(); 
     }, (err) => {
       console.error(err);
       exitGracefully();
@@ -2286,11 +2277,8 @@ async function showAboutInfo() {
     let option;
 
     const dialogText = `Version: ${version}
-Peers: ${info.peers.length}
-
-FTP Bridge: 
-${info.ftp.onion}
-${info.ftp.local}
+Peers:  ${info.peers.length}
+FTP:    ${info.ftp.local}
 
 anti-©opyright, 2024 tactical chihuahua 
 licensed under the agpl 3
@@ -2298,7 +2286,7 @@ licensed under the agpl 3
 
     if (program.gui) {
       option = { option: Dialog.list(duskTitle, dialogText, [
-        ['📷  Show FTP Address QR'],
+        ['📷  Show WebDAV Address QR'],
         ['🗃️  Open FTP Bridge']
       ], ['ℹ️   About'],{ height: 200 }) }; 
     } else {
@@ -2310,7 +2298,7 @@ ${dialogText}\n`);
         message: 'ℹ️   About',
         choices: [
           {
-            name: '📷  Show FTP Address QR',
+            name: '📷  Show WebDAV Address QR',
             value: 0
           },
           {
@@ -2333,18 +2321,17 @@ ${dialogText}\n`);
       case 0:
         if (program.gui) {
           let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
-          console.log(tmpcode, info.ftp.onion)
-          qrcode.toFile(tmpcode, info.ftp.onion, { scale: 20 }).then(() => {
+          qrcode.toFile(tmpcode, 'webdav://', { scale: 20 }).then(() => {
             spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
           }, exitGracefully);
         } else {
-          qrcode.toString(info.ftp.onion, { terminal: true }, (err, code) => {
+          qrcode.toString('webdav://', { terminal: true }, (err, code) => {
             if (err) {
               console.error(err);
               exitGracefully();
             }
 
-            console.log('  Scan the QR code below and open the URL in your FTP client.');
+            console.log('  Scan the QR code below and open the URL in your WebDAV client.');
             console.log('    ~~> Need help? See https://rundusk.org.');
             console.log(code);
             showAboutInfo();
