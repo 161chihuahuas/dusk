@@ -135,15 +135,12 @@ Devices that you *link* will be devices that dusk connects to *first*. Through d
 
 #### Mobile / Remote Access
 
-Dusk exposes its encrypted virtual file system as a local FTP server. FTP stands for *File Transfer Protocol*. It's an ancient standard from the early internet. It's simple and widely supported on every platform.
+Dusk exposes its encrypted virtual file system as a WebDAV server.
+through a Tor onion service, which provides end-to-end encryption between your devices. Accessing dusk from another device, such as a phone or tablet (or another computer) just requires a WebDAV client and a Tor proxy.
 
-> **SFTP** and **WebDAV** support is coming and will provide additional compatibility and ways to access dusk.
+Both of these are readily available on every platform. You just need your **WebDAV** address. Press the *Super Key* and type **dusk:Settings** and launch the app. Select **About** and click OK.
 
-FTP does not offer encryption on it's own, but dusk tunnels FTP connections through Tor onion services, which provides end-to-end encryption between your devices. Accessing dusk from another device, such as a phone or tablet (or another computer) just requires an FTP client and a Tor proxy.
-
-Both of these are readily available on every platform. You just need your **FTP Bridge** address. Press the *Super Key* and type **dusk:Settings** and launch the app. Select **About** and click OK.
-
-> You can also run `dusk --menu about` from **Terminal** to print the FTP Bridge onion URL.
+> You can also run `dusk --menu about` from **Terminal** to print the WebDAV Bridge onion URL.
 
 You will also be shown the option to display a QR code for easier setup on mobile devices. Follow the guide for your operating system below.
 
@@ -153,7 +150,7 @@ Open the system **Settings** app by pressing the *Super Key* and typing *Setting
 
 ![ftp debian](assets/images/ftp-001.png)
 
-From your device running dusk, retrieve your **FTP Bridge** onion address. This can be found in **dusk:Settings, About** or by running `dusk --menu about`.
+From your device running dusk, retrieve your **WebDAV Bridge** onion address. This can be found in **dusk:Settings, About** or by running `dusk --menu about`.
 
 ![ftp debian](assets/images/ftp-002.png)
 

@@ -64,9 +64,9 @@ const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
-const { tmpdir, homedir, networkInterfaces } = require('node:os');
+const { tmpdir, homedir } = require('node:os');
 const http = require('node:http');
-const granax = require('@tacticalchihuahua/granax');
+const webdav = require('webdav-server').v2;
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
 const Dialog = require('../lib/zenity.js');
 const { 
@@ -1845,11 +1845,68 @@ async function initDusk() {
 
   // Setup the FTP Bridge
   if (!!parseInt(config.FTPBridgeEnabled)) {
+    function setupWebDAV() {
+      return new Promise((resolve, reject) => {
+        const server = new webdav.WebDAVServer({
+          autoLoad: {
+            serializers: [new dusk.webdav.Serializer()]
+          },
+          port: parseInt(config.WebDAVListenPort),
+          serverName: 'duskDAV'
+        });
+
+        server.autoLoad(async (err) => {
+          if (!err) {
+            return;
+          }
+
+          const vfs = new dusk.webdav.FileSystem({ 
+            privkey, 
+            pubkey: secp256k1.publicKeyCreate(privkey), 
+            ...config 
+          });
+
+          server.setFileSystemSync('/', vfs);
+        });
+        
+        server.start((s) => {
+          const { port } = s.address();
+          
+          server.tor = hsv3([
+            {
+              dataDirectory: path.join(config.WebDAVHiddenServiceDirectory, 'hidden_service'),
+              virtualPort: 80,
+              localMapping: '127.0.0.1:' + port
+            }
+          ], {
+            DataDirectory: config.WebDAVHiddenServiceDirectory
+          });
+
+          server.tor.on('error', e => {
+            logger.error('[webdav/tor]  %s', e.message);
+            reject(e)
+          })
+          server.tor.on('ready', () => {
+            const webDavOnion = fs.readFileSync(path.join(
+              config.WebDAVHiddenServiceDirectory, 'hidden_service', 'hostname'
+            )).toString().trim();
+            node.webDavHsAddr = webDavOnion;
+            node.webDavLocalAddr = '127.0.0.1:' + port;
+            console.log('');
+            console.log('  webdav url  [  dav://%s  ]', webDavOnion);
+            console.log('');
+            resolve(server);
+          });
+        });
+      });
+    }
+
     function setupFtpServer() {  
        const server = new dusk.ftp.FtpSrv({
         url: `ftp://127.0.0.1:${config.FTPBridgeListenPort}`,
         anonymous: false, // TODO implement FTPBridgeDropboxEnabled
         log: logger,
+        pasv_url: '127.0.0.1', // no passive connections - ftp only for local use and webdav bridge
         greeting: `🝰 dusk ~ deniable cloud drive`,
         tls: false, // Is FTPS worth implementing? we get E2EE for free through tor onions
         blacklist: [],
@@ -1858,16 +1915,27 @@ async function initDusk() {
 
       server.on('login', async ({ connection, username, password }, resolve, reject) => {
         // TODO implement device link shares
-        if (username !== config.FTPBridgeUsername) {
+        const users = [config.FTPBridgeUsername, config.WebDAVUsername];
+
+        logger.info('[ftp] bridge login requested from user: %s', username);
+        
+        if (!users.includes(username)) {
+          logger.warn('[ftp] rejecting login by %s', username);
           return reject(new Error('Invalid username'));
         }
 
-        logger.debug('ftp bridge login requested from %s', username);
+        let sk = privkey, pk = secp256k1.publicKeyCreate(sk);
+        
+        // Is this a local WebDAV bridge connection?
+        if (password === privkey.toString('hex') && username === config.WebDAVUsername) {
+          logger.info('[ftp] webdav bridge authenticated');
+          return resolve({ 
+            fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
+          });
+        }
 
         const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
         const salt = fs.readFileSync(config.PrivateKeySaltPath);
-
-        let sk, pk;
 
         try {
           sk = dusk.utils.passwordUnlock(password, salt, encryptedPrivKey);
@@ -1876,6 +1944,7 @@ async function initDusk() {
           return reject(e);
         }
 
+        logger.info('[ftp] local user authenticated');
         resolve({ 
           fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
         });  
@@ -1891,12 +1960,13 @@ async function initDusk() {
 
     ftp = setupFtpServer();
 
-    ftp.listen().then(() => {
+    ftp.listen().then(async () => {
       if (program.gui && program.open) {
         spawn('xdg-open', [`ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`]);
       } 
 
       logger.info(`ftp bridge is running locally on port ${config.FTPBridgeListenPort}`);
+      await setupWebDAV();
       registerControlInterface(); 
     }, (err) => {
       console.error(err);
@@ -2321,11 +2391,11 @@ ${dialogText}\n`);
       case 0:
         if (program.gui) {
           let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
-          qrcode.toFile(tmpcode, 'webdav://', { scale: 20 }).then(() => {
+          qrcode.toFile(tmpcode, 'dav://' + info.webdav.onion, { scale: 20 }).then(() => {
             spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
           }, exitGracefully);
         } else {
-          qrcode.toString('webdav://', { terminal: true }, (err, code) => {
+          qrcode.toString('dav://' + info.webdav.onion, { terminal: true }, (err, code) => {
             if (err) {
               console.error(err);
               exitGracefully();

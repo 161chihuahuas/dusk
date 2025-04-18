@@ -53,7 +53,8 @@
     "split": "^1.0.1",
     "unique-names-generator": "^4.7.1",
     "usb": "^2.14.0",
-    "uuid": "^3.2.1"
+    "uuid": "^3.2.1",
+    "webdav-server": "^2.6.2"
   },
   "description": "(d)arknet (u)nder (s/k)ademlia",
   "devDependencies": {

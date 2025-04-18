@@ -43,6 +43,9 @@ module.exports.MerkleTree = require('./lib/merkle-tree');
 /** {@link module:ftp} */
 module.exports.ftp = require('ftp-srv');
 
+/** {@link module:webdav} */
+module.exports.webdav = require('./lib/webdav');
+
 /** {@link VirtualFS } */
 module.exports.VirtualFS = require('./lib/virtual-fs');
 

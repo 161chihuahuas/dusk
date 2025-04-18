@@ -41,11 +41,15 @@ module.exports = function(datadir) {
     // FTP Bridge
     FTPBridgeEnabled: '1',
     FTPBridgeListenPort: '5276',
-    FTPBridgeHiddenServiceDirectory: join(datadir, 'ftp.hs'),
     FTPBridgeUsername: 'dusk',
     FTPBridgeDropboxEnabled: '1',
     FTPBridgeDropboxUsername: 'anon',
     FTPBridgeLinkShareEnabled: '1',
+    
+    // WebDAV
+    WebDAVHiddenServiceDirectory: join(datadir, 'webdav.hs'),
+    WebDAVListenPort: '5277',
+    WebDAVUsername: 'webdav.local',
 
     // Network Bootstrapping
     NetworkBootstrapNodes: [
