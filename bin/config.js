@@ -29,7 +29,9 @@ module.exports = function(datadir) {
 
     // Database
     EmbeddedDatabaseDirectory: join(datadir, 'dusk.dat'),
-    MetadataDirectory: join(datadir, 'meta'),
+    MetadataDirectory: join(datadir, 'dusk.dag'),
+    VirtualFileSystemPath: join(datadir, 'dusk.vfs'),
+    AutomaticallyShredVirtualFS: '1',
 
     // Node Options
     NodeListenPort: '5274',
@@ -38,18 +40,13 @@ module.exports = function(datadir) {
     OnionLoggingVerbosity: 'notice',
     OnionLoggingEnabled: '0',
 
-    // FTP Bridge
-    FTPBridgeEnabled: '1',
-    FTPBridgeListenPort: '5276',
-    FTPBridgeUsername: 'dusk',
-    FTPBridgeDropboxEnabled: '1',
-    FTPBridgeDropboxUsername: 'anon',
-    FTPBridgeLinkShareEnabled: '1',
-    
     // WebDAV
+    WebDAVEnabled: '1',
+    WebDAVListenPort: '5276',
+    WebDAVRootUsername: 'dusk',
+    WebDAVAnonDropboxEnabled: '1',
+    WebDAVLinkShareEnabled: '1',
     WebDAVHiddenServiceDirectory: join(datadir, 'webdav.hs'),
-    WebDAVListenPort: '5277',
-    WebDAVUsername: 'webdav.local',
 
     // Network Bootstrapping
     NetworkBootstrapNodes: [
@@ -77,12 +74,12 @@ module.exports = function(datadir) {
     writeFileSync(join(datadir, 'config'), ini.stringify(options));
   }
 
-  if (!existsSync(join(datadir, 'db'))) {
-    mkdirp.sync(join(datadir, 'db'));
+  if (!existsSync(join(datadir, 'dusk.dat'))) {
+    mkdirp.sync(join(datadir, 'dusk.dat'));
   }
 
-  if (!existsSync(join(datadir, 'meta'))) {
-    mkdirp.sync(join(datadir, 'meta'));
+  if (!existsSync(join(datadir, 'dusk.dag'))) {
+    mkdirp.sync(join(datadir, 'dusk.dag'));
   }
   return options;
 };

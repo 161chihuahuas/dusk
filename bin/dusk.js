@@ -64,6 +64,7 @@ const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
+const zlib = require('node:zlib');
 const { tmpdir, homedir } = require('node:os');
 const http = require('node:http');
 const webdav = require('webdav-server').v2;
@@ -76,6 +77,13 @@ const {
   animals 
 } = require('unique-names-generator');
 const { randomBytes } = require('node:crypto');
+
+const shoesTitle = '🝰 dusk / SHOES '
+const duskTitle = '🝰 dusk'
+
+function _dusk(args, opts) {
+  return fork(path.join(__dirname, 'dusk.js'), args, opts);
+}
 
 program.version(dusk.version.software);
 
@@ -187,6 +195,9 @@ program.option('--shred [message]',
 program.option('--retrace [bundle]', 
   're-assembles a dusk bundle created by --shred');
 
+program.option('--vfs',
+  'use with --shred or --retrace to operate on the virtual filesystem');
+
 program.option('--open', 'runs xdg-open on things when possible');
 
 program.option('--ephemeral', 
@@ -236,7 +247,6 @@ program.usb = program.usb || program.shoes;
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
-let ftp;
 
 let _didSetup = false;
 
@@ -515,7 +525,7 @@ async function _init() {
     await _setup();
   }
 
-  if (!!parseInt(config.AlwaysPromptToUpdate)) {
+  if (!program.Q && !!parseInt(config.AlwaysPromptToUpdate)) {
     let shouldUpdate;
     const message = 'Would you like to check for updates?';
 
@@ -715,6 +725,11 @@ If you lose these words, you can never recover access to this identity, includin
 
   if (program.shred) { 
     console.log('');
+
+    if (program.vfs) {
+      program.shred = true;
+      program.fileIn = config.VirtualFileSystemPath;
+    }
     
     let publicKey = program.pubkey || 
       fs.readFileSync(config.PublicKeyPath).toString('hex');
@@ -770,10 +785,8 @@ If you lose these words, you can never recover access to this identity, includin
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       } else {
-        console.log(program.datadir, 'meta', path.dirname(program.fileOut))
         program.fileOut = path.join(
-          program.datadir,
-          'meta',
+          config.MetadataDirectory,
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       }
@@ -1069,7 +1082,7 @@ Ready?
         if (program.usb) {
           basePath = path.join(program.datadir, 'shoes');
         } else {
-          basePath = path.join(program.datadir, 'meta');
+          basePath = config.MetadataDirectory;
         }
         
         if (program.gui) {
@@ -1080,7 +1093,7 @@ Ready?
             basePath,
             message: 'Select .duskbundle:',
             filter: (stat) => {
-              return path.extname(stat.name) === '.duskbundle' || stat.isDirectory();
+              return path.extname(stat.name) === '.duskbundle';
             }
           });
         }
@@ -1843,135 +1856,152 @@ async function initDusk() {
     node.plugin(dusk.logger(logger));
   }
 
-  // Setup the FTP Bridge
-  if (!!parseInt(config.FTPBridgeEnabled)) {
+  // Setup the WebDAV Bridge
+  if (!!parseInt(config.WebDAVEnabled)) {
     function setupWebDAV() {
-      return new Promise((resolve, reject) => {
+      const { Readable, Transform } = require('node:stream');
+
+      return new Promise(async (resolve, reject) => {
+        // User manager (tells who are the users)
+        const userManager = new webdav.SimpleUserManager();
+        const rootuser = userManager.addUser(config.WebDAVRootUsername, 'root', true); 
+        // TODO ACTUAL AUTH
+        // TODO https://github.com/OpenMarshal/npm-WebDAV-Server/wiki/User-management-and-privileges-%5Bv2%5D#user-management
+
+        // Privilege manager (tells which users can access which files/folders)
+        const privilegeManager = new webdav.SimplePathPrivilegeManager();
+
+        // Set root directories
+        // https://github.com/OpenMarshal/npm-WebDAV-Server/wiki/User-management-and-privileges-%5Bv2%5D#privileges
+        privilegeManager.setRights(rootuser, '/', [ 'all' ]);
+
         const server = new webdav.WebDAVServer({
-          autoLoad: {
-            serializers: [new dusk.webdav.Serializer()]
-          },
-          port: parseInt(config.WebDAVListenPort),
-          serverName: 'duskDAV'
-        });
+          requireAuthentication: false,
+          httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 'dusk'),
+          privilegeManager: privilegeManager,
+          isVerbose: true,
+          lockTimeout: 3600,
+          strictMode: false,
+          hostname: '127.0.0.1',
+          https: null,
+          version: dusk.version.software,
+          autoSave: {
+            treeFilePath: config.VirtualFileSystemPath,
+            tempTreeFilePath: undefined,
+            onSaveError: (err) => {
+              logger.error('error saving vfs state, %s', err.message);
+            },
+            streamProvider: (callback) => {
+              const pubkey = secp256k1.publicKeyCreate(privkey);
+              let tree = Buffer.from([]);
+            
+              const toCrypted = new Transform({
+                transform(chunk, encoding, callback) {
+                  tree = Buffer.concat([tree, chunk]);
+                  callback(null);
+                },
+                flush(callback) {
+                  callback(null, dusk.utils.encrypt(pubkey, tree));
+                }
+              });
+              const toGzipped = zlib.createGzip();
 
-        server.autoLoad(async (err) => {
-          if (!err) {
-            return;
-          }
+              toCrypted.pipe(toGzipped);
+              callback(toCrypted, toGzipped);
 
-          const vfs = new dusk.webdav.FileSystem({ 
-            privkey, 
-            pubkey: secp256k1.publicKeyCreate(privkey), 
-            ...config 
-          });
-
-          server.setFileSystemSync('/', vfs);
-        });
-        
-        server.start((s) => {
-          const { port } = s.address();
-          
-          server.tor = hsv3([
-            {
-              dataDirectory: path.join(config.WebDAVHiddenServiceDirectory, 'hidden_service'),
-              virtualPort: 80,
-              localMapping: '127.0.0.1:' + port
+              // TODO config options for how often to shred the vfs
+              _dusk(['--shred', '--vfs', '--yes', '--dht', '--lazy', '--quiet']);
             }
-          ], {
-            DataDirectory: config.WebDAVHiddenServiceDirectory
-          });
+          },
+          autoLoad: {
+            treeFilePath: config.VirtualFileSystemPath,
+            streamProvider: (inputStream, callback) => {
+              let crypted = Buffer.from([]);
+              
+              const toDecrypted = new Transform({
+                transform(chunk, encoding, callback) {
+                  crypted = Buffer.concat([crypted, chunk]);
+                  callback(null);
+                },
+                flush(callback) {
+                  callback(null, dusk.utils.decrypt(privkey.toString('hex'), 
+                    crypted));
+                }
+              });
 
-          server.tor.on('error', e => {
-            logger.error('[webdav/tor]  %s', e.message);
-            reject(e)
-          })
-          server.tor.on('ready', () => {
-            const webDavOnion = fs.readFileSync(path.join(
-              config.WebDAVHiddenServiceDirectory, 'hidden_service', 'hostname'
-            )).toString().trim();
-            node.webDavHsAddr = webDavOnion;
-            node.webDavLocalAddr = '127.0.0.1:' + port;
-            console.log('');
-            console.log('  webdav url  [  dav://%s  ]', webDavOnion);
-            console.log('');
-            resolve(server);
+              const toGunzipped = zlib.createGunzip();
+
+              callback(inputStream.pipe(toGunzipped).pipe(toDecrypted));
+            }
+          },
+          storageManager: new webdav.NoStorageManager(),
+          enableLocationTag: false,
+          maxRequestDepth: 1,
+          headers: undefined,
+          port: parseInt(config.WebDAVListenPort),
+          serverName: 'dusk'
+        });
+
+        server.autoLoad((e) => {
+          if (e) {
+            const empty = {};
+           
+            logger.warn('failed to mount dusk virtual filesystem');
+
+            if (e.code !== 'ENOENT') {
+              logger.error(e.message);
+              empty['error.log'] = e.message;
+            } else {
+              logger.info('creating one from a template...');
+              empty['README.txt'] = '~ welcome to dusk ~';
+            }
+
+            server.rootFileSystem().addSubTree(server.createExternalContext(), empty);
+          }
+          
+          server.start((s) => {
+            const { port } = s.address();
+            
+            server.tor = hsv3([
+              {
+                dataDirectory: path.join(config.WebDAVHiddenServiceDirectory, 'hidden_service'),
+                virtualPort: 80,
+                localMapping: '127.0.0.1:' + port
+              }
+            ], {
+              DataDirectory: config.WebDAVHiddenServiceDirectory
+            });
+
+            server.tor.on('error', e => {
+              logger.error('[webdav/tor]  %s', e.message);
+              reject(e)
+            })
+            server.tor.on('ready', () => {
+              const webDavOnion = fs.readFileSync(path.join(
+                config.WebDAVHiddenServiceDirectory, 'hidden_service', 'hostname'
+              )).toString().trim();
+              node.webDavHsAddr = webDavOnion;
+              node.webDavLocalAddr = '127.0.0.1:' + port;
+              console.log('');
+              console.log('  webdav url  [  dav://%s  ]', webDavOnion);
+              console.log('');
+              resolve(server);
+            });
           });
         });
       });
     }
 
-    function setupFtpServer() {  
-       const server = new dusk.ftp.FtpSrv({
-        url: `ftp://127.0.0.1:${config.FTPBridgeListenPort}`,
-        anonymous: false, // TODO implement FTPBridgeDropboxEnabled
-        log: logger,
-        pasv_url: '127.0.0.1', // no passive connections - ftp only for local use and webdav bridge
-        greeting: `🝰 dusk ~ deniable cloud drive`,
-        tls: false, // Is FTPS worth implementing? we get E2EE for free through tor onions
-        blacklist: [],
-        file_format: 'ls' // ls/ep/function(fstat){}
-      });
-
-      server.on('login', async ({ connection, username, password }, resolve, reject) => {
-        // TODO implement device link shares
-        const users = [config.FTPBridgeUsername, config.WebDAVUsername];
-
-        logger.info('[ftp] bridge login requested from user: %s', username);
-        
-        if (!users.includes(username)) {
-          logger.warn('[ftp] rejecting login by %s', username);
-          return reject(new Error('Invalid username'));
-        }
-
-        let sk = privkey, pk = secp256k1.publicKeyCreate(sk);
-        
-        // Is this a local WebDAV bridge connection?
-        if (password === privkey.toString('hex') && username === config.WebDAVUsername) {
-          logger.info('[ftp] webdav bridge authenticated');
-          return resolve({ 
-            fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
-          });
-        }
-
-        const encryptedPrivKey = fs.readFileSync(config.PrivateKeyPath);
-        const salt = fs.readFileSync(config.PrivateKeySaltPath);
-
-        try {
-          sk = dusk.utils.passwordUnlock(password, salt, encryptedPrivKey);
-          pk = secp256k1.publicKeyCreate(sk);
-        } catch (e) {
-          return reject(e);
-        }
-
-        logger.info('[ftp] local user authenticated');
-        resolve({ 
-          fs: new dusk.VirtualFS(connection, config, sk, pk, await getRpcControl()) 
-        });  
-      });
-
-      return server;
-    }
- 
-    node.ftpLocalAddr = `ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`;
-
-    console.log('  local ftp server [  %s  ]', node.ftpLocalAddr);
-    console.log('');
-
-    ftp = setupFtpServer();
-
-    ftp.listen().then(async () => {
-      if (program.gui && program.open) {
-        spawn('xdg-open', [`ftp://${config.FTPBridgeUsername}@127.0.0.1:${config.FTPBridgeListenPort}`]);
-      } 
-
-      logger.info(`ftp bridge is running locally on port ${config.FTPBridgeListenPort}`);
+    try {
+      registerControlInterface();
       await setupWebDAV();
-      registerControlInterface(); 
-    }, (err) => {
-      console.error(err);
+      if (program.gui && program.open) {
+        spawn('nautilus', [`dav://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}`]);
+      }
+    } catch (err) {
+      logger.error(err.message);
       exitGracefully();
-    });
+    }
   }
 
   // Cast network nodes to an array
@@ -2161,13 +2191,6 @@ function getRpcControl() {
   });
 }
 
-const shoesTitle = '🝰 dusk / SHOES '
-const duskTitle = '🝰 dusk'
-
-function _dusk(args, opts) {
-  return fork(path.join(__dirname, 'dusk.js'), args, opts);
-}
-
 let rpc;
 
 async function displayMenu() {
@@ -2208,14 +2231,14 @@ async function displayMenu() {
         if (err) {
           Dialog.info(err, 'Sorry', 'error');
         } else {
-          spawn('nautilus', [info.ftp.local])
+          spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local])
           exitGracefully();
         }
       } else {
         if (err) {
           console.error(err);
         } else {
-          let f = spawn('ftp', [info.ftp.local], {
+          let f = spawn('cadaver', ['http://'+ config.WebDAVRootUsername + '@' + info.webdav.local], {
             stdio: 'inherit'
           });
           f.on('close', mainMenu);
@@ -2348,7 +2371,7 @@ async function showAboutInfo() {
 
     const dialogText = `Version: ${version}
 Peers:  ${info.peers.length}
-FTP:    ${info.ftp.local}
+WebDAV: ${info.webdav.local}
 
 anti-©opyright, 2024 tactical chihuahua 
 licensed under the agpl 3
@@ -2357,7 +2380,7 @@ licensed under the agpl 3
     if (program.gui) {
       option = { option: Dialog.list(duskTitle, dialogText, [
         ['📷  Show WebDAV Address QR'],
-        ['🗃️  Open FTP Bridge']
+        ['🗃️  Open WebDAV Bridge']
       ], ['ℹ️   About'],{ height: 200 }) }; 
     } else {
       console.info(`
@@ -2372,7 +2395,7 @@ ${dialogText}\n`);
             value: 0
           },
           {
-            name: '🗃️  Open Local FTP Bridge',
+            name: '🗃️  Open Local WebDAV Bridge',
             value: 1
           },
           new inquirer.default.Separator(),
@@ -2410,26 +2433,25 @@ ${dialogText}\n`);
         break;
       case 1:
         if (program.gui) {
-          f = spawn('nautilus', [info.ftp.local]);
+          f = spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local]);
         } else {
-          let addr = info.ftp.local.split('ftp://')[1];
-          let hasFtpCli;
+          let hasWebDavCli;
 
           try {
-            hasFtpCli = !!execSync('which ftp').toString().trim();
+            hasWebDavCli = !!execSync('which cadaver').toString().trim();
           } catch (err) {
             console.log('');
-            console.error('The ftp program was not in your PATH. Is it installed?');
+            console.error('The cadaver program was not in your PATH. Is it installed?');
             return showAboutInfo();
           }
 
-          if (!hasFtpCli) {
+          if (!hasWebDavCli) {
             console.log('');
-            console.error('The ftp program was not in your PATH. Is it installed?');
+            console.error('The cadaver program was not in your PATH. Is it installed?');
             return showAboutInfo();
           }
 
-          f = spawn('ftp', [`ftp://${config.FTPBridgeUsername}@${addr}`], {
+          f = spawn('cadaver', [`http://${config.WebDAVRootUsername}@${info.webdav.local}`], {
             stdio: 'inherit'
           });
         }
