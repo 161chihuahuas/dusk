@@ -140,7 +140,7 @@ through a Tor onion service, which provides end-to-end encryption between your d
 
 Both of these are readily available on every platform. You just need your **WebDAV** address. Press the *Super Key* and type **dusk:Settings** and launch the app. Select **About** and click OK.
 
-> You can also run `dusk --menu about` from **Terminal** to print the WebDAV Bridge onion URL.
+> You can also run `dusk -I status` from **Terminal** to print the WebDAV Bridge onion URL.
 
 You will also be shown the option to display a QR code for easier setup on mobile devices. Follow the guide for your operating system below.
 
@@ -148,19 +148,19 @@ You will also be shown the option to display a QR code for easier setup on mobil
 
 Open the system **Settings** app by pressing the *Super Key* and typing *Settings*. Select **Network** from the left sidebar, click **Proxy** and set **SOCKS Host, URL** to *localhost* and **SOCKS Host, Port** to *9050*. This will tell apps to proxy connections through Tor - which is the only way to connect to your devices running dusk.
 
-![ftp debian](assets/images/ftp-001.png)
+![webdav debian](assets/images/webdav-001.png)
 
 From your device running dusk, retrieve your **WebDAV Bridge** onion address. This can be found in **dusk:Settings, About** or by running `dusk --menu about`.
 
-![ftp debian](assets/images/ftp-002.png)
+![webdav debian](assets/images/webdav-002.png)
 
 Open the *system's* **Files** app (also called Nautilus), select **Network** from the sidebar, and paste or type the onion address. Click *Connect*. 
 
-![ftp debian](assets/images/ftp-003.png)
+![webdav debian](assets/images/webdav-003.png)
 
 You will see your remote dusk drive in the **Files** app and can use it as you would on the device running dusk.
 
-![ftp debian](assets/images/ftp-004.png)
+![webdav debian](assets/images/webdav-004.png)
 
 ##### MacOS
 

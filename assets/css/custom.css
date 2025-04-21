@@ -2,6 +2,14 @@ body {
   background: #280303;
   color: #eee;
 }
+.banner {
+  padding: 8px;
+  background: #fff;
+  color: #280303;
+}
+.banner div {
+  text-align: center;
+}
 a{color: inherit;}
 a:hover {color: #fff }
 .button:hover {
@@ -81,7 +89,7 @@ code{overflow:auto;}
   word-wrap: break-word }
 .example {
   position: relative; 
-  margin-top: 4rem; }
+  margin: 8rem 0; }
 .example-header {
   font-weight: 600;
   margin-top: 5.5rem;
@@ -94,7 +102,7 @@ code{overflow:auto;}
   overflow: hidden;
   border-radius: 6px;
   height: 276px;
-background: rgba(0,0,0,0.5);}
+}
 .example-screenshot {
   width: 100%;
   height: auto; }

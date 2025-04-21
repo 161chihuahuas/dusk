@@ -2325,14 +2325,15 @@ async function displayMenu() {
       : null;
 
     const submenus = [
-      'about',
       'files',
-      'devices',
-      'crypt',
+      'snapshots',
+      'links',
       'shoes',
-      'config',
+      'status',
+      'disconnect',
+      'utils',
       'debug',
-      'network',
+      'panic',
       'exit'
     ];
 
