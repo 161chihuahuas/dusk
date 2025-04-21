@@ -44,8 +44,9 @@ module.exports = function(datadir) {
     WebDAVEnabled: '1',
     WebDAVListenPort: '5276',
     WebDAVRootUsername: 'dusk',
-    WebDAVAnonDropboxEnabled: '1',
-    WebDAVLinkShareEnabled: '1',
+    WebDAVAnonUsername: 'anon',
+    WebDAVAnonDropboxEnabled: '0',
+    WebDAVPublicShareEnabled: '1',
     WebDAVHiddenServiceDirectory: join(datadir, 'webdav.hs'),
 
     // Network Bootstrapping

@@ -1861,23 +1861,54 @@ async function initDusk() {
     function setupWebDAV() {
       const { Readable, Transform } = require('node:stream');
 
+      class DuskUserManager extends webdav.SimpleUserManager {
+        constructor() {
+          super();
+          this.salt = fs.readFileSync(config.PrivateKeySaltPath);
+          this.priv = fs.readFileSync(config.PrivateKeyPath);
+
+          this.users = {
+            [config.WebDAVRootUsername]: new webdav.SimpleUser(
+              config.WebDAVRootUsername, null, true, false),
+            __default: new webdav.SimpleUser(
+              config.WebDAVAnonUsername, null, false, true)
+          };
+        }
+
+        getUserByNamePassword(name, password, callback) {
+          try {
+            assert(name === config.WebDAVRootUsername, 'Invalid username');
+            dusk.utils.passwordUnlock(password, this.salt, this.priv);
+          } catch (e) {
+            logger.error('authentication failed: %s', e.message);
+            callback(webdav.Errors.UserNotFound);
+          }
+        }
+      }
+
       return new Promise(async (resolve, reject) => {
         // User manager (tells who are the users)
-        const userManager = new webdav.SimpleUserManager();
-        const rootuser = userManager.addUser(config.WebDAVRootUsername, 'root', true); 
-        // TODO ACTUAL AUTH
-        // TODO https://github.com/OpenMarshal/npm-WebDAV-Server/wiki/User-management-and-privileges-%5Bv2%5D#user-management
+        const userManager = new DuskUserManager();
 
         // Privilege manager (tells which users can access which files/folders)
         const privilegeManager = new webdav.SimplePathPrivilegeManager();
 
         // Set root directories
-        // https://github.com/OpenMarshal/npm-WebDAV-Server/wiki/User-management-and-privileges-%5Bv2%5D#privileges
-        privilegeManager.setRights(rootuser, '/', [ 'all' ]);
+        privilegeManager.setRights(userManager.users[config.WebDAVRootUsername], '/', [ 'all' ]);
+        
+        if (!!parseInt(config.WebDAVPublicShareEnabled)) {
+          privilegeManager.setRights(userManager.users.__default, '/Public', [ 'canRead' ]);
+        }
+
+        if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
+          privilegeManager.setRights(userManager.users.__default, '/Dropbox', ['canRead']);
+          privilegeManager.setRights(userManager.users.__default, '/Dropbox/Drop/', ['canWriteContent']);
+        }
 
         const server = new webdav.WebDAVServer({
           requireAuthentication: false,
-          httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 'dusk'),
+          httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 
+            'dusk:' + identity.fingerprint.toString('hex')),
           privilegeManager: privilegeManager,
           isVerbose: true,
           lockTimeout: 3600,
@@ -1910,7 +1941,7 @@ async function initDusk() {
               callback(toCrypted, toGzipped);
 
               // TODO config options for how often to shred the vfs
-              _dusk(['--shred', '--vfs', '--yes', '--dht', '--lazy', '--quiet']);
+              // _dusk(['--shred', '--vfs', '--yes', '--dht', '--lazy', '--quiet']);
             }
           },
           autoLoad: {
@@ -1934,29 +1965,51 @@ async function initDusk() {
               callback(inputStream.pipe(toGunzipped).pipe(toDecrypted));
             }
           },
-          storageManager: new webdav.NoStorageManager(),
+          storageManager: new webdav.PerUserStorageManager(2147484000), // limit 2GiB
           enableLocationTag: false,
           maxRequestDepth: 1,
           headers: undefined,
           port: parseInt(config.WebDAVListenPort),
-          serverName: 'dusk'
+          serverName: 'dusk:' + identity.fingerprint.toString('hex')
         });
-
+ 
         server.autoLoad((e) => {
           if (e) {
-            const empty = {};
-           
             logger.warn('failed to mount dusk virtual filesystem');
+            
+            let template = {};
 
             if (e.code !== 'ENOENT') {
               logger.error(e.message);
-              empty['error.log'] = e.message;
+              template['Error.log'] = e.message;
             } else {
+              template = {
+                Documents: webdav.ResourceType.Directory,
+                Downloads: webdav.ResourceType.Directory,
+                Pictures: webdav.ResourceType.Directory,
+                Recordings: webdav.ResourceType.Directory,
+                Videos: webdav.ResourceType.Directory
+              };
+             
+              if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
+                template.Dropbox = {
+                  'Help.txt': '', // TODO dropbox guide
+                  Drop: webdav.ResourceType.Directory
+                };
+              }
+              
+              if (!!parseInt(config.WebDAVPublicShareEnabled)) {
+                template.Public = webdav.ResourceType.Directory;
+              }
+
               logger.info('creating one from a template...');
-              empty['README.txt'] = '~ welcome to dusk ~';
+
+              template['Help.txt'] = fs.readFileSync(
+                path.join(__dirname, '../webdav.md')
+              ).toString();
             }
 
-            server.rootFileSystem().addSubTree(server.createExternalContext(), empty);
+            server.rootFileSystem().addSubTree(server.createExternalContext(), template);
           }
           
           server.start((s) => {
@@ -2231,14 +2284,14 @@ async function displayMenu() {
         if (err) {
           Dialog.info(err, 'Sorry', 'error');
         } else {
-          spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local])
+          spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@127.0.0.1:' + config.WebDAVListenPort]);
           exitGracefully();
         }
       } else {
         if (err) {
           console.error(err);
         } else {
-          let f = spawn('cadaver', ['http://'+ config.WebDAVRootUsername + '@' + info.webdav.local], {
+          let f = spawn('cadaver', ['http://'+ config.WebDAVRootUsername + '@127.0.0.1:' + config.WebDAVListenPort], {
             stdio: 'inherit'
           });
           f.on('close', mainMenu);
@@ -2272,15 +2325,17 @@ async function displayMenu() {
       program.I = true;
     } else if (program.gui) {
       option = { option: Dialog.list(duskTitle, ' ', [
-        ['ℹ️   About'],
-        ['📁  Files'],
-        ['🔗  Devices'], 
-        ['🔑  Encryption'], 
-        ['👟  Sneakernet'],
-        ['🛠️  Preferences'],
-        ['🐛  Debug'], 
-        [`🔌  ${rpc ? 'Disconnect' : 'Connect'}`],
-        [`❌  Exit`]
+        ['🗃️  Files'],
+        ['💽  Snapshots'],
+        ['🔗  Links'], 
+        ['👟  Sneakernets'],
+        ['📻  Status'],
+        ['🔌  Disconnect'],
+        ['🔑  [caution!] Utilities'], 
+        ['🛠️  [caution!] Settings'],
+        ['🐛  [caution!] Debugging'], 
+        ['💣  PANIC'],
+        ['✌   Exit']
       ], ['Main Menu'],{ height: 500 }) }; 
     } else {
       option = await inquirer.default.prompt({
@@ -2289,31 +2344,37 @@ async function displayMenu() {
         message: 'Main Menu',
         choices: [
           {
-            name: 'ℹ️   About',
+            name: '🗃️   Files',
             value: 0
           },{
-            name: '📁  Files',
+            name: '💽  Snapshots',
             value: 1
           },{
-            name: '🔗  Devices',
+            name: '🔗  Links',
             value: 2
           },{
-            name: '🔑  Encryption',
+            name: '👟  Sneakernets',
             value: 3
           },{
-            name: '👟  Sneakernet',
+            name: '📻  Status',
             value: 4
           },{
-            name: '🛠️   Preferences',
+            name: '🔌  Disconnect',
             value: 5
-          },{
-            name: '🐛  Debug',
+          }, new inquirer.default.Separator(), {
+            name: '🔑  [caution!] Utilities',
             value: 6
           },{
-            name: `🔌  ${rpc ? 'Disconnect' : 'Connect'}`,
+            name: '🛠️   [caution!] Settings',
             value: 7
+          }, {
+            name: '🐛  [caution!] Debugging',
+            value: 8
           }, new inquirer.default.Separator(), {
-            name: '❌  Exit',
+            name: '💣  PANIC',
+            value: 9
+          },{
+            name: '✌   Exit',
             value: null
           }, new inquirer.default.Separator()
         ]
@@ -2322,7 +2383,7 @@ async function displayMenu() {
 
     switch (option && option.option) {
         case 0:
-          showAboutInfo();
+          openFiles();
           break;
         case 1:
           fileUtilities();
@@ -2331,24 +2392,88 @@ async function displayMenu() {
           manageDeviceLinks();
           break;
         case 3:
-          encryptionUtilities();
-          break;
-        case 4:
           createSneakernet();
           break;
+        case 4:
+          showAboutInfo()
+          break;
         case 5:
-          editPreferences();
+          toggleConnection();
           break;
         case 6: 
-          viewDebugLogs();
+          encryptionUtilities();
           break;
         case 7:
-          toggleConnection();
+          editPreferences();
+          break;
+        case 8:
+          viewDebugLogs();
+          break;
+        case 9:
+          selfDestruct();
           break;
         default:
           exitGracefully();
       }
   }
+}
+
+async function openFiles() {
+  const info = await _getInfo(rpc);
+  let f;
+
+  if (program.gui) {
+    f = spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local]);
+  } else {
+    let hasWebDavCli;
+
+    try {
+      hasWebDavCli = !!execSync('which cadaver').toString().trim();
+    } catch (err) {
+      console.log('');
+      console.error('The cadaver program was not in your PATH. Is it installed?');
+      return displayMenu();
+    }
+
+    if (!hasWebDavCli) {
+      console.log('');
+      console.error('The cadaver program was not in your PATH. Is it installed?');
+      return displayMenu();
+    }
+
+    f = spawn('cadaver', [`http://${config.WebDAVRootUsername}@${info.webdav.local}`], {
+      stdio: 'inherit'
+    });
+  }
+  f && f.on('close', displayMenu);
+}
+
+function resetToDefaults() {
+  let f;
+  if (program.gui) {
+    f = _dusk(['--reset', '--gui']);
+  } else {
+    f = _dusk(['--reset']);
+  }
+  f.on('close', () => {
+    let f2;
+    if (program.gui) {
+      f2 = _dusk(['--restart', '--background', '--gui']);
+    } else {
+      f2 = _dusk(['--restart', '--background']);
+    } 
+    f2.on('close', displayMenu);
+  });
+}
+
+function selfDestruct() {
+  let f;
+  if (program.gui) {
+    f = _dusk(['--destroy', '--gui', '--quiet']);
+  } else {
+    f = _dusk(['--destroy', '--quiet']);
+  }
+  f.on('close', exitGracefully);
 }
 
 async function showAboutInfo() {
@@ -2371,7 +2496,7 @@ async function showAboutInfo() {
 
     const dialogText = `Version: ${version}
 Peers:  ${info.peers.length}
-WebDAV: ${info.webdav.local}
+WebDAV: http://${info.webdav.onion || '  [ ... loading ... ]  '}
 
 anti-©opyright, 2024 tactical chihuahua 
 licensed under the agpl 3
@@ -2379,28 +2504,23 @@ licensed under the agpl 3
 
     if (program.gui) {
       option = { option: Dialog.list(duskTitle, dialogText, [
-        ['📷  Show WebDAV Address QR'],
-        ['🗃️  Open WebDAV Bridge']
-      ], ['ℹ️   About'],{ height: 200 }) }; 
+        ['📷  Show WebDAV Address QR']
+      ], ['📻  Status'],{ height: 200 }) }; 
     } else {
       console.info(`
 ${dialogText}\n`);
       option = await inquirer.default.prompt({
         type: 'list',
         name: 'option',
-        message: 'ℹ️   About',
+        message: '📻  Status',
         choices: [
           {
             name: '📷  Show WebDAV Address QR',
             value: 0
           },
-          {
-            name: '🗃️  Open Local WebDAV Bridge',
-            value: 1
-          },
           new inquirer.default.Separator(),
           {
-            name: '⮈  Back',
+            name: '↩️   Back',
             value: null
           },
           new inquirer.default.Separator()
@@ -2414,48 +2534,24 @@ ${dialogText}\n`);
       case 0:
         if (program.gui) {
           let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
-          qrcode.toFile(tmpcode, 'dav://' + info.webdav.onion, { scale: 20 }).then(() => {
-            spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
+          qrcode.toFile(tmpcode, 'http://'+ config.WebDAVRootUsername + '@' + info.webdav.onion, 
+            { scale: 20 }).then(() => {
+              spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
           }, exitGracefully);
         } else {
-          qrcode.toString('dav://' + info.webdav.onion, { terminal: true }, (err, code) => {
-            if (err) {
-              console.error(err);
-              exitGracefully();
-            }
+          qrcode.toString('http://' + config.WebDAVRootUsername + '@' + info.webdav.onion, 
+            { terminal: true }, (err, code) => {
+              if (err) {
+                console.error(err);
+                exitGracefully();
+              }
 
-            console.log('  Scan the QR code below and open the URL in your WebDAV client.');
-            console.log('    ~~> Need help? See https://rundusk.org.');
-            console.log(code);
-            showAboutInfo();
-          });
+              console.log('  Scan the QR code below and open the URL in your WebDAV client.');
+              console.log('    ~~> Need help? See https://rundusk.org.');
+              console.log(code);
+              showAboutInfo();
+            });
         }
-        break;
-      case 1:
-        if (program.gui) {
-          f = spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local]);
-        } else {
-          let hasWebDavCli;
-
-          try {
-            hasWebDavCli = !!execSync('which cadaver').toString().trim();
-          } catch (err) {
-            console.log('');
-            console.error('The cadaver program was not in your PATH. Is it installed?');
-            return showAboutInfo();
-          }
-
-          if (!hasWebDavCli) {
-            console.log('');
-            console.error('The cadaver program was not in your PATH. Is it installed?');
-            return showAboutInfo();
-          }
-
-          f = spawn('cadaver', [`http://${config.WebDAVRootUsername}@${info.webdav.local}`], {
-            stdio: 'inherit'
-          });
-        }
-        f && f.on('close', showAboutInfo);
         break;
       default:
         displayMenu();
@@ -2463,28 +2559,40 @@ ${dialogText}\n`);
   }
 }
 
+function _getInfo(rpc) {
+  return new Promise((resolve, reject) => {
+    rpc.invoke('getinfo', [], (err, info) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(info);
+      }
+    });
+  });
+}
+
 async function fileUtilities(actions) {
   let option;
 
   if (program.gui) {
     option = { option: Dialog.list(duskTitle, 'What would you like to do?', [
-      ['📤  Upload a file'], 
-      ['📥  Download a file'] 
-    ], ['📁  File Utilities'],{ height: 600 }) };
+      ['🔐  Create a Snapshot'], 
+      ['♻️   Restore a Snapshot'] 
+    ], ['💽  Snapshots'],{ height: 600 }) };
   } else {
     option = await inquirer.default.prompt({
       type: 'list',
       name: 'option',
-      message: '📁  Files', 
+      message: '💽  Snapshots', 
       choices: [
         {
-          name: '📤  Upload a file',
+          name: '🔐  Create a Snapshot',
           value: 0
         }, {
-          name: '📥  Download a file',
+          name: '♻️   Restore a Snapshot',
           value: 1
         }, new inquirer.default.Separator(), {
-          name: '⮈  Back', 
+          name: '↩️   Back', 
           value: null
         }, new inquirer.default.Separator()
       ]
@@ -2495,17 +2603,18 @@ async function fileUtilities(actions) {
 
   switch (option && option.option) {
     case 0:
+          case 0:
       if (program.gui) {
-        f = _dusk(['--shred', '--file-in', '--dht', '--lazy', '--gui']);
+        f = _dusk(['--shred', '--vfs', '--dht', '--lazy', '--gui']);
       } else {
-        f = _dusk(['--shred', '--file-in', '--dht', '--lazy']);
+        f = _dusk(['--shred', '--vfs', '--dht', '--lazy']);
       }
       break;
     case 1:
       if (program.gui) {
-        f = _dusk(['--retrace', '--file-in', '--dht', '--local', '--open', '--gui']);
+        f = _dusk(['--retrace', '--vfs', '--dht', '--local', '--open', '--gui']);
       } else {
-        f = _dusk(['--retrace', '--file-in', '--dht', '--local', '--open']);
+        f = _dusk(['--retrace', '--vfs', '--dht', '--local', '--open']);
       }
       break;
     default:
@@ -2538,13 +2647,13 @@ async function manageDeviceLinks(actions) {
           name: '🫂  View linked devices',
           value: 1
         }, {
-          name: '🖇️  Link a new device',
+          name: '🖇️   Link a new device',
           value: 2
         }, {
           name: '📵  Remove a linked device',
           value: 3
         }, new inquirer.default.Separator(), {
-          name: '⮈  Back', 
+          name: '↩️   Back', 
           value: null
         }, new inquirer.default.Separator()
       ]
@@ -2614,7 +2723,7 @@ async function encryptionUtilities(action) {
           name: '📖  Decrypt a message (using my default secret)',
           value: 3
         }, {
-          name: '🗝️  Decrypt a message (using a provided secret)',
+          name: '🗝️   Decrypt a message (using a provided secret)',
           value: 4
         }, new inquirer.default.Separator(), {
           name: '🔒  Export my public key',
@@ -2626,7 +2735,7 @@ async function encryptionUtilities(action) {
           name: '🔏  Show my recovery words',
           value: 7
         }, new inquirer.default.Separator(), {
-          name: '⮈  Back',
+          name: '↩️   Back',
           value: null
         }, new inquirer.default.Separator()
       ]
@@ -2703,9 +2812,9 @@ async function createSneakernet() {
 
   if (program.gui) {
     tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
-      ['💽  Setup a new USB drive'], 
-      ['🪄  Shred a file to sneakernet'],
-      ['🧩  Retrace a file from sneakernet']
+      ['  Create a Sneakernet'], 
+      ['🪄  Backup a Snapshot to Sneakernet'],
+      ['🧩  Restore a Snapshot from Sneakernet']
     ], ['👟  Sneakernet Tools'],{ height: 400 }) };
   } else {
     tool = await inquirer.default.prompt({
@@ -2714,16 +2823,16 @@ async function createSneakernet() {
       message: '👟  Sneakernet',
       choices: [
         {
-          name: '💽  Setup a new USB drive',
+          name: '💾  Create a Sneakernet',
           value: 0
         }, {
-          name: '🪄  Shred a file to sneakernet',
+          name: '🪄  Backup a Snapshot to Sneakernet',
           value: 1
         }, {
-          name: '🧩  Retrace a file from sneakernet',
+          name: '🧩  Restore a Snapshot from Sneakernet',
           value: 2
         }, new inquirer.default.Separator(), {
-          name: '⮈  Back',
+          name: '↩️   Back',
           value: null
         }, new inquirer.default.Separator()
       ]
@@ -2734,13 +2843,25 @@ async function createSneakernet() {
 
   switch (tool && tool.option) {
     case 0:
-      f = _dusk(['--usb', '--setup', `${program.gui?'--gui':''}`]);
+      if (program.gui) {
+        f = _dusk(['--usb', '--setup', '--gui']);
+      } else {
+        f = _dusk(['--usb', '--setup']);
+      }
       break;
     case 1:
-      f = _dusk(['--usb', '--shred', `${program.gui?'--gui':''}`]);
+      if (program.gui) {
+        f = _dusk(['--usb', '--vfs', '--shred', '--gui']);
+      } else {
+        f = _dusk(['--usb', '--vfs', '--shred']);
+      }
       break;
     case 2:
-      f = _dusk(['--usb', '--retrace', `${program.gui?'--gui':''}`]);
+      if (program.gui) {
+        f = _dusk(['--usb', '--vfs', '--retrace', '--gui']);
+      } else {
+        f = _dusk(['--usb', '--vfs', '--retrace']);
+      }
       break;
     default:
       displayMenu();
@@ -2756,10 +2877,11 @@ async function editPreferences() {
     console.warn('You can break your installation if you are not careful! Consult the User Guide before making any changes!');
   }
 
-  execSync(`xdg-open ${program.C}`);
   if (program.gui) {
+    execSync(`xdg-open ${program.C}`);
     Dialog.info(`You must restart dusk for the changes to take effect.`, duskTitle, 'info');
   } else {
+    execSync(`nano ${program.C}`);
     console.info('You must restart dusk for the changes to take effect.');
   }
   displayMenu();
@@ -2792,7 +2914,8 @@ async function toggleConnection() {
     }
 
     if (confirm.discon) {
-      f = _dusk(['--kill']);
+      f = _dusk(['--kill', '--quiet']);
+      f.on('close', exitGracefully);
     } else {
       displayMenu();
     }
