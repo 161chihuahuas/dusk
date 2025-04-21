@@ -526,26 +526,46 @@ async function _init() {
   }
 
   if (!program.Q && !!parseInt(config.AlwaysPromptToUpdate)) {
-    let shouldUpdate;
+    let shouldUpdate, shouldPrompt;
     const message = 'Would you like to check for updates?';
 
-    if (program.gui) {
-      shouldUpdate = {
-        yes: program.yes ||
-          Dialog.info(message, '🝰 dusk', 'question').status !== 1
-      };
-    } else {
-      shouldUpdate = program.yes ? { yes: true } : await inquirer.default.prompt({
-        name: 'yes',
-        type: 'confirm',
-        message
-      });
-    }
-
-    if (shouldUpdate.yes) {
-      program.restart = true;
-      await _update();
+    try {
+      shouldPrompt = (Date.now() - parseInt(fs.readFileSync(
+        path.join(program.datadir, 'last_update_prompt')
+      ))) >= 86400000;
+    } catch (err) {
+      shouldPrompt = true;
     } 
+
+    if (shouldPrompt) {
+      fs.writeFileSync(
+        path.join(program.datadir, 'last_update_prompt'),
+        Date.now().toString()
+      );
+
+      if (program.gui) {
+        shouldUpdate = {
+          yes: program.yes ||
+            Dialog.info(message, '🝰 dusk', 'question').status !== 1
+        };
+      } else {
+        shouldUpdate = program.yes ? { yes: true } : await inquirer.default.prompt({
+          name: 'yes',
+          type: 'confirm',
+          message
+        });
+      }
+
+      fs.writeFileSync(
+        path.join(program.datadir, 'last_update_prompt'),
+        Date.now().toString()
+      );
+
+      if (shouldUpdate.yes) {
+        program.restart = true;
+        await _update();
+      }
+    }
   }
 
   if (parseInt(config.TestNetworkEnabled)) {
