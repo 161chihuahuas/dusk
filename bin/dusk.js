@@ -2180,13 +2180,9 @@ I will still listen for incoming connections. ♥`, '🝰 dusk', 'info');
       process.exit(1);
     }
 
-    logger.info('dusk node is running! your identity is:');
-    logger.info('');
-    logger.info('');
+    logger.info('dusk is running! your identity is:');
     const identBundle = dusk.utils.getContactURL([node.identity, node.contact]); 
     logger.info(identBundle);
-    logger.info('');
-    logger.info('');
     fs.writeFileSync(
       config.DrefLinkPath,
       identBundle
@@ -2354,7 +2350,7 @@ async function displayMenu() {
         ['🔑  [caution!] Utilities'], 
         ['🛠️  [caution!] Settings'],
         ['🐛  [caution!] Debugging'], 
-        ['💣  PANIC'],
+        ['💣  [caution!] Panic'],
         ['✌   Exit']
       ], ['Main Menu'],{ height: 500 }) }; 
     } else {
@@ -2391,7 +2387,7 @@ async function displayMenu() {
             name: '🐛  [caution!] Debugging',
             value: 8
           }, new inquirer.default.Separator(), {
-            name: '💣  PANIC',
+            name: '💣  [caution!] Panic',
             value: 9
           },{
             name: '✌   Exit',
