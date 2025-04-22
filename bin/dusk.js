@@ -247,6 +247,7 @@ program.usb = program.usb || program.shoes;
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
+let webDavRootPassword;
 
 let _didSetup = false;
 
@@ -1061,8 +1062,12 @@ Ready?
 
     const salt = fs.readFileSync(config.PrivateKeySaltPath);
     const sk = dusk.utils.passwordUnlock(answers.password, salt, encryptedPrivKey);
+  
+    webDavRootPassword = answers.password;
+    
     resolve(sk);
   }));
+
   identity = new dusk.eclipse.EclipseIdentity(
     Buffer.from(secp256k1.publicKeyCreate(privkey)),
     nonce,
@@ -1881,48 +1886,32 @@ async function initDusk() {
     function setupWebDAV() {
       const { Readable, Transform } = require('node:stream');
 
-      class DuskUserManager extends webdav.SimpleUserManager {
-        constructor() {
-          super();
-          this.salt = fs.readFileSync(config.PrivateKeySaltPath);
-          this.priv = fs.readFileSync(config.PrivateKeyPath);
-
-          this.users = {
-            [config.WebDAVRootUsername]: new webdav.SimpleUser(
-              config.WebDAVRootUsername, null, true, false),
-            __default: new webdav.SimpleUser(
-              config.WebDAVAnonUsername, null, false, true)
-          };
-        }
-
-        getUserByNamePassword(name, password, callback) {
-          try {
-            assert(name === config.WebDAVRootUsername, 'Invalid username');
-            dusk.utils.passwordUnlock(password, this.salt, this.priv);
-          } catch (e) {
-            logger.error('authentication failed: %s', e.message);
-            callback(webdav.Errors.UserNotFound);
-          }
-        }
-      }
-
       return new Promise(async (resolve, reject) => {
+        if (!webDavRootPassword) {
+          logger.warn('no password given for dusk - refusing to start webdav bridge');
+          return reject(new Error('WebDAV bridge requires a password to be set.'));
+        }
+
         // User manager (tells who are the users)
-        const userManager = new DuskUserManager();
+        const userManager = new webdav.SimpleUserManager();
+        const rootUser = userManager.addUser(config.WebDAVRootUsername,
+          webDavRootPassword, true, false);
+        const anonUser = userManager.addUser('anon',
+          null, false, true);
 
         // Privilege manager (tells which users can access which files/folders)
         const privilegeManager = new webdav.SimplePathPrivilegeManager();
 
         // Set root directories
-        privilegeManager.setRights(userManager.users[config.WebDAVRootUsername], '/', [ 'all' ]);
+        privilegeManager.setRights(rootUser, '/', [ 'all' ]);
         
         if (!!parseInt(config.WebDAVPublicShareEnabled)) {
-          privilegeManager.setRights(userManager.users.__default, '/Public', [ 'canRead' ]);
+          privilegeManager.setRights(anonUser, '/Public', [ 'canRead' ]);
         }
 
         if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
-          privilegeManager.setRights(userManager.users.__default, '/Dropbox', ['canRead']);
-          privilegeManager.setRights(userManager.users.__default, '/Dropbox/Drop/', ['canWriteContent']);
+          privilegeManager.setRights(anonUser, '/Dropbox', ['canRead']);
+          privilegeManager.setRights(anonUser, '/Dropbox/Drop/', ['canWriteContent']);
         }
 
         const server = new webdav.WebDAVServer({
@@ -2065,14 +2054,19 @@ async function initDusk() {
     }
 
     try {
-      registerControlInterface();
+      registerControlInterface(); 
+    } catch (err) {
+      logger.error(err.message);
+      exitGracefully();
+    }
+
+    try {
       await setupWebDAV();
       if (program.gui && program.open) {
         spawn('nautilus', [`dav://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}`]);
       }
     } catch (err) {
       logger.error(err.message);
-      exitGracefully();
     }
   }
 
@@ -2543,8 +2537,6 @@ ${dialogText}\n`);
         ]
       });
     }
-
-    let f;
 
     switch (option && option.option) {
       case 0:
