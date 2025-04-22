@@ -2013,7 +2013,6 @@ async function initDusk() {
              
               if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
                 template.Dropbox = {
-                  'Help.txt': '', // TODO dropbox guide
                   Drop: webdav.ResourceType.Directory
                 };
               }
@@ -2025,7 +2024,7 @@ async function initDusk() {
               logger.info('creating one from a template...');
 
               template['Help.txt'] = fs.readFileSync(
-                path.join(__dirname, '../webdav.md')
+                path.join(__dirname, '../howto.md')
               ).toString();
             }
 

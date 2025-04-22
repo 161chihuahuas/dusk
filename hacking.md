@@ -1,5 +1,3 @@
 # [🝰 dusk](https://rundusk.org)
-# *webdav bridge*
+# *developer guide*
 ## --
-
-
