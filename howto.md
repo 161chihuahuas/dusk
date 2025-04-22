@@ -208,22 +208,22 @@ Better to run dusk inside a Virtual Machine as described earlier in this guide.
 
 Android users can easily connect to their dusk drive. First install [Orbot](https://github.com/guardianproject/orbot-android) and [DAVx5](https://www.davx5.com/). Both are available using [F-Droid](https://f-droid.org/) and the "Play Store".
 
-![webdav android](assets/images/webdav-android-001.png)
-![webdav android](assets/images/webdav-android-002.png)
+![webdav android](assets/images/webdav-android-001.jpg)
+![webdav android](assets/images/webdav-android-002.jpg)
 
 Open **Orbot** and click *Select Apps*. Make sure the box next to **DAVx5** is checked and click *Save*.
 
-![webdav android](assets/images/webdav-android-003.png)
+![webdav android](assets/images/webdav-android-003.jpg)
 
 Open **DAVx5** and navigate to *Tools, WebDAV mounts*, then add a new account. Choose *Advanced Login* and enter your URL, username, and password.
 
-![webdav android](assets/images/webdav-android-004.png)
-![webdav android](assets/images/webdav-android-005.png)
+![webdav android](assets/images/webdav-android-004.jpg)
+![webdav android](assets/images/webdav-android-005.jpg)
 
 Your drive should now be mounted and show in your system file explorer.
 
-![webdav android](assets/images/webdav-android-006.png)
-![webdav android](assets/images/webdav-android-007.png)
+![webdav android](assets/images/webdav-android-006.jpg)
+![webdav android](assets/images/webdav-android-007.jpg)
 
 ##### iOS
 
@@ -231,17 +231,17 @@ Your drive should now be mounted and show in your system file explorer.
 
 Regardless of the application you choose to access dusk on iOS, the steps should be mostly the same. First, **Install Orbot** and allow it to create a VPN.
 
-![webdav ios](assets/images/webdav-ios-001.png)
-![webdav ios](assets/images/webdav-ios-002.png)
-![webdav ios](assets/images/webdav-ios-003.png)
+![webdav ios](assets/images/webdav-ios-001.jpg)
+![webdav ios](assets/images/webdav-ios-002.jpg)
+![webdav ios](assets/images/webdav-ios-003.jpg)
 
 Once Orbot is connected, navigate to **Files**, and select **Shared** in the bottom menu bar. Open the options menu and select *Connect to Server*.
 
-![webdav ios](assets/images/webdav-ios-004.png)
+![webdav ios](assets/images/webdav-ios-004.jpg)
 
 Input your WebDAV URL.
 
-![webdav ios](assets/images/webdav-ios-005.png)
+![webdav ios](assets/images/webdav-ios-005.jpg)
 
 ### Sneakernets
 
