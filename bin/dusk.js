@@ -1075,7 +1075,7 @@ Ready?
   );
 
   // are we starting the daemon?
-  program.D = program.background;
+  program.D = program.D || program.background;
 
   if (program.D) {
     console.log('');
