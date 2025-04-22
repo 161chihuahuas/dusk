@@ -284,7 +284,7 @@ if (program.update) {
 if (program.install) {
   const binpath = execSync('which node').toString().trim();
   const desktop1 = `[Desktop Entry]
-Name=dusk:Files
+Name=${duskTitle} ~ Files
 Comment=deniable cloud drive file browser
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --open --gui --menu %U
@@ -293,11 +293,11 @@ Categories=Utility;
 Type=Application
   `;
   const desktop2 = `[Desktop Entry]
-Name=dusk:Settings
-Comment=deniable cloud drive settings
+Name=${duskTitle} ~ Settings
+Comment=deniable cloud drive
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --menu %U
-Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-dusk.png')}
 Categories=Utility;
 Type=Application
   `;
@@ -339,11 +339,11 @@ if (program.uninstall) {
 if (program.enableAutostart) {
   const binpath = execSync('which node').toString().trim();
   const autostart1 = `[Desktop Entry]
-Name=dusk
+Name=${duskTitle} ~ Connect
 Comment=deniable cloud drive
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --background --gui %U
-Icon=${path.join(__dirname, '../assets/images/favicon.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
 Categories=Utility;
 Type=Application
 StartupNotify=false
