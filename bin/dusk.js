@@ -1440,6 +1440,10 @@ Ready?
       program.datadir = await shoes.mount(program, config, exitGracefully);
     }
 
+    if (program.vfs) {
+      program.fileOut = config.VirtualFileSystemPath;
+    }
+
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
     const filename = program.fileOut || 
@@ -1449,12 +1453,32 @@ Ready?
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
 
     if (fs.existsSync(filename)) {
-      if (program.gui) {
-        Dialog.info(`${filename} already exists. I won't overwrite it.`, 'Sorry', 'error');
-      }
+      let overwrite;
+      let message = 'Are you sure you want to overwrite the current virtual filesystem? ' +
+        'If you have not created a recent snapshot, you may lose data!';
 
-      console.error(`${filename} already exists, I won't overwrite it.`);
-      process.exit(1);
+      if (program.gui && program.vfs) {
+        overwrite = {
+          vfs: program.yes ||
+            Dialog.info(message, 'Confirm', 'question').status !== 1
+        };
+      } else if (!program.gui && program.vfs) {
+        overwrite = program.yes ? { vfs: true } : await inquirer.default.prompt({
+          name: 'vfs',
+          type: 'confirm',
+          message
+        });
+      }
+      
+      if ((program.vfs && !overwrite.vfs) || !program.vfs) {
+        if (program.gui) {
+          Dialog.info(`${filename} already exists. I won't overwrite it.`, 'Sorry', 'error');
+        } else {
+          console.error(`${filename} already exists, I won't overwrite it.`);
+        }
+        
+        exitGracefully();
+      }
     }
 
     fs.writeFileSync(filename, trimmedFile);
@@ -2623,9 +2647,9 @@ async function fileUtilities(actions) {
       break;
     case 1:
       if (program.gui) {
-        f = _dusk(['--retrace', '--vfs', '--dht', '--local', '--open', '--gui']);
+        f = _dusk(['--retrace', '--vfs', '--dht', '--local', '--gui']);
       } else {
-        f = _dusk(['--retrace', '--vfs', '--dht', '--local', '--open']);
+        f = _dusk(['--retrace', '--vfs', '--dht', '--local']);
       }
       break;
     default:
