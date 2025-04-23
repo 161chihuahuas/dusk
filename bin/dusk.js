@@ -221,6 +221,9 @@ program.option('--file-out [path]',
 program.option('--with-secret [hex_secret]',
   'override the configured private key, use with --decrypt and --retrace');
 
+program.option('--webdav-pass <password>',
+  'set the webdav root user password for this session');
+
 program.option('--shoes', 
   'setup a dusk/SHOES USB or use with --retrace, --shred');
 program.option('--usb', 'alias for --shoes');
@@ -247,7 +250,6 @@ program.usb = program.usb || program.shoes;
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
-let webDavRootPassword;
 
 let _didSetup = false;
 
@@ -1063,7 +1065,7 @@ Ready?
     const salt = fs.readFileSync(config.PrivateKeySaltPath);
     const sk = dusk.utils.passwordUnlock(answers.password, salt, encryptedPrivKey);
   
-    webDavRootPassword = answers.password;
+    program.webdavPass = program.webdavPass || answers.password;
     
     resolve(sk);
   }));
@@ -1082,7 +1084,8 @@ Ready?
     console.log('  [ starting dusk in the background ♥  ]');
 
     const args =  [
-      '--with-secret', privkey.toString('hex')
+      '--with-secret', privkey.toString('hex'),
+      '--webdav-pass', program.webdavPass
     ];
 
     if (program.gui) {
@@ -1887,7 +1890,7 @@ async function initDusk() {
       const { Readable, Transform } = require('node:stream');
 
       return new Promise(async (resolve, reject) => {
-        if (!webDavRootPassword) {
+        if (!program.webdavPass) {
           logger.warn('no password given for dusk - refusing to start webdav bridge');
           return reject(new Error('WebDAV bridge requires a password to be set.'));
         }
@@ -1895,7 +1898,7 @@ async function initDusk() {
         // User manager (tells who are the users)
         const userManager = new webdav.SimpleUserManager();
         const rootUser = userManager.addUser(config.WebDAVRootUsername,
-          webDavRootPassword, true, false);
+          program.webdavPass, true, false);
         const anonUser = userManager.addUser('anon',
           null, false, true);
 
