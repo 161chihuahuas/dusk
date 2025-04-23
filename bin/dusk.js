@@ -2354,6 +2354,7 @@ async function displayMenu() {
       'utils',
       'debug',
       'panic',
+      'donate',
       'exit'
     ];
 
@@ -2372,6 +2373,7 @@ async function displayMenu() {
         ['🛠️  [caution!] Settings'],
         ['🐛  [caution!] Debugging'], 
         ['💣  [caution!] Panic'],
+        ['🩷  Donate'],
         ['✌   Exit']
       ], ['Main Menu'],{ height: 500 }) }; 
     } else {
@@ -2410,6 +2412,9 @@ async function displayMenu() {
           }, new inquirer.default.Separator(), {
             name: '💣  [caution!] Panic',
             value: 9
+          }, new inquirer.default.Separator(), {
+            name: '🩷  Donate',
+            value: 10
           },{
             name: '✌   Exit',
             value: null
@@ -2448,6 +2453,9 @@ async function displayMenu() {
           break;
         case 9:
           selfDestruct();
+          break;
+        case 10:
+          openLiberapay();
           break;
         default:
           exitGracefully();
@@ -2806,7 +2814,8 @@ async function encryptionUtilities(action) {
         f = _dusk(['--decrypt', '--gui']);
       } else {
         f = _dusk(['--decrypt']);
-      }      break;
+      }      
+      break;
     case 4:
       if (program.gui) {
         f = _dusk(['--decrypt', '--with-secret', '--gui']);
@@ -2847,7 +2856,7 @@ async function createSneakernet() {
 
   if (program.gui) {
     tool = { option: Dialog.list(shoesTitle, 'What would you like to do?', [
-      ['  Create a Sneakernet'], 
+      ['💾  Create a Sneakernet'], 
       ['🪄  Backup a Snapshot to Sneakernet'],
       ['🧩  Restore a Snapshot from Sneakernet']
     ], ['👟  Sneakernet Tools'],{ height: 400 }) };
@@ -2957,7 +2966,24 @@ async function toggleConnection() {
   } else {
     displayMenu();
   }
-} 
+}
+
+function openLiberapay() {
+  const donateUrl = 'https://liberapay.com/rundusk/';
+  if (program.gui) {
+    spawn('xdg-open', [donateUrl]);
+  } else {
+    console.log('');
+    console.log(`  Want to help me sustain ${duskTitle}'s ongoing development?
+    
+    ~~> [  ${donateUrl}  ]
+
+  Thank you, friend! ♥`);
+    console.log('');
+  }
+
+  displayMenu();
+}
 
 // Check if we are sending a command to a running daemon's controller
 if (program.rpc || program.repl) {
@@ -3107,7 +3133,7 @@ if (program.rpc || program.repl) {
   }
 
   if (program.gui) {
-    Dialog.list('🝰 dusk', 'Linked devices:', values, ['Name', 'Fingerprint', 'Link'], {
+    Dialog.list('🝰 dusk', 'Linked devices:', values, ['Fingerprint', 'Name', 'Link'], {
       width: 800,
       height:500
     });
@@ -3142,7 +3168,7 @@ if (program.rpc || program.repl) {
     }
 
     try {
-      const [id, contact] = dusk.utils.parseContactURL(program.link);
+      const [id] = dusk.utils.parseContactURL(program.link);
       const seedsdir = path.join(program.datadir, 'seeds');
       const randomName = uniqueNamesGenerator({ 
         dictionaries: [adjectives, colors, animals] 
