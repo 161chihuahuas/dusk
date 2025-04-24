@@ -2671,8 +2671,16 @@ async function fileUtilities(actions) {
     default:
       displayMenu();
   }
-
-  f && f.on('close', fileUtilities);
+  
+  f && f.on('close', () => {
+    let f2;
+    if (program.gui) {
+      f2 = _dusk(['--restart', '--background', '--gui']);
+    } else {
+      f2 = _dusk(['--restart', '--background']);
+    } 
+    f2.on('close', fileUtilities);
+  });
 }
 
 async function manageDeviceLinks(actions) {
