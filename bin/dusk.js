@@ -2381,9 +2381,10 @@ async function displayMenu() {
         ['🛠️  [caution!] Settings'],
         ['🐛  [caution!] Debugging'], 
         ['💣  [caution!] Panic'],
+        ['♻️  Update'],
         ['🩷  Donate'],
         ['✌   Exit']
-      ], ['Main Menu'],{ height: 500 }) }; 
+      ], ['Main Menu'],{ height: 524 }) }; 
     } else {
       option = await inquirer.default.prompt({
         type: 'list',
@@ -2421,8 +2422,11 @@ async function displayMenu() {
             name: '💣  [caution!] Panic',
             value: 9
           }, new inquirer.default.Separator(), {
-            name: '🩷  Donate',
+            name: '♻️   Update',
             value: 10
+          }, {
+            name: '🩷  Donate',
+            value: 11
           },{
             name: '✌   Exit',
             value: null
@@ -2463,12 +2467,25 @@ async function displayMenu() {
           selfDestruct();
           break;
         case 10:
+          runUpdater();
+          break;
+        case 11:
           openLiberapay();
           break;
         default:
           exitGracefully();
       }
   }
+}
+
+function runUpdater() {
+  let f;
+  if (program.gui) {
+    f = _dusk(['--update', '--restart', '--gui']);
+  } else {
+    f = _dusk(['--update', '--restart']);
+  }
+  f.on('close', displayMenu);
 }
 
 async function openFiles() {
@@ -2627,8 +2644,8 @@ async function fileUtilities(actions) {
 
   if (program.gui) {
     option = { option: Dialog.list(duskTitle, 'What would you like to do?', [
-      ['🔐  Create a Snapshot'], 
-      ['♻️   Restore a Snapshot'] 
+      ['🌠  Create a Snapshot'], 
+      ['🔮  Restore a Snapshot'] 
     ], ['💽  Snapshots'],{ height: 600 }) };
   } else {
     option = await inquirer.default.prompt({
@@ -2637,10 +2654,10 @@ async function fileUtilities(actions) {
       message: '💽  Snapshots', 
       choices: [
         {
-          name: '🔐  Create a Snapshot',
+          name: '🌠  Create a Snapshot',
           value: 0
         }, {
-          name: '♻️   Restore a Snapshot',
+          name: '🔮  Restore a Snapshot',
           value: 1
         }, new inquirer.default.Separator(), {
           name: '↩️   Back', 
