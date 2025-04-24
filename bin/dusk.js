@@ -751,7 +751,9 @@ If you lose these words, you can never recover access to this identity, includin
 
     if (program.vfs) {
       program.shred = true;
-      program.fileIn = config.VirtualFileSystemPath;
+      program.fileIn = typeof program.vfs === 'string'
+        ? program.vfs
+        : config.VirtualFileSystemPath;
     }
     
     let publicKey = program.pubkey || 
@@ -1441,7 +1443,9 @@ Ready?
     }
 
     if (program.vfs) {
-      program.fileOut = config.VirtualFileSystemPath;
+      program.fileOut = typeof program.vfs === 'string'
+        ? program.vfs
+        : config.VirtualFileSystemPath;
     }
 
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
@@ -1953,7 +1957,9 @@ async function initDusk() {
           https: null,
           version: dusk.version.software,
           autoSave: {
-            treeFilePath: config.VirtualFileSystemPath,
+            treeFilePath: typeof program.vfs === 'string'
+              ? program.vfs
+              : config.VirtualFileSystemPath,
             tempTreeFilePath: undefined,
             onSaveError: (err) => {
               logger.error('error saving vfs state, %s', err.message);
@@ -1981,7 +1987,9 @@ async function initDusk() {
             }
           },
           autoLoad: {
-            treeFilePath: config.VirtualFileSystemPath,
+            treeFilePath: typeof program.vfs === 'string'
+              ? program.vfs
+              : config.VirtualFileSystemPath,
             streamProvider: (inputStream, callback) => {
               let crypted = Buffer.from([]);
               
