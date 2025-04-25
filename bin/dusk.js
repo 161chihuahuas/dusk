@@ -186,8 +186,14 @@ program.option('--export-link',
 program.option('--export-secret', 
   'dumps the private identity key');
 
+program.option('--import-secret [hex_secret]', 
+  'overwrites the private identity key (will confirm)');
+
 program.option('--export-recovery', 
   'dumps the bip39 recovery words');
+
+program.option('--import-recovery [comma_sep_words]', 
+  'recovers a private ientity key from words and overwrites it (will confirm)');
 
 program.option('--shred [message]', 
   'splits and pads message into uniform shards');
@@ -519,7 +525,64 @@ async function _init() {
   // import es modules
   const fileSelector = (await import('inquirer-file-selector')).default;
   // import es modules
-  
+
+  function _importRecovery() {
+    return new Promise(async (resolve, reject) => {
+      let words;
+
+      if (typeof program.importRecovery !== 'string') {
+        const questions = [{
+          type: 'text',
+          name: 'words',
+          message: 'Enter the 24 word recovery phrase to import? ~>',
+        }];
+        const answers = program.gui
+          ? { words: Dialog.entry('Enter the 24 word recovery phrase to import:', '🝰 dusk') }
+          : await inquirer.default.prompt(questions);
+      
+        words = answers.words.split();
+      } else {
+        words = program.importRecovery.split();
+      }
+
+      let sk = bip39.mnemonicToEntropy(words.join(' '));
+      program.importSecret = sk.toString('hex');
+
+      resolve(sk);
+    });
+  }
+
+  function _importSecret() {
+    return new Promise(async (resolve, reject) => {
+      if (program.importSecret === true) {
+        const questions = [{
+          type: 'password',
+          name: 'secret',
+          message: 'Enter the secret key to import? ~>',
+        }];
+        const answers = program.gui
+          ? { secret: Dialog.entry('Enter the secret key to import:', '🝰 dusk') }
+          : await inquirer.default.prompt(questions);
+
+        program.importSecret = answers.secret;
+      }
+
+      if (typeof program.importSecret === 'string') {
+        if (!dusk.utils.isHexaString(program.importSecret)) {
+          return reject(new Error('Secret key must be hexidecimal'));
+        }
+
+        let sk = Buffer.from(program.importSecret, 'hex');
+
+        if (!secp256k1.privateKeyVerify(sk)) {
+          return reject(new Error('Invalid secret key'));
+        }
+
+        return resolve(sk);
+      }
+    });
+  }
+
   if (program.reset) {
     await _reset();
   }
@@ -577,13 +640,25 @@ async function _init() {
     dusk.constants.IDENTITY_DIFFICULTY = dusk.constants.TESTNET_DIFFICULTY;
   }
 
-  // Generate a private extended key if it does not exist
-  if (!program.withSecret && !program.ephemeral && !fs.existsSync(config.PrivateKeyPath)) {
+  // Generate a private key if it does not exist
+  const shouldPersistSecret = !program.withSecret && !program.ephemeral;
+  const appearsFreshInstall = !fs.existsSync(config.PrivateKeyPath);
+  const canPersistSecret = program.importRecovery || program.importSecret || appearsFreshInstall;
+
+  if (program.importRecovery) {
+    await _importRecovery();
+  }
+
+  const sk = program.importSecret 
+    ? await _importSecret()
+    : dusk.utils.generatePrivateKey();
+
+  if (shouldPersistSecret && canPersistSecret) {
     const questions = [
       {
         type: 'password',
         name: 'password1',
-        message: 'I made you a key, enter a password to protect it? ~>',
+        message: 'I have your key, enter a password to protect it? ~>',
       },
       {
         type: 'password',
@@ -597,7 +672,7 @@ async function _init() {
     if (!program.gui) {
       answers = await inquirer.default.prompt(questions);
     } else {
-      let d = new Dialog('I made you a key, enter a password to protect it?', {
+      let d = new Dialog('I have your key, enter a password to protect it?', {
         text: `Your dusk key is stored encrypted on your device
 and is used to protect your files. Anyone with 
 your password and access to this device will be 
@@ -644,7 +719,6 @@ able to view your data.`
       }
     }
 
-    const sk = dusk.utils.generatePrivateKey();
     const salt = fs.existsSync(config.PrivateKeySaltPath)
       ? fs.readFileSync(config.PrivateKeySaltPath)
       : crypto.getRandomValues(Buffer.alloc(16));
@@ -678,9 +752,45 @@ If you lose these words, you can never recover access to this identity, includin
     }
 
     if (savedWords.iPromise) {
+      if (!appearsFreshInstall) {
+        const warningText = 'This operation will overwrite the current secret key!' + 
+          'You will not be able to retrace snapshots for the previous key after importing this one.' +
+          '\n\nContinue?';
+        let iUnderstand;
+          
+        if (program.gui) {
+          iUnderstand = { 
+            iPromise: program.yes || await Dialog.info(warningText, 'IMPORTANT', 
+              'question').status === 0 
+          };
+        } else {
+          console.warn(warningText);
+          iUnderstand = program.yes ? { iPromise: true } : await inquirer.default.prompt({
+            name: 'iPromise',
+            type: 'confirm',
+            message: 'Continue?'
+          });
+        }
+
+        if (!iUnderstand.iPromise) {
+         const msg = 'I did not import your key and will exit.';
+          if (program.gui) {
+            Dialog.info(msg, duskTitle, 'error');
+            exitGracefully();
+          } else {
+            console.error(msg);
+            exitGracefully();;
+          }  
+        }
+      } 
+
       fs.writeFileSync(config.PrivateKeySaltPath, salt);
       fs.writeFileSync(config.PrivateKeyPath, encryptedPrivKey);
       fs.writeFileSync(config.PublicKeyPath, secp256k1.publicKeyCreate(sk));
+
+      // Let's not get stuck in a loop :]
+      program.importSecret = false;
+      program.importRecovery = false;
     } else {
       const msg = 'I did not save your key and will exit. Try again.';
       if (program.gui) {
@@ -704,21 +814,27 @@ If you lose these words, you can never recover access to this identity, includin
 
   program.kill = program.kill || program.shutdown || program.destroy || program.restart;
 
-  if (program.kill) {
+  async function _kill(dontExit) {
     try {
       const pid = fs.readFileSync(config.DaemonPidFilePath).toString().trim()
       console.log(`  [ shutting down dusk process with id: ${pid} ]`);
       process.kill(parseInt(pid), 'SIGTERM');
       console.log(`  [ done ♥ ]`);
+      return true;
     } catch (err) {
       console.error(err);
       console.error('I couldn\'t shutdown the daemon, is it running?');
     }
+    return false;
+  }
 
+  if (program.kill) {
+    _kill()
+    
     if (program.destroy) {
       await _destroy();
     }
-    
+  
     if (program.restart) {
       program.D = true;
     } else {
@@ -1040,7 +1156,17 @@ Ready?
       program.withSecret = answers.secret;
     }
 
-    if (typeof program.withSecret === 'string' && dusk.utils.isHexaString(program.withSecret)) {
+    if (typeof program.withSecret === 'string') {
+      if (!dusk.utils.isHexaString(program.withSecret)) {
+        return reject(new Error('Secret key must be hexidecimal'));
+      }
+
+      let sk = Buffer.from(program.withSecret, 'hex');
+
+      if (!secp256k1.privateKeyVerify(sk)) {
+        return reject(new Error('Invalid secret key'));
+      }
+
       return resolve(Buffer.from(program.withSecret, 'hex'));
     }
 
@@ -2773,12 +2899,14 @@ async function encryptionUtilities(action) {
     tool = { option: Dialog.list(duskTitle, 'What would you like to do?', [
       ['🤳  Encrypt a message (for myself)'], 
       ['🎁  Encrypt a message (for someone else)'], 
-      ['💣  Encrypt a message (using a one-time secret)'], 
+      ['👻  Encrypt a message (using a one-time secret)'], 
       ['📖  Decrypt a message (using my default secret)'],
-      ['🗝️  Decrypt a message (using a provided secret)'],
-      ['🔒  Export my public key'],
+      ['🔦  Decrypt a message (using a provided secret)'],
+      ['🪪  Export my public key'],
       ['🔐  Export my secret key'],
-      ['🔏  Show my recovery words']
+      ['✍   Export my recovery words'],
+      ['🗝️  Restore from a secret key'],
+      ['📓  Restore from recovery words']
     ], ['🔑  Encryption Utilities'],{ height: 600 }) };
   } else {
     tool = await inquirer.default.prompt({
@@ -2793,23 +2921,29 @@ async function encryptionUtilities(action) {
           name: '🎁  Encrypt a message (for someone else)',
           value: 1
         }, {
-          name: '💣  Encrypt a message (using a one-time secret)',
+          name: '👻   Encrypt a message (using a one-time secret)',
           value: 2
         }, new inquirer.default.Separator(), {
           name: '📖  Decrypt a message (using my default secret)',
           value: 3
         }, {
-          name: '🗝️   Decrypt a message (using a provided secret)',
+          name: '🔦    Decrypt a message (using a provided secret)',
           value: 4
         }, new inquirer.default.Separator(), {
-          name: '🔒  Export my public key',
+          name: '🪪   Export my public key',
           value: 5
         }, {
           name: '🔐  Export my secret key',
           value: 6
         }, {
-          name: '🔏  Show my recovery words',
+          name: '✍   Export my recovery words',
           value: 7
+        }, new inquirer.default.Separator(), {
+          name: '🗝️  Restore from a secret key',
+          value: 8
+        }, {
+          name: '📓  Restore from recovery words',
+          value: 9
         }, new inquirer.default.Separator(), {
           name: '↩️   Back',
           value: null
@@ -2876,6 +3010,24 @@ async function encryptionUtilities(action) {
       } else {
         f = _dusk(['--export-recovery']);
       }
+      break;
+    case 8:
+      _dusk(['--shutdown']).on('close', () => {
+        if (program.gui) {
+          f = _dusk(['--import-secret', '--gui']);
+        } else {
+          f = _dusk(['--import-secret']);
+        }
+      });
+      break;
+    case 9:
+      _dusk(['--shutdown']).on('close', () => {
+        if (program.gui) {
+          f = _dusk(['--import-recovery', '--gui']);
+        } else {
+          f = _dusk(['--import-recovery']);
+        }
+      });
       break;
     default:
       displayMenu();
@@ -2958,7 +3110,7 @@ async function editPreferences() {
     execSync(`xdg-open ${program.C}`);
     Dialog.info(`You must restart dusk for the changes to take effect.`, duskTitle, 'info');
   } else {
-    execSync(`nano ${program.C}`);
+    execSync(`editor ${program.C}`);
     console.info('You must restart dusk for the changes to take effect.');
   }
   displayMenu();
