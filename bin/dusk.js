@@ -305,7 +305,7 @@ Name=${duskTitle} ~ Settings
 Comment=deniable cloud drive
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --menu %U
-Icon=${path.join(__dirname, '../assets/images/icon-dusk.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
 Categories=Utility;
 Type=Application
   `;
@@ -327,8 +327,8 @@ Type=Application
 }
 
 if (program.uninstall) {
-  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk:Files.desktop');
-  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk:Settings.desktop');
+  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk_Files.desktop');
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk_Settings.desktop');
   console.log(`  Removing desktop entries from ${writeOut1},${writeOut2}...`);
   try {
     fs.unlinkSync(writeOut1);
@@ -351,14 +351,14 @@ Name=${duskTitle} ~ Connect
 Comment=deniable cloud drive
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --background --gui %U
-Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-dusk.png')}
 Categories=Utility;
 Type=Application
 StartupNotify=false
 X-GNOME-Autostart-enabled=true
 X-GNOME-Autostart-Delay=1
   `;
-  const writeOut3 = path.join(homedir(), '.config/autostart/dusk:Autostart.desktop');
+  const writeOut3 = path.join(homedir(), '.config/autostart/dusk_Autostart.desktop');
   console.log(`  Adding autostart entry to ${writeOut3}...`);
   try {
     fs.writeFileSync(writeOut3, autostart1);
