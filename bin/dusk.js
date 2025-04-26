@@ -264,7 +264,8 @@ function _update() {
     let progress;
     if (program.gui) {
       progress = Dialog.progress('Updating to latest version, hang tight ♥ ...', '🝰 dusk', {
-        pulsate: true
+        pulsate: true,
+        noCancel: true
       });
     } else {
       console.log('  Updating 🝰 dusk, this can take a moment ...');
@@ -1049,7 +1050,8 @@ Ready?
 
       if (program.gui) {
         progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
-          pulsate: true
+          pulsate: true,
+          noCancel: true
         });
       }
 
@@ -1098,7 +1100,8 @@ Ready?
       for (let s = 0; s < dagEntry.shards.length; s++) {
         if (program.gui) {
           progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
-            pulsate: true
+            pulsate: true,
+            noCancel: true
           });
         }  
         if (progressBar) {
@@ -1328,7 +1331,8 @@ Ready?
     } else if (program.dht || program.local) {
       if (program.gui) {
         progressBar = Dialog.progress('Retracing file ♥ ...', '🝰 dusk', {
-          pulsate: true
+          pulsate: true,
+          noCancel: true
         });
       }
         
@@ -2049,6 +2053,8 @@ async function initDusk() {
           return reject(new Error('WebDAV bridge requires a password to be set.'));
         }
 
+        let dropbox;
+
         // User manager (tells who are the users)
         const userManager = new webdav.SimpleUserManager();
         const rootUser = userManager.addUser(config.WebDAVRootUsername,
@@ -2064,15 +2070,10 @@ async function initDusk() {
         
         if (!!parseInt(config.WebDAVPublicShareEnabled)) {
           privilegeManager.setRights(anonUser, '/Public', [ 'canRead' ]);
-        }
-
-        if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
-          privilegeManager.setRights(anonUser, '/Dropbox', ['canRead']);
-          privilegeManager.setRights(anonUser, '/Dropbox/Drop/', ['canWriteContent']);
-        }
+        } 
 
         const server = new webdav.WebDAVServer({
-          requireAuthentication: false,
+          requireAuthentication: false, // Default user is anon
           httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 
             'dusk:' + identity.fingerprint.toString('hex')),
           privilegeManager: privilegeManager,
@@ -2142,6 +2143,10 @@ async function initDusk() {
           port: parseInt(config.WebDAVListenPort),
           serverName: 'dusk:' + identity.fingerprint.toString('hex')
         });
+
+        if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
+          dropbox = new dusk.Dropbox(node, privilegeManager, server);
+        }
  
         server.autoLoad((e) => {
           if (e) {
@@ -2162,9 +2167,7 @@ async function initDusk() {
               };
              
               if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
-                template.Dropbox = {
-                  Drop: webdav.ResourceType.Directory
-                };
+                template.Dropbox = webdav.ResourceType.Directory;
               }
               
               if (!!parseInt(config.WebDAVPublicShareEnabled)) {
@@ -2180,15 +2183,24 @@ async function initDusk() {
 
             server.rootFileSystem().addSubTree(server.createExternalContext(), template);
           }
-          
-          server.start((s) => {
+
+          const onWebDavReady = (s) => {
             const { port } = s.address();
-            
+            const dropPort = port + 1;
+
+            if (dropbox) {
+              dropbox.listen(dropPort);
+            }
+             
             server.tor = hsv3([
               {
-                dataDirectory: path.join(config.WebDAVHiddenServiceDirectory, 'hidden_service'),
+                dataDirectory: path.join(config.WebDAVHiddenServiceDirectory, 'dav_onion'),
                 virtualPort: 80,
                 localMapping: '127.0.0.1:' + port
+              }, {
+                dataDirectory: path.join(config.WebDAVHiddenServiceDirectory, 'drp_onion'),
+                virtualPort: 80,
+                localMapping: '127.0.0.1:' + dropPort
               }
             ], {
               DataDirectory: config.WebDAVHiddenServiceDirectory
@@ -2200,16 +2212,24 @@ async function initDusk() {
             })
             server.tor.on('ready', () => {
               const webDavOnion = fs.readFileSync(path.join(
-                config.WebDAVHiddenServiceDirectory, 'hidden_service', 'hostname'
+                config.WebDAVHiddenServiceDirectory, 'dav_onion', 'hostname'
+              )).toString().trim();
+              const anonDrpOnion = fs.readFileSync(path.join(
+                config.WebDAVHiddenServiceDirectory, 'drp_onion', 'hostname'
               )).toString().trim();
               node.webDavHsAddr = webDavOnion;
               node.webDavLocalAddr = '127.0.0.1:' + port;
+              node.anonDrpHsAddr = anonDrpOnion;
+              node.anonDrpLocalAddr = '127.0.0.1:' + dropPort;
               console.log('');
-              console.log('  webdav url  [  dav://%s  ]', webDavOnion);
+              console.log('  webdav url  [  %s  ]', webDavOnion);
+              console.log('  drpbox url  [  %s  ]', anonDrpOnion);
               console.log('');
               resolve(server);
             });
-          });
+          };
+
+          server.start(onWebDavReady);
         });
       });
     }
@@ -2422,7 +2442,8 @@ async function displayMenu() {
 
   if (program.gui) {
     progressBar = Dialog.progress('Connecting ♥ ...', '🝰 dusk', {
-      pulsate: true
+      pulsate: true,
+      noCancel: true
     });
   }
 
@@ -2488,6 +2509,8 @@ async function displayMenu() {
       'utils',
       'debug',
       'panic',
+      'update',
+      'restart',
       'donate',
       'exit'
     ];
@@ -2507,7 +2530,8 @@ async function displayMenu() {
         ['🛠️  [caution!] Settings'],
         ['🐛  [caution!] Debugging'], 
         ['💣  [caution!] Panic'],
-        ['♻️  Update'],
+        ['🌟  Update'],
+        ['♻️   Restart'],
         ['🩷  Donate'],
         ['✌   Exit']
       ], ['Main Menu'],{ height: 524 }) }; 
@@ -2548,11 +2572,14 @@ async function displayMenu() {
             name: '💣  [caution!] Panic',
             value: 9
           }, new inquirer.default.Separator(), {
-            name: '♻️   Update',
+            name: '🌟  Update',
             value: 10
           }, {
-            name: '🩷  Donate',
+            name: '♻️   Restart',
             value: 11
+          }, {
+            name: '🩷  Donate',
+            value: 12
           },{
             name: '✌   Exit',
             value: null
@@ -2596,6 +2623,9 @@ async function displayMenu() {
           runUpdater();
           break;
         case 11:
+          restartApp();
+          break;
+        case 12:
           openLiberapay();
           break;
         default:
@@ -2610,6 +2640,16 @@ function runUpdater() {
     f = _dusk(['--update', '--restart', '--gui']);
   } else {
     f = _dusk(['--update', '--restart']);
+  }
+  f.on('close', displayMenu);
+}
+
+function restartApp() {
+  let f;
+  if (program.gui) {
+    f = _dusk(['--restart', '--gui']);
+  } else {
+    f = _dusk(['--restart']);
   }
   f.on('close', displayMenu);
 }

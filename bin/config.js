@@ -45,7 +45,7 @@ module.exports = function(datadir) {
     WebDAVListenPort: '5276',
     WebDAVRootUsername: 'dusk',
     WebDAVAnonUsername: 'anon',
-    WebDAVAnonDropboxEnabled: '0',
+    WebDAVAnonDropboxEnabled: '1',
     WebDAVPublicShareEnabled: '1',
     WebDAVHiddenServiceDirectory: join(datadir, 'webdav.hs'),
 
