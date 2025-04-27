@@ -1,5 +1,13 @@
 
 body > section:nth-child(1) {
+  padding: 0 12px;
+}
+
+#notice {
+  font-size: 10px;
+}
+
+body > section:nth-child(1) {
   margin: auto;
   max-width: 320px;
   text-align: center;
@@ -8,7 +16,6 @@ body > section:nth-child(1) {
 #notice {
   background: #ddddff;
   color: blueviolet;
-  font-size: 12px;
   padding: 6px;
   border-radius: 6px;
   border: 1px solid blueviolet;
@@ -129,5 +136,14 @@ body > section:nth-child(1) > section:nth-child(4) > p:nth-child(1) {
 
 #message {
   resize: vertical;
+}
+
+body > section:nth-child(1) {
+  min-width: 310px;
+}
+
+#notice {
+  /* font-size: 10px; */
+  font-size: 8px;
 }
 
