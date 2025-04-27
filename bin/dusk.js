@@ -2146,6 +2146,14 @@ async function initDusk() {
 
         if (!!parseInt(config.WebDAVAnonDropboxEnabled)) {
           dropbox = new dusk.Dropbox(node, privilegeManager, server);
+
+          dropbox.on('new_drop', ({codename, numFiles}) => {
+            logger.info(`[dropbox] new drop! ${numFiles} files in Dropbox/${codename}`);
+            if (program.gui) {
+              Dialog.notify(`New file drop received. 
+${numFiles} files in Dropbox/${codename}`, duskTitle, 'info');
+            }
+          });
         }
  
         server.autoLoad((e) => {
@@ -2733,6 +2741,7 @@ async function showAboutInfo() {
     const dialogText = `Version: ${version}
 Peers:  ${info.peers.length}
 WebDAV: http://${info.webdav.onion || '  [ ... loading ... ]  '}
+Dropbox: http://${info.drpbox.onion || '  [ ... loading ... ]  '}
 
 anti-©opyright, 2024 tactical chihuahua 
 licensed under the agpl 3
@@ -2740,7 +2749,8 @@ licensed under the agpl 3
 
     if (program.gui) {
       option = { option: Dialog.list(duskTitle, dialogText, [
-        ['📷  Show WebDAV Address QR']
+        ['📷  Show WebDAV Address QR'],
+        ['📷  Show Dropbox Address QR']
       ], ['📻  Status'],{ height: 200 }) }; 
     } else {
       console.info(`
@@ -2753,9 +2763,10 @@ ${dialogText}\n`);
           {
             name: '📷  Show WebDAV Address QR',
             value: 0
-          },
-          new inquirer.default.Separator(),
-          {
+          }, {
+            name: '📷  Show Dropbox Address QR',
+            value: 1
+          }, new inquirer.default.Separator(), {
             name: '↩️   Back',
             value: null
           },
@@ -2781,6 +2792,28 @@ ${dialogText}\n`);
               }
 
               console.log('  Scan the QR code below and open the URL in your WebDAV client.');
+              console.log('    ~~> Need help? See https://rundusk.org.');
+              console.log(code);
+              showAboutInfo();
+            });
+        }
+        break;
+      case 1:
+        if (program.gui) {
+          let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
+          qrcode.toFile(tmpcode, 'http://'+ info.drpbox.onion, 
+            { scale: 20 }).then(() => {
+              spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
+          }, exitGracefully);
+        } else {
+          qrcode.toString('http://' + info.drpbox.onion, 
+            { terminal: true }, (err, code) => {
+              if (err) {
+                console.error(err);
+                exitGracefully();
+              }
+
+              console.log('  Scan the QR code below and open the URL in Tor Browser.');
               console.log('    ~~> Need help? See https://rundusk.org.');
               console.log(code);
               showAboutInfo();
