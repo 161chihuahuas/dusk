@@ -3,3 +3,4 @@ doc/*.js
 node_modules/**/*.js
 test/*
 plugin-onion.js
+lib/dropbox.js
