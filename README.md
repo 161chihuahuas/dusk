@@ -7,7 +7,7 @@
 
 * [Installer](install.sh)
 * [User Guide](howto.md)
-* [Contributing](contributing.md)
+* [Contributing](contribute.md)
 * [Developer Guide](hacking.md)
 * [FAQ](faq.md)
 
