@@ -310,11 +310,72 @@ if (program.update) {
 }
 
 function installMacBundle() {
-  // TODO
+  const binpath = execSync('which node').toString().trim();
+  const localAppDir = path.join(homedir(), 'Applications');
+  const appDir = path.join(localAppDir, 'dusk.app');
+  const bundlePaths = [
+    'Contents/MacOS',
+    'Contents/Resources'
+  ];
+  console.log('  Creating app bundle...');
+  console.log(`  ${localAppDir}`);
+  console.log(`  ${appDir}`);
+  fs.mkdirSync(localAppDir);
+  fs.mkdirSync(appDir);
+  bundlePaths.forEach(p => {
+    console.log(`  ${p}`);
+    fs.mkdirSync(p);
+  });
+  const icnsPath = path.join(__dirname, '../assets/images/icon-dusk.icns');
+  const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleGetInfoString</key>
+  <string>${duskTitle}</string>
+  <key>CFBundleExecutable</key>
+  <string>dusk</string>
+  <key>CFBundleIdentifier</key>
+  <string>org.rundusk.app</string>
+  <key>CFBundleName</key>
+  <string>dusk</string>
+  <key>CFBundleIconFile</key>
+  <string>dusk.icns</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.01</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>IFMajorVersion</key>
+  <integer>0</integer>
+  <key>IFMinorVersion</key>
+  <integer>1</integer>
+</dict>
+</plist>`;
+  const plistPath = path.join(appDir, 'Contents/Info.plist');
+  const iconPath = path.join(appDir, 'Contents/Resources/dusk.icns');
+  const scriptPath = path.join(appDir, 'Contents/MacOS/dusk');
+  const scriptContent = `#!/bin/sh
+${binpath} ${path.join(__dirname)}/dusk.js --gui --menu`;
+  console.log(`  ${plistPath}`);
+  console.log(`  ${iconPath}`);
+  console.log(`  ${scriptPath}`);
+  fs.writeFileSync(plistPath, plistContent);
+  fs.writeFileSync(iconPath,fs.readFileSync(icnsPath));
+  fs.writeFileSync(scriptPath, scriptContent);
+  fs.chmodSync(path.join(appDir, 'Contents/MacOS/dusk'), fs.constants.S_IXUSR);
+  console.log('');
+  console.log('  [ done! ♥ ]');
 }
 
 function uninstallMacBundle() {
-  // TODO
+  const localAppDir = path.join(homedir(), 'Applications');
+  const appDir = path.join(localAppDir, 'dusk.app');
+  console.log('  Removing ' + appDir);
+  fs.rmSync(appDir);
+  console.log('');
+  console.log('  [ done! ♥ ]');
 }
 
 function installGnomeDesktop() {
@@ -337,8 +398,8 @@ Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
 Categories=Utility;
 Type=Application
   `;
-  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk:Files.desktop');
-  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk:Settings.desktop');
+  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk_Files.desktop');
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk_Settings.desktop');
   console.log(`  Installing desktop entries to ${writeOut1},${writeOut2}...`);
   try {
     fs.writeFileSync(writeOut1, desktop1);
@@ -393,11 +454,28 @@ if (program.uninstall) {
 }
 
 function enableAutostartMac() {
-  // TODO
+  const binpath = execSync('which node').toString().trim();
+  const plistFileContent = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "
+    -//Apple//DTD PLIST 1.0//EN"
+     "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>dusk
+    </string><key>ProgramArguments</key><array><string>bash</string><string>-c</string>
+    <string>${binpath} ${path.join(__dirname)}/dusk.js --background --gui
+    </string></array><key>RunAtLoad</key><true/></dict></plist>`;
+
+  const plistFileName = `${homedir()}/Library/LaunchAgents/dusk.plist`;
+ 
+  console.log(`  Writing LaunchAgent to ${plistFileName}...`);
+
+  if (!fs.existsSync(path.join(homedir(), 'Library/LaunchAgents'))) {
+    fs.mkdirSync(path.join(homedir(), 'Library/LaunchAgents'));
+  }
+  fs.writeFileSync(plistFileName, plistFileContent);
 }
 
 function disableAutostartMac() {
-  // TODO
+  const plistFileName = `${homedir()}/Library/LaunchAgents/dusk.plist`;
+  console.log(`  Removing LaunchAgent from ${plistFileName}...`);
+  fs.unlinkSync(plistFileName);
 }
 
 function enableAutostartGnome() {
