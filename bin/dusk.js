@@ -438,6 +438,7 @@ if (program.install) {
     installGnomeDesktop();
   } else if (platform() === 'darwin') {
     installMacBundle();
+    exitGracefully();
   } else {
     throw new Error('Unsupported platform!');
   }
@@ -448,6 +449,7 @@ if (program.uninstall) {
     uninstallGnomeDesktop();
   } else if (platform() === 'darwin') {
     uninstallMacBundle();
+    exitGracefully();
   } else {
     throw new Error('Unsupported platform!');
   }
@@ -524,6 +526,7 @@ if (program.enableAutostart) {
     enableAutostartGnome();
   } else if (platform() === 'darwin') {
     enableAutostartMac();
+    exitGracefully();
   } else {
     throw new Error('Unsupported platform!');
   }
@@ -534,6 +537,7 @@ if (program.disableAutostart) {
     disableAutostartGnome();
   } else if (platform() === 'darwin') {
     disableAutostartMac();
+    exitGracefully();
   } else {
     throw new Error('Unsupported platform!');
   }
