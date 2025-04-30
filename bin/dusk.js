@@ -331,38 +331,34 @@ function installMacBundle() {
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleGetInfoString</key>
-  <string>${duskTitle}</string>
   <key>CFBundleExecutable</key>
-  <string>dusk</string>
+  <string>wrapper</string>
   <key>CFBundleIdentifier</key>
   <string>org.rundusk.app</string>
   <key>CFBundleName</key>
   <string>dusk</string>
+  <key>CFBundleVersion</key>
+  <string>${dusk.versions.software}</string>
   <key>CFBundleIconFile</key>
   <string>dusk.icns</string>
-  <key>CFBundleShortVersionString</key>
-  <string>0.01</string>
-  <key>CFBundleInfoDictionaryVersion</key>
-  <string>6.0</string>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>IFMajorVersion</key>
-  <integer>0</integer>
-  <key>IFMinorVersion</key>
-  <integer>1</integer>
 </dict>
 </plist>`;
   const plistPath = path.join(appDir, 'Contents/Info.plist');
   const iconPath = path.join(appDir, 'Contents/Resources/dusk.icns');
+  const wrapperPath = path.join(appDir, 'Contents/MacOS/wrapper');
+  const wrapperContent = `#!/bin/bash
+script_path="$(dirname "$0")"/dusk
+open -a Terminal "$script_path"`;
   const scriptPath = path.join(appDir, 'Contents/MacOS/dusk');
-  const scriptContent = `#!/bin/sh
+  const scriptContent = `#!/bin/bash
 ${binpath} ${path.join(__dirname)}/dusk.js --gui --menu`;
   console.log(`  ${plistPath}`);
   console.log(`  ${iconPath}`);
+  console.log(`  ${wrapperPath}`);
   console.log(`  ${scriptPath}`);
   fs.writeFileSync(plistPath, plistContent);
   fs.writeFileSync(iconPath,fs.readFileSync(icnsPath));
+  fs.writeFileSync(wrapperPath, wrapperContent);
   fs.writeFileSync(scriptPath, scriptContent);
   fs.chmodSync(path.join(appDir, 'Contents/MacOS/dusk'), '777');
   console.log('');
