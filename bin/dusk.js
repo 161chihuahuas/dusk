@@ -58,6 +58,7 @@ const boscar = require('boscar');
 const rc = require('rc');
 const encoding = require('encoding-down');
 const secp256k1 = require('secp256k1');
+const osascript = require('osascript');
 const readline = require('node:readline');
 const bip39 = require('bip39');
 const inquirer = require('inquirer');
@@ -65,7 +66,7 @@ const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
 const mkdirp = require('mkdirp');
 const zlib = require('node:zlib');
-const { tmpdir, homedir } = require('node:os');
+const { tmpdir, homedir, platform } = require('node:os');
 const http = require('node:http');
 const webdav = require('webdav-server').v2;
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
@@ -80,6 +81,14 @@ const { randomBytes } = require('node:crypto');
 
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
+
+function _open(args) {
+  if (platform() === 'darwin') {
+    return spawn('open', args, opts);
+  } else {
+    return spawn('xdg-open', args, opts);
+  }
+}
 
 function _dusk(args, opts) {
   return fork(path.join(__dirname, 'dusk.js'), args, opts);
@@ -125,6 +134,15 @@ program.option('--testnet',
 
 program.option('--menu, -I [submenu]',
   'prompt user with interactive menu (default: text / graphical with --gui)');
+
+program.option('--parse-url <url>', // TODO
+  'attempts to parse the supplied url string and show details');
+
+program.option('--resolve, -R <url>', // TODO
+  'attempts to handle the given dusk url and open it in the appropriate interface');
+
+program.option('--explore, -X [url]', // TODO
+  'opens the explorer interface, use --gui for graphical');
 
 program.option('--daemon, -D', 
   'sends the dusk daemon to the background');
@@ -204,7 +222,7 @@ program.option('--retrace [bundle]',
 program.option('--vfs',
   'use with --shred or --retrace to operate on the virtual filesystem');
 
-program.option('--open', 'runs xdg-open on things when possible');
+program.option('--open', 'runs xdg-open/open on things when possible');
 
 program.option('--ephemeral', 
   'use with --shred --encrypt to generate a one-time use identity key');
@@ -253,6 +271,7 @@ program.parse(process.argv);
 
 program.usb = program.usb || program.shoes;
 
+
 let argv;
 let privkey, identity, logger, controller, node, nonce, proof;
 let config;
@@ -290,7 +309,15 @@ if (program.update) {
   _update();
 }
 
-if (program.install) {
+function installMacBundle() {
+  // TODO
+}
+
+function uninstallMacBundle() {
+  // TODO
+}
+
+function installGnomeDesktop() {
   const binpath = execSync('which node').toString().trim();
   const desktop1 = `[Desktop Entry]
 Name=${duskTitle} ~ Files
@@ -327,7 +354,7 @@ Type=Application
   }
 }
 
-if (program.uninstall) {
+function uninstallGnomeDesktop() {
   const writeOut1 = path.join(homedir(), '.local/share/applications/dusk_Files.desktop');
   const writeOut2 = path.join(homedir(), '.local/share/applications/dusk_Settings.desktop');
   console.log(`  Removing desktop entries from ${writeOut1},${writeOut2}...`);
@@ -345,7 +372,35 @@ if (program.uninstall) {
   }
 }
 
-if (program.enableAutostart) {
+if (program.install) {
+  if (platform() === 'linux') {
+    installGnomeDesktop();
+  } else if (platform() === 'darwin') {
+    installMacBundle();
+  } else {
+    throw new Error('Unsupported platform!');
+  }
+}
+
+if (program.uninstall) {
+  if (platform() === 'linux') {
+    uninstallGnomeDesktop();
+  } else if (platform() === 'darwin') {
+    uninstallMacBundle();
+  } else {
+    throw new Error('Unsupported platform!');
+  }
+}
+
+function enableAutostartMac() {
+  // TODO
+}
+
+function disableAutostartMac() {
+  // TODO
+}
+
+function enableAutostartGnome() {
   const binpath = execSync('which node').toString().trim();
   const autostart1 = `[Desktop Entry]
 Name=${duskTitle} ~ Connect
@@ -372,7 +427,7 @@ X-GNOME-Autostart-Delay=1
   exitGracefully();
 }
 
-if (program.disableAutostart) {
+function disableAutostartGnome() {
   const writeOut3 = path.join(homedir(), '.config/autostart/dusk:Autostart.desktop');
   console.log(`  Removing autostart entry from ${writeOut3}...`);
   try {
@@ -384,6 +439,26 @@ if (program.disableAutostart) {
   console.log('');
   console.log('  [ done! ♥ ]');
   exitGracefully();
+}
+
+if (program.enableAutostart) {
+  if (platform() === 'linux') {
+    enableAutostartGnome();
+  } else if (platform() === 'darwin') {
+    enableAutostartMac();
+  } else {
+    throw new Error('Unsupported platform!');
+  }
+}
+
+if (program.disableAutostart) {
+  if (platform() === 'linux') {
+    disableAutostartGnome();
+  } else if (platform() === 'darwin') {
+    disableAutostartMac();
+  } else {
+    throw new Error('Unsupported platform!');
+  }
 }
 
 function _reset() {
@@ -670,18 +745,24 @@ async function _init() {
 
     let answers;
     
+    const message = 'Your dusk key is stored encrypted on your device and' + 
+      ' is used to protect your files. Next, I will ask you to set a password and then confirm it.';
+
+    if (program.gui) {
+      Dialog.info(message, 'info');
+    } else {
+      console.log(`
+  ${message}
+      `);
+    }
+
     if (!program.gui) {
       answers = await inquirer.default.prompt(questions);
     } else {
-      let d = new Dialog('I have your key, enter a password to protect it?', {
-        text: `Your dusk key is stored encrypted on your device
-and is used to protect your files. Anyone with 
-your password and access to this device will be 
-able to view your data.`
-      });
-      d.password('password1', 'Set the password');
-      d.password('password2', 'Repeat password');
-      answers = d.show();
+      answers = {
+        password1: Dialog.password('I have your key, enter a password to protect it?', duskTitle),
+        password2: Dialog.password('Once more, to make sure? ♥', duskTitle)
+      };
 
       if (!answers) {
         Dialog.info('You cancelled the setup. I will try again the next time you run dusk.', 'Error', 'error');
@@ -1007,7 +1088,7 @@ If you lose these words, you can never recover access to this identity, includin
       console.log('  overall size of the file.');
       console.log('');
       console.log('  Make sure you are safe to sit here for a moment and babysit me.');
-      console.log('  We will do 512Kib at a time, until we are done.');
+      console.log('  We will do ' + dusk.constants.SHARD_SIZE + 'bytes at a time, until we are done.');
       console.log('');
             
       let ready = false;
@@ -1018,7 +1099,7 @@ If you lose these words, you can never recover access to this identity, includin
 
 I will attempt to store ${dagEntry.shards.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
 
-Make sure you are safe to sit here for a moment and babysit me. We will do 512Kib at a time, until we are done.
+Make sure you are safe to sit here for a moment and babysit me. We will do ${dusk.constants.SHARD_SIZE}bytes at a time, until we are done.
 
 Ready?
           `,
@@ -1399,7 +1480,7 @@ Ready?
       console.log('  overall size of the file.');
       console.log('');
       console.log('  Make sure you are safe to sit here for a moment and babysit me.');
-      console.log('  We will do 512Kib at a time, until we are done.');
+      console.log('  We will do ' + dusk.constants.SHARD_SIZE + 'bytes at a time, until we are done.');
       console.log(''); 
       
       let ready = { yes: program.yes };
@@ -1410,7 +1491,7 @@ Ready?
 
 I will attempt to find ${metaData.l.length} shards in the DHT. This can take a while depending on network conditions and the overall size of the file.
 
-Make sure you are safe to sit here for a moment and babysit me. We will do 512Kib at a time, until we are done.
+Make sure you are safe to sit here for a moment and babysit me. We will do ${dusk.constants.SHARD_SIZE} at a time, until we are done.
 
 Ready?
           `,
@@ -1627,7 +1708,7 @@ Ready?
     console.log('');
 
     if (program.open) {
-      spawn('xdg-open', [filename], { detached: true });
+      _open([filename], { detached: true });
     }
 
     exitGracefully();
@@ -2136,7 +2217,14 @@ async function initDusk() {
               callback(inputStream.pipe(toGunzipped).pipe(toDecrypted));
             }
           },
-          storageManager: new webdav.PerUserStorageManager(2147484000), // limit 2GiB
+          storageManager: new webdav.PerUserStorageManager(
+            dusk.constants.SHARD_SIZE * dusk.reedsol.MAX_K
+          ), 
+          // TODO how to make larger? currently limited to 192MiB
+          // limit is currently due to :
+          // - uniform shard size
+          // - reedsolomon params
+          // - json serialization @ leveldb
           enableLocationTag: false,
           maxRequestDepth: 1,
           headers: undefined,
@@ -2252,7 +2340,20 @@ ${numFiles} files in Dropbox/${codename}`, duskTitle, 'info');
     try {
       await setupWebDAV();
       if (program.gui && program.open) {
-        spawn('nautilus', [`dav://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}`]);
+        if (platform() === 'linux') {
+          spawn('nautilus', [`dav://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}`]);
+        } else if (platform() === 'darwin') {
+          osascript.eval(`
+tell application "Finder"
+    try
+        mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
+    end try
+end tell`, () => {
+            spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
+          });
+        } else {
+          throw new Error('Unsupported platform');
+        }
       }
     } catch (err) {
       logger.error(err.message);
@@ -2483,8 +2584,21 @@ async function displayMenu() {
         if (err) {
           Dialog.info(err, 'Sorry', 'error');
         } else {
-          spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@127.0.0.1:' + config.WebDAVListenPort]);
-          exitGracefully();
+          if (platform() === 'linux') {
+            spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@127.0.0.1:' + config.WebDAVListenPort]);
+          } else if (platform() === 'darwin') {
+            osascript.eval(`
+tell application "Finder"
+    try
+        mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
+    end try
+end tell`, () => {
+              spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
+              exitGracefully();
+            });
+          } else {
+            throw new Error('Unsupported platform!')
+          }
         }
       } else {
         if (err) {
@@ -2515,6 +2629,7 @@ async function displayMenu() {
       'status',
       'disconnect',
       'utils',
+      'config',
       'debug',
       'panic',
       'update',
@@ -2542,7 +2657,7 @@ async function displayMenu() {
         ['♻️   Restart'],
         ['🩷  Donate'],
         ['✌   Exit']
-      ], ['Main Menu'],{ height: 524 }) }; 
+      ], ['Main Menu'],{ height: 540 }) }; 
     } else {
       option = await inquirer.default.prompt({
         type: 'list',
@@ -2667,7 +2782,18 @@ async function openFiles() {
   let f;
 
   if (program.gui) {
-    f = spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local]);
+    if (platform() === 'linux') {
+      f = spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local]);
+    } else if (platform() === 'darwin') {
+      osascript.eval(`
+tell application "Finder"
+try
+    mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
+end try
+end tell`, () => {
+        spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
+      });
+    }
   } else {
     let hasWebDavCli;
 
@@ -2781,7 +2907,7 @@ ${dialogText}\n`);
           let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
           qrcode.toFile(tmpcode, 'http://'+ config.WebDAVRootUsername + '@' + info.webdav.onion, 
             { scale: 20 }).then(() => {
-              spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
+              _open([tmpcode]).on('close', showAboutInfo);
           }, exitGracefully);
         } else {
           qrcode.toString('http://' + config.WebDAVRootUsername + '@' + info.webdav.onion, 
@@ -2803,7 +2929,7 @@ ${dialogText}\n`);
           let tmpcode = path.join(tmpdir(), dusk.utils.getRandomKeyString() + '.png');
           qrcode.toFile(tmpcode, 'http://'+ info.drpbox.onion, 
             { scale: 20 }).then(() => {
-              spawn('xdg-open', [tmpcode]).on('close', showAboutInfo);
+              _open([tmpcode]).on('close', showAboutInfo);
           }, exitGracefully);
         } else {
           qrcode.toString('http://' + info.drpbox.onion, 
@@ -3180,10 +3306,18 @@ async function editPreferences() {
   }
 
   if (program.gui) {
-    execSync(`xdg-open ${program.C}`);
+    if (platform() === 'linux') {
+      execSync(`xdg-open ${program.C}`);
+    } else {
+      execSync(`open ${program.C}`);
+    }
     Dialog.info(`You must restart dusk for the changes to take effect.`, duskTitle, 'info');
   } else {
-    execSync(`editor ${program.C}`);
+    if (platform() === 'linux') {
+      execSync(`editor ${program.C}`);
+    } else {
+      execSync(`open -e ${program.C}`);
+    }
     console.info('You must restart dusk for the changes to take effect.');
   }
   displayMenu();
@@ -3229,7 +3363,7 @@ async function toggleConnection() {
 function openLiberapay() {
   const donateUrl = 'https://liberapay.com/rundusk/';
   if (program.gui) {
-    spawn('xdg-open', [donateUrl]);
+    _open([donateUrl]);
   } else {
     console.log('');
     console.log(`  Want to help me sustain ${duskTitle}'s ongoing development?
@@ -3310,6 +3444,17 @@ if (program.rpc || program.repl) {
   }
 } else if (program.I) {
   displayMenu();
+} else if (program.X) {
+  console.log(description);
+  console.log('  [ launching dusk explorer... ]')
+
+  if (program.gui) {
+    console.log('  [ using graphical interface ]');
+    exitGracefully();
+  } else {
+    console.error('  [ using console interface ]');
+    exitGracefully();
+  }
 } else if (program.F) { // --logs
   _config();
 
@@ -3318,7 +3463,7 @@ if (program.rpc || program.repl) {
     : parseInt(program.F);
 
   if (program.gui) {
-    spawn('xdg-open', [config.LogFilePath]);
+    _open([config.LogFilePath]);
   } else {
     const tail = spawn('tail', ['-n', numLines, config.LogFilePath]);
     const pretty = spawn(

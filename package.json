@@ -45,6 +45,7 @@
     "node-split": "^1.0.1",
     "npid": "^0.4.0",
     "onion-regex": "^2.0.8",
+    "osascript": "^1.2.0",
     "qrcode": "^1.5.4",
     "rc": "^1.2.8",
     "secp256k1": "^5.0.1",
@@ -93,5 +94,5 @@
     "test": "npm run unit-tests && npm run integration-tests && npm run e2e-tests && npm run linter",
     "unit-tests": "mocha --exit test/*.unit.js"
   },
-  "version": "2.2.0"
+  "version": "3.0.0"
 }
