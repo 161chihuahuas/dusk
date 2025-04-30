@@ -338,7 +338,7 @@ function installMacBundle() {
   <key>CFBundleName</key>
   <string>dusk</string>
   <key>CFBundleVersion</key>
-  <string>${dusk.versions.software}</string>
+  <string>${dusk.version.software}</string>
   <key>CFBundleIconFile</key>
   <string>dusk.icns</string>
 </dict>
