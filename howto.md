@@ -12,13 +12,15 @@
 
 ### Installation
 
-The fastest way to install dusk is running the install script from the console on a Debian-based system. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
+The fastest way to install dusk is running the install script from the Terminal on macOS or Debian Linux. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
 
 ```
 curl -o- https://rundusk.org/install.sh | bash
 ```
 
-You may be prompted for your password.
+You may be prompted for your password. Follow any prompts to complete the installation. Once finished, you can run `dusk` from your Terminal or launch it from your applications menu! Feel free to skip right to the [Basics](#basics).
+
+If you'd like to isolate dusk from the rest of your operating system, you might prefer to run a Virtual Machine as described in the next section.
 
 #### Virtualization
 

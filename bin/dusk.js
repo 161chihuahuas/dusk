@@ -82,7 +82,7 @@ const { randomBytes } = require('node:crypto');
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
 
-function _open(args) {
+function _open(args, opts) {
   if (platform() === 'darwin') {
     return spawn('open', args, opts);
   } else {
