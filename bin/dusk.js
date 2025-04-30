@@ -2094,6 +2094,25 @@ Ready?
   initDusk();
 }
 
+function _mountAndOpenWebDavMacOS_graphical() {
+  const appleScript = `tell application "Finder"
+    try
+        mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
+    end try
+end tell`;
+  const osaOptions = {
+    type: 'AppleScript'
+  };
+
+  osascript.eval(appleScript, osaOptions, (err, data) => {
+    if (err) {
+      Dialog.info(err.message, duskTitle, 'error');
+      exitGracefully();
+    }
+    spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
+  });
+}
+
 function showUserCrashReport(err) {
   if (program.gui) {
     Dialog.info(err, '🝰 dusk: fatal', 'error');
@@ -2422,14 +2441,7 @@ ${numFiles} files in Dropbox/${codename}`, duskTitle, 'info');
         if (platform() === 'linux') {
           spawn('nautilus', [`dav://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}`]);
         } else if (platform() === 'darwin') {
-          osascript.eval(`
-tell application "Finder"
-    try
-        mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
-    end try
-end tell`, () => {
-            spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
-          });
+          _mountAndOpenWebDavMacOS_graphical();
         } else {
           throw new Error('Unsupported platform');
         }
@@ -2666,15 +2678,7 @@ async function displayMenu() {
           if (platform() === 'linux') {
             spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@127.0.0.1:' + config.WebDAVListenPort]);
           } else if (platform() === 'darwin') {
-            osascript.eval(`
-tell application "Finder"
-    try
-        mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
-    end try
-end tell`, () => {
-              spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
-              exitGracefully();
-            });
+            _mountAndOpenWebDavMacOS_graphical();
           } else {
             throw new Error('Unsupported platform!')
           }
@@ -2864,14 +2868,7 @@ async function openFiles() {
     if (platform() === 'linux') {
       f = spawn('nautilus', ['dav://' + config.WebDAVRootUsername + '@' + info.webdav.local]);
     } else if (platform() === 'darwin') {
-      osascript.eval(`
-tell application "Finder"
-try
-    mount volume "http://${config.WebDAVRootUsername}@127.0.0.1:${config.WebDAVListenPort}"
-end try
-end tell`, () => {
-        spawn('open', ['-a', 'Finder', '/Volumes/127.0.0.1']);
-      });
+      _mountAndOpenWebDavMacOS_graphical();
     }
   } else {
     let hasWebDavCli;
