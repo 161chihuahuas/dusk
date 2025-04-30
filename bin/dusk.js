@@ -364,7 +364,7 @@ ${binpath} ${path.join(__dirname)}/dusk.js --gui --menu`;
   fs.writeFileSync(plistPath, plistContent);
   fs.writeFileSync(iconPath,fs.readFileSync(icnsPath));
   fs.writeFileSync(scriptPath, scriptContent);
-  fs.chmodSync(path.join(appDir, 'Contents/MacOS/dusk'), 777);
+  fs.chmodSync(path.join(appDir, 'Contents/MacOS/dusk'), '777');
   console.log('');
   console.log('  [ done! ♥ ]');
 }
