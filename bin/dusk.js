@@ -320,11 +320,11 @@ function installMacBundle() {
   console.log('  Creating app bundle...');
   console.log(`  ${localAppDir}`);
   console.log(`  ${appDir}`);
-  fs.mkdirSync(localAppDir);
-  fs.mkdirSync(appDir);
+  fs.mkdirSync(localAppDir, { recursive: true });
+  fs.mkdirSync(appDir, { recursive: true });
   bundlePaths.forEach(p => {
-    console.log(`  ${p}`);
-    fs.mkdirSync(p);
+    console.log(`  ${appDir}/${p}`);
+    fs.mkdirSync(path.join(appDir, p), { recursive: true });
   });
   const icnsPath = path.join(__dirname, '../assets/images/icon-dusk.icns');
   const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
