@@ -332,7 +332,7 @@ function installMacBundle() {
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>dusk</string>
+  <string>wrapper</string>
   <key>CFBundleIdentifier</key>
   <string>org.rundusk.app</string>
   <key>CFBundleName</key>
@@ -345,16 +345,23 @@ function installMacBundle() {
 </plist>`;
   const plistPath = path.join(appDir, 'Contents/Info.plist');
   const iconPath = path.join(appDir, 'Contents/Resources/dusk.icns');
+  const wrapperPath = path.join(appDir, 'Contents/MacOS/wrapper');
+  const wrapperContent = `#!/bin/sh
+script_path="$(dirname "$0")"/dusk
+open -a Terminal "$script_path"`;
   const scriptPath = path.join(appDir, 'Contents/MacOS/dusk');
   const scriptContent = `#!/bin/sh
 ${binpath} ${path.join(__dirname)}/dusk.js --gui --menu`;
   console.log(`  ${plistPath}`);
   console.log(`  ${iconPath}`);
+  console.log(`  ${wrapperPath}`);
   console.log(`  ${scriptPath}`);
   fs.writeFileSync(plistPath, plistContent);
   fs.writeFileSync(iconPath,fs.readFileSync(icnsPath));
+  fs.writeFileSync(wrapperPath, wrapperContent);
   fs.writeFileSync(scriptPath, scriptContent);
   fs.chmodSync(path.join(appDir, 'Contents/MacOS/dusk'), '777');
+  fs.chmodSync(path.join(appDir, 'Contents/MacOS/wrapper'), '777');
   console.log('');
   console.log('  [ done! ♥ ]');
 }
