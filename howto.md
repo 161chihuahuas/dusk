@@ -10,7 +10,7 @@
 
 ---
 
-### Installation
+## Installation
 
 The fastest way to install dusk is running the install script from the Terminal on macOS or Debian Linux. Using [Tails](https://tails.net/) with persistence on a USB or inside a virtual machine on any operating system is recommended for additional security, but not required.
 
@@ -22,7 +22,7 @@ You may be prompted for your password. Follow any prompts to complete the instal
 
 If you'd like to isolate dusk from the rest of your operating system, you might prefer to run a Virtual Machine as described in the next section.
 
-#### Virtualization
+### Virtualization
 
 The dusk software is designed and tested to run on Debian under the GNOME desktop environment. Debian is a well-maintained and tested operating system and the GNOME desktop environment provides an excellent experience to users coming to Linux from macOS.
 
@@ -32,18 +32,18 @@ If this sounds scary or hard - don't worry! It's easier than it sounds. The next
 
 There are many options for virtualization software for every platform, but this guide will show you how to use the ones that have the simplest feature set to get the job done and are free and open-source
 
-#### MacOS
+### MacOS
 
 * Download and install [UTM](https://mac.getutm.app/).
 * Download the [Debian Trixie ISO](https://cdimage.debian.org/cdimage/trixie_di_alpha1/amd64/iso-cd/debian-trixie-DI-alpha1-amd64-netinst.iso)
 * Create a VM in UTM using the Trixie .iso file you downloaded
 * Once installed, the steps are the same as in the Debian section below.
 
-#### Windows
+### Windows
 
 Windows users should expect a similar process as macOS, but using [VirtualBox](https://www.virtualbox.org/wiki/Downloads).
 
-#### Debian
+### Debian
 
 First, download and install [GNOME Boxes](https://apps.gnome.org/Boxes/).
 
@@ -107,7 +107,7 @@ After dusk is finished, you'll be prompted a final time for the *password you se
 
 Dusk is now installed and running. Use the virtual operating system to manage your sensitive material. Open **dusk:Settings** to link to other devices, create sneakernets, and more.
 
-### Basics
+## Basics
 
 After installation, you immediately have the ability to store files. However, dusk is running in **seed mode**. This means that you haven't given it any device links to others who are also running dusk. In it's current mode, it is an encrypted virtual filesystem that you can access remotely.
 
@@ -117,7 +117,7 @@ Dusk is not a single unified network - it is ad-hoc and designed to be highly se
 
 Your first-degree links may have other links that will also strengthen your network and those links may include others and so on. 
 
-#### Linking Devices
+### Linking Devices
 
 To take advantage of dusk's deniability properties and strengthen your data security, you'll need to link some devices.
 
@@ -133,11 +133,11 @@ A random short name will be assigned to this device so you can remember who it c
 ![linking](assets/images/link-003.png)
 ![linking](assets/images/link-004.png)
 
-##### Links vs. Peers
+#### Links vs. Peers
 
 Devices that you *link* will be devices that dusk connects to *first*. Through doing so, dusk may discover other devices that add to your network. Those devices are **Peers**. They serve most of the same function as Links, with the exception that dusk will not remember them or try to connect to them on startup.
 
-#### Remote Access
+### Remote Access
 
 Dusk exposes its encrypted virtual file system as a WebDAV server through a Tor onion service, which provides end-to-end encryption between your devices. Accessing dusk from another device, such as a phone or tablet (or another computer) just requires a WebDAV client and a Tor proxy.
 
@@ -147,7 +147,7 @@ Both of these are readily available on every platform. You just need your **WebD
 
 You will also be shown the option to display a QR code for easier setup on mobile devices. Follow the guide for your operating system below.
 
-##### Debian
+#### Debian
 
 Make sure Tor is installed:
 
@@ -171,7 +171,7 @@ You will see your remote dusk drive in the **Files** app and can use it as you w
 
 ![webdav debian](assets/images/webdav-004.png)
 
-##### MacOS
+#### MacOS
 
 Mac users can expect a similar process to Debian. First, download the [*Tor Expert Bundle*](https://www.torproject.org/download/tor/).
 
@@ -197,7 +197,7 @@ Dusk should connect and mount as a networked drive in Finder.
 
 ![webdav mac](assets/images/webdav-macos-009.png)
 
-##### Windows
+#### Windows
 
 All reasonable paths to connect from Windows lead to sadness.
 
@@ -206,7 +206,7 @@ All reasonable paths to connect from Windows lead to sadness.
 
 Better to run dusk inside a Virtual Machine as described earlier in this guide.
 
-##### Android
+#### Android
 
 Android users can easily connect to their dusk drive. First install [Orbot](https://github.com/guardianproject/orbot-android) and [DAVx5](https://www.davx5.com/). Both are available using [F-Droid](https://f-droid.org/) and the "Play Store".
 
@@ -227,7 +227,7 @@ Your drive should now be mounted and show in your system file explorer.
 ![webdav android](assets/images/webdav-android-006.jpg)
 ![webdav android](assets/images/webdav-android-007.jpg)
 
-##### iOS
+#### iOS
 
 > [WebDAV is no longer supported in iOS Files](https://support.apple.com/en-us/101948). There are various third party apps available to enable WebDAV, but currently none that this project recommends.
 
@@ -245,13 +245,13 @@ Input your WebDAV URL.
 
 ![webdav ios](assets/images/webdav-ios-005.jpg)
 
-### Sneakernets
+## Sneakernets
 
 "Sneakernet" is an informal term that refers to transferring data between parties using physical media, like a USB drive, instead of networks. In scenarios where bandwidth is limited, internet access is unavailable, or in cases where the threat model warrants that some data not be transmitted over the internet, sneakernets offer security. They do this in the form of a greatly reduced attack surface, because unauthorized access to data over a sneakernet requires physical access to the media it is stored on.
 
 dusk is built with sneakernets as a transmission model in mind. A subset of the shred/retrace protocol is implemented to function without network access - instead using an array of USB drives. This is called dusk/SHOES (dusk over shoes). SHOES is an acronym for Simple Human Operated Encrypted Sneakernet.
 
-#### dusk/SHOES
+### dusk/SHOES
 
 > This feature is experimental.
 
@@ -265,7 +265,7 @@ Setting up a dusk/SHOES USB functions a lot like setting up dusk on first run. A
 
 Shredding a file follows a guided prompt. Retracing follows a similar process.
 
-### Configuration
+## Configuration
 
 dusk requires a configuration file to get up and running. The path to this file is given to `dusk` when starting a node (or the defaults will be used).
 
@@ -275,208 +275,208 @@ dusk --config some_config.ini
 
 If a configuration file is not supplied, a minimal default configuration is automatically created and used, which will generate a private key, database, and other necessary files. All of this data will be created and stored in `$HOME/.config/dusk`, unless a `--datadir` option is supplied. Valid configuration files may be in either INI or JSON format.
 
-#### AlwaysPromptToUpdate
+### AlwaysPromptToUpdate
 
 Default: `1`
 
 Tells dusk to prompt for updates on startup. Will only prompt once per day.
 
-#### DaemonPidFilePath
+### DaemonPidFilePath
 
 Default: `$HOME/.config/dusk/dusk.pid`
 
 The location to write the PID file for the daemon.
 
-#### PrivateKeyPath
+### PrivateKeyPath
 
 Default: `$HOME/.config/dusk/dusk.key`
 
 Path to private key key file to use for identity.
 
-#### PublicKeyPath
+### PublicKeyPath
 
 Default: `$HOME/.config/dusk/dusk.pub`
 
 Path to public key key file.
 
-#### DrefLinkPath
+### DrefLinkPath
 
 Default: `$HOME/.config/dusk/dref`
 
 Path to write dusk's device address.
 
-#### PrivateKeySaltPath
+### PrivateKeySaltPath
 
 Default: `$HOME/.config/dusk/salt`
 
 Path to write the password salt for private key encryption.
 
-#### IdentityNoncePath
+### IdentityNoncePath
 
 Default: `$HOME/.config/dusk/nonce`
 
 Path to write the identity proof nonce.
 
-#### IdentityProofPath
+### IdentityProofPath
 
 Default: `$HOME/.config/dusk/proof`
 
 Path to write the identity proof.
 
-#### EmbeddedDatabaseDirectory
+### EmbeddedDatabaseDirectory
 
 Default: `$HOME/.config/dusk/dusk.dat`
 
 Sets the directory to store DHT entries.
 
-#### MetadataDirectory
+### MetadataDirectory
 
 Default: `$HOME/.config/dusk/dusk.dag`
 
 Sets the directory to store snapshot metadata.
 
-#### VirtualFilesystemPath
+### VirtualFilesystemPath
 
 Default: `$HOME/.config/dusk/dusk.vfs`
 
 Sets the directory to store the encrypted filesystem snapshot.
 
-#### AutomaticallyShredVirtualFS
+### AutomaticallyShredVirtualFS
 
 Default: `$HOME/.config/dusk/dusk.dat`
 
 Tells dusk to automatically shred the VFS on exit and retrace on restart.
 
-#### NodeListenPort
+### NodeListenPort
 
 Default: `5274`
 
 Sets the local port to bind the node's RPC service.
 
-#### OnionVirtualPort
+### OnionVirtualPort
 
 Default: `80`
 
 The virtual port to use for the hidden service.
 
-#### OnionHiddenServiceDirectory
+### OnionHiddenServiceDirectory
 
 Default: `$HOME/.config/dusk/dusk.hs`
 
 The directory to store hidden service keys and other information required by the Tor process.
 
-#### OnionLoggingEnabled
+### OnionLoggingEnabled
 
 Default: `0`
 
 Redirects the Tor process log output through dusk's logger for the purpose of debugging.
 
-#### OnionLoggingVerbosity
+### OnionLoggingVerbosity
 
 Default: `notice`
 
 Defines the verbosity level of the Tor process logging. Valid options are: `debug`, `info`, `notice`.
 
-#### WebDAVEnabled
+### WebDAVEnabled
 
 Default: `1`
 
 Tells dusk to make the [WebDAV](webdav) service available.
 
-#### WebDAVListenPort
+### WebDAVListenPort
 
 Default: `5276`
 
 Local port the WebDAV service will listen on.
 
-#### WebDAVRootUsername
+### WebDAVRootUsername
 
 Default: `dusk`
 
 Sets the username for accessing the WebDAV service.
 
-#### WebDAVAnonUsername
+### WebDAVAnonUsername
 
 Default: `anon`
 
 If the anonymous dropbox feature is enabled, this sets the username for anonymous users. Same for files in the *Public/* folder.
 
-#### WebDAVAnonDropboxEnabled
+### WebDAVAnonDropboxEnabled
 
 Default: `0`
 
 Enables a virtual share in the WebDAV service that is write-only for anonymous submission.
 
-#### WebDAVPublicShareEnabled
+### WebDAVPublicShareEnabled
 
 Default: `1`
 
 Enables the `Public/` folder as read-only to anonymous users.
 
-#### WebDAVHiddenServiceDirectory
+### WebDAVHiddenServiceDirectory
 
 Default: `$HOME/.config/dusk/webdav.hs`
 
 Where to load the Tor configuration from.
 
-#### NetworkBootstrapNodes[]
+### NetworkBootstrapNodes[]
 
 Default: `undefined`
 
 Add a map of network bootstrap nodes to this section to use for discovering other peers. Default configuration should come with a list of known and trusted contacts.
 
-#### VerboseLoggingEnabled
+### VerboseLoggingEnabled
 
 Default: `1`
 
 More detailed logging of messages sent and received. Useful for debugging.
 
-#### LogFilePath
+### LogFilePath
 
 Default: `$HEAD/.config/dusk.log`
 
 Path to write the daemon's log file. Log file will rotate either every 24 hours 
 or when it exceeds 10MB, whichever happens first.
 
-#### LogFileMaxBackCopies
+### LogFileMaxBackCopies
 
 Default: `3`
 
 Maximum number of rotated log files to keep.
 
-#### ControlPortEnabled
+### ControlPortEnabled
 
-##### Default: `0`
+Default: `0`
 
 Enables the RPC control interface over a TCP socket.
 
-#### ControlPort
+### ControlPort
 
 Default: `5275`
 
 The TCP port to for the control interface to listen on.
 
-#### ControlSockEnabled
+### ControlSockEnabled
 
 Default: `1`
 
 Enables the control interface over a UNIX domain socket.
 
-#### ControlSock
+### ControlSock
 
 Default: `$HOME/.config/dusk/dusk.sock`
 
 The path to the file to use for the control interface.
 
-#### TestNetworkEnabled
+### TestNetworkEnabled
 
 Default: `0`
 
 Places dusk into test mode, significantly lowering the identity solution difficulty and the permission solution difficulty.
 
-### Advanced
+## Advanced
 
-#### Command Line Interface
+### Command Line Interface
 
 Every feature dusk has is exposed through it's command line interface. In fact, even dusk's graphical interface just aliases shortcuts to common CLI options. Desktop integration is achieved using Zenity any place where dusk would ask for command-line input.
 
