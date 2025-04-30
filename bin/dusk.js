@@ -373,7 +373,7 @@ function uninstallMacBundle() {
   const localAppDir = path.join(homedir(), 'Applications');
   const appDir = path.join(localAppDir, 'dusk.app');
   console.log('  Removing ' + appDir);
-  fs.rmSync(appDir);
+  fs.rmSync(appDir, { recursive: true });
   console.log('');
   console.log('  [ done! ♥ ]');
 }
