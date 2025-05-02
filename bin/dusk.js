@@ -236,6 +236,12 @@ program.option('--pubkey [hex_pubkey]',
 program.option('--decrypt [message]', 
   'decrypts the message for yourself');
 
+program.option('--sign [challenge]', 
+  'creates a digital signature from provided challenge');
+
+program.option('--verify <signature_bundle>', 
+  'verifies the signature bundle provided');
+
 program.option('--file-in [path]', 
   'specify file path to read or be prompted');
 
@@ -1966,6 +1972,98 @@ Ready?
     process.exit(0);
   }
 
+  if (program.sign) {
+    if (program.fileIn) {
+      program.sign = fs.readFileSync(program.fileIn).toString('hex');
+    }
+    if (typeof program.sign !== 'string') {
+      const questions = [{
+        type: 'text',
+        name: 'encrypt',
+        message: 'Enter the challenge bundle (or message to sign)? ~>',
+      }];
+      const answers = program.gui
+        ? { sign: Dialog.entry('Enter the challenge bundle (or message to sign):', '🝰 dusk') }
+        : await inquirer.default.prompt(questions);
+
+      if (!answers.sign) {
+        console.error('No message to sign, exiting...');
+        if (program.gui) {
+          Dialog.info('No message to sign, aborting...', duskTitle, 'error');
+        }
+        exitGracefully();
+      }
+
+      program.sign = answers.sign;
+    } else if (!dusk.utils.isHexaString(program.sign)) {
+      const msg = 'String arguments to --sign [challenge] must be hexidecimal';
+      if (program.gui) {
+        Dialog.info(msg, 'Error', 'error');
+      } else {
+        console.error(msg);
+      }
+      process.exit(1);
+    }
+
+    const rpc = await getRpcControl();
+    const info = await (() => {
+      return new Promise((resolve, reject) => {
+        rpc.invoke('getinfo', [], (err, info) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(info);
+          }
+        });
+      });
+    })();
+    const challenge = program.sign;
+    const message = JSON.stringify({
+      challenge,
+      contact: info.contact,
+      fingerprint: info.identity
+    });
+
+    program.sign = dusk.utils.hash256(Buffer.from(message, 'utf8'));
+
+    let signature = secp256k1.ecdsaSign(program.sign, privkey);
+    signature = Buffer.from(JSON.stringify({ 
+      s: Buffer.from(signature.signature).toString(), 
+      r: signature.recid,
+      c: challenge,
+      n: info.contact,
+      f: info.identity
+    })).toString('hex');
+    
+    if (program.fileOut) {
+      if (fs.existsSync(program.fileOut)) {
+        const msg = 'File already exists, I will not overwrite it.';
+        if (program.gui) {
+          Dialog.info(msg, 'Error', 'error');
+        } else {
+          console.error(msg);
+        }
+        process.exit(1);
+      }
+
+      fs.writeFileSync(program.fileOut, signature);
+      console.log('signature written ♥ ~ [  file: %s  ] ', 
+        path.resolve(process.cwd(), program.fileOut));
+    } else if (program.gui) {
+      Dialog.entry('Signature:', duskTitle, signature.toString('hex'));
+    } else if (!program.Q) {
+      console.log('signature ♥ ~ [  %s  ] ', signature.toString('hex'));
+    } else {
+      console.log(signature);
+    }
+    
+    exitGracefully();
+  }
+
+  if (program.verify) {
+    exitGracefully()
+  }
+
   if (program.pubkey) {
     if (program.gui) {
       Dialog.entry('Public Key:', '🝰 dusk', pubkey);
@@ -2415,6 +2513,8 @@ ${numFiles} files in Dropbox/${codename}`, duskTitle, 'info');
               node.webDavLocalAddr = '127.0.0.1:' + port;
               node.anonDrpHsAddr = anonDrpOnion;
               node.anonDrpLocalAddr = '127.0.0.1:' + dropPort;
+              node.contact.davhost = node.webDavHsAddr.split('.onion')[0]
+              node.contact.drphost = node.anonDrpHsAddr.split('.onion')[0]
               console.log('');
               console.log('  webdav url  [  %s  ]', webDavOnion);
               console.log('  drpbox url  [  %s  ]', anonDrpOnion);
