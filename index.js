@@ -43,6 +43,9 @@ module.exports.MerkleTree = require('./lib/merkle-tree');
 /** {@link Dropbox } */
 module.exports.Dropbox = require('./lib/dropbox');
 
+/** {@link Link } */
+module.exports.Link = require('./lib/link');
+
 /** {@link module.reedsol } */
 module.exports.reedsol = require('./lib/reed-solomon');
 
