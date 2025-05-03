@@ -49,7 +49,8 @@ dusk --gen-challenge
 
 ## Proving Control (for recipients)
 
-When a source asks you for an identity proof
+When a source asks you for an identity proof, they should provide you with a challenge generated from the previous steps. 
+It's simple to create a proof from this using dusk.
 
 ### Using the App
 
@@ -66,6 +67,8 @@ Copy the digital signature and provide it back to the sender, so they may verify
 ![](assets/images/verify-app-006.png)
 
 ### Using the Command Line
+
+Simply run the `dusk --sign` and follow the prompts.
 
 ## Verifying an Identity Proof
 
