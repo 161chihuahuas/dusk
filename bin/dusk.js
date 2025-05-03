@@ -78,6 +78,9 @@ const {
   animals 
 } = require('unique-names-generator');
 const { randomBytes } = require('node:crypto');
+const { getRandomKeyString } = require('../lib/utils.js');
+const { EclipseIdentity } = require('../lib/plugin-eclipse.js');
+const { toPublicKeyHash } = require('../lib/utils.js');
 
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
@@ -239,8 +242,14 @@ program.option('--decrypt [message]',
 program.option('--sign [challenge]', 
   'creates a digital signature from provided challenge');
 
-program.option('--verify <signature_bundle>', 
+program.option('--verify [signature_bundle]', 
   'verifies the signature bundle provided');
+
+program.option('--use-challenge [hex_challenge]', 
+  'used with --verify to automatically check signed challenge');
+
+program.option('--gen-challenge', 
+  'used alone or with --sign to automatically generate a challenge');
 
 program.option('--file-in [path]', 
   'specify file path to read or be prompted');
@@ -1972,14 +1981,40 @@ Ready?
     process.exit(0);
   }
 
+  if (program.genChallenge && !program.sign) {
+    const challenge = dusk.utils.getRandomKeyString();
+
+    if (program.gui) {
+      Dialog.entry(`Challenge key generated!\nProvide this to another dusk user for them to prove they control an identity:`, duskTitle, challenge);
+    } else if (program.Q) {
+      console.log(challenge);
+    } else {
+      console.log('  I generated a random challenge.')
+      console.log('  Provide this to another dusk user for them to prove they control an identity:\n');
+      console.log('  challenge ♥ ~ [  %s  ] \n', challenge);
+    }
+
+    exitGracefully();
+  }
+
+  if (program.useChallenge && !program.verify) {
+    console.error('--use-challenge [hex_challenge] MUST be used with --verify');
+    exitGracefully();
+  }
+
+
   if (program.sign) {
     if (program.fileIn) {
       program.sign = fs.readFileSync(program.fileIn).toString('hex');
     }
+    if (program.genChallenge) {
+      program.sign = dusk.utils.getRandomKeyString();
+      console.log('challenge ♥ ~ [  %s  ] ', program.sign);
+    }
     if (typeof program.sign !== 'string') {
       const questions = [{
         type: 'text',
-        name: 'encrypt',
+        name: 'sign',
         message: 'Enter the challenge bundle (or message to sign)? ~>',
       }];
       const answers = program.gui
@@ -2028,7 +2063,7 @@ Ready?
 
     let signature = secp256k1.ecdsaSign(program.sign, privkey);
     signature = Buffer.from(JSON.stringify({ 
-      s: Buffer.from(signature.signature).toString(), 
+      s: Buffer.from(signature.signature).toString('hex'), 
       r: signature.recid,
       c: challenge,
       n: info.contact,
@@ -2047,12 +2082,21 @@ Ready?
       }
 
       fs.writeFileSync(program.fileOut, signature);
-      console.log('signature written ♥ ~ [  file: %s  ] ', 
-        path.resolve(process.cwd(), program.fileOut));
-    } else if (program.gui) {
-      Dialog.entry('Signature:', duskTitle, signature.toString('hex'));
+      
+      if (program.gui) {
+        Dialog.info('Signature bundle written to ' + program.fileOut, 
+          duskTitle, 'info');
+      } else {
+        console.log('signature written ♥ ~ [  file: %s  ] ', 
+          path.resolve(process.cwd(), program.fileOut));
+      }
+    } 
+
+    if (program.gui) {
+      Dialog.entry('Signature created!\nProvide this to the user who issued the identity challenge:', duskTitle, signature.toString('hex'));
     } else if (!program.Q) {
-      console.log('signature ♥ ~ [  %s  ] ', signature.toString('hex'));
+      console.log('  Signature created!\n  Provide this to the user who issued the identity challenge:\n');
+      console.log('  signature ♥ ~ [  %s  ] \n', signature.toString('hex'));
     } else {
       console.log(signature);
     }
@@ -2061,7 +2105,134 @@ Ready?
   }
 
   if (program.verify) {
-    exitGracefully()
+    console.log('');
+    if (program.verify === true && program.fileIn) {
+      program.verify = fs.readFileSync(program.fileIn).toString();
+    }
+    if (typeof program.verify !== 'string' && !program.fileIn) {
+      const questions = [{
+        type: 'text',
+        name: 'verify',
+        message: 'Enter the signature bundle (or message to verify)? ~>',
+      }];
+      const answers = program.gui
+        ? { verify: Dialog.entry('Enter the signature bundle (or message to verify):', '🝰 dusk') }
+        : await inquirer.default.prompt(questions);
+
+      if (!answers.verify) {
+        console.error('No signature to verify, exiting...');
+        if (program.gui) {
+          Dialog.info('No signature to verify, aborting...', duskTitle, 'error');
+        }
+        exitGracefully();
+      }
+
+      program.verify = answers.verify;
+    } else if (!dusk.utils.isHexaString(program.verify) && !program.fileIn) {
+      const msg = 'String arguments to --verify [signature] must be hexidecimal';
+      if (program.gui) {
+        Dialog.info(msg, 'Error', 'error');
+      } else {
+        console.error(msg);
+      }
+      process.exit(1);
+    }
+
+    const bundle = JSON.parse(
+      Buffer.from(program.verify, 'hex').toString('utf8')
+    );
+    const signature = Buffer.from(bundle.s, 'hex');
+    const recid = bundle.r;
+    const challenge = bundle.c;
+
+    if (program.useChallenge) {
+      if (typeof program.useChallenge !== 'string') {
+        const questions = [{
+          type: 'text',
+          name: 'challenge',
+          message: 'Enter the challenge you issued? I will check the signature: ~>',
+        }];
+        const answers = program.gui
+          ? { challenge: Dialog.entry('Enter the challenge you issued.\nI will check it against the signature:', '🝰 dusk') }
+          : await inquirer.default.prompt(questions);
+
+        program.useChallenge = answers.challenge;
+      }
+      if (!dusk.utils.isHexaString(program.useChallenge)) {
+        console.error('The supplied challenge is invalid');
+        exitGracefully();
+      } else {
+        if (program.useChallenge !== challenge) {
+          console.error('The signed challenge does not match challenge provided');
+          exitGracefully();
+        }
+      }
+    }
+
+    const contact = bundle.n;
+    const fingerprint = bundle.f;
+    const message = JSON.stringify({
+      challenge,
+      contact,
+      fingerprint
+    });
+
+    program.verify = dusk.utils.hash256(Buffer.from(message, 'utf8'));
+
+    if (!program.Q) {
+      console.log('signature:', signature.toString('hex'))
+      console.log('recovery:', recid);
+      console.log('challenge:', challenge);
+      for (let prop in contact) {
+        console.log('contact.' + prop + ':', contact[prop]);
+      }
+      console.log('fingerprint:', fingerprint);
+    }
+
+    const pubKeyHashIsValid = dusk.utils.hash160(Buffer.from(
+      contact.proof,
+      'hex'
+    )).toString('hex') === fingerprint;
+
+    console.log('');
+    const signatureIsValid = secp256k1.ecdsaVerify(
+      signature,
+      program.verify,
+      Buffer.from(contact.pubkey, 'hex')
+    );
+
+    const proofIsValid = (new dusk.eclipse.EclipseIdentity(
+      Buffer.from(contact.pubkey, 'hex'),
+      contact.nonce,
+      Buffer.from(contact.proof)
+    )).validate();
+
+    console.log('validating proof...');
+    console.log('');
+    if (signatureIsValid && pubKeyHashIsValid, proofIsValid) {
+      if (program.gui) {
+        Dialog.info('Signature is valid for challenge: ' + challenge +
+          '\nMake sure this is the challenge you sent!', duskTitle, 'info');
+      } else if (!program.Q) {
+        console.log('  [  signature is valid! ♥  ] ');
+        console.log('');
+        if (!program.challenge) {
+          console.log('  [  be sure to compare the challenge you sent and the one listed ]');
+        }
+        console.log('  [  be sure to verify the hostname if you are validating a dropbox]');
+      }     
+    } else {
+      if (program.gui) {
+        Dialog.info('Signature is invalid!', duskTitle, 'error');
+      } else if (!program.Q) {
+        console.error('  [ signature is invalid! ] ');
+      } else {
+        process.exit(1);
+      }
+    }
+   
+    console.log('');
+    exitGracefully();
   }
 
   if (program.pubkey) {
@@ -3282,6 +3453,9 @@ async function encryptionUtilities(action) {
       ['✍   Export my recovery words'],
       ['🗝️  Restore from a secret key'],
       ['📓  Restore from recovery words']
+      ['🤖  Generate an identity challenge'],
+      ['🔏  Sign an identity challenge'],
+      ['🕵️  Verify an identity proof']
     ], ['🔑  Encryption Utilities'],{ height: 600 }) };
   } else {
     tool = await inquirer.default.prompt({
@@ -3296,16 +3470,16 @@ async function encryptionUtilities(action) {
           name: '🎁  Encrypt a message (for someone else)',
           value: 1
         }, {
-          name: '👻   Encrypt a message (using a one-time secret)',
+          name: '👻  Encrypt a message (using a one-time secret)',
           value: 2
         }, new inquirer.default.Separator(), {
           name: '📖  Decrypt a message (using my default secret)',
           value: 3
         }, {
-          name: '🔦    Decrypt a message (using a provided secret)',
+          name: '🔦  Decrypt a message (using a provided secret)',
           value: 4
         }, new inquirer.default.Separator(), {
-          name: '🪪   Export my public key',
+          name: '🪪  Export my public key',
           value: 5
         }, {
           name: '🔐  Export my secret key',
@@ -3314,11 +3488,20 @@ async function encryptionUtilities(action) {
           name: '✍   Export my recovery words',
           value: 7
         }, new inquirer.default.Separator(), {
-          name: '🗝️  Restore from a secret key',
+          name: '🗝️   Restore from a secret key',
           value: 8
         }, {
           name: '📓  Restore from recovery words',
           value: 9
+        }, new inquirer.default.Separator(), {
+          name: '🤖  Generate an identity challenge',
+          value: 10
+        }, {
+          name: '🔏  Sign an identity challenge',
+          value: 11
+        }, {
+          name: '🕵️   Verify an identity proof',
+          value: 12
         }, new inquirer.default.Separator(), {
           name: '↩️   Back',
           value: null
@@ -3403,6 +3586,27 @@ async function encryptionUtilities(action) {
           f = _dusk(['--import-recovery']);
         }
       });
+      break;
+    case 10:
+      if (program.gui) {
+        f = _dusk(['--gen-challenge', '--gui']);
+      } else {
+        f = _dusk(['--gen-challenge']);
+      }
+      break;
+    case 11:
+      if (program.gui) {
+        f = _dusk(['--sign', '--gui']);
+      } else {
+        f = _dusk(['--sign']);
+      }
+      break;
+    case 12:
+      if (program.gui) {
+        f = _dusk(['--verify', '--use-challenge', '--gui']);
+      } else {
+        f = _dusk(['--verify', '--use-challenge']);
+      }
       break;
     default:
       displayMenu();
