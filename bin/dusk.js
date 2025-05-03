@@ -3452,7 +3452,7 @@ async function encryptionUtilities(action) {
       ['🔐  Export my secret key'],
       ['✍   Export my recovery words'],
       ['🗝️  Restore from a secret key'],
-      ['📓  Restore from recovery words']
+      ['📓  Restore from recovery words'],
       ['🤖  Generate an identity challenge'],
       ['🔏  Sign an identity challenge'],
       ['🕵️  Verify an identity proof']
