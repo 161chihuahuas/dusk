@@ -2725,7 +2725,9 @@ ${numFiles} files in Dropbox/${codename}`, duskTitle, 'info');
     if (!fs.existsSync(seedsdir)) {
       mkdirp.sync(seedsdir);
     }
-    peers = peers.concat(fs.readdirSync(seedsdir).map(fs.readFileSync).map(buf => {
+    peers = peers.concat(fs.readdirSync(seedsdir).map(file => {
+      return fs.readFileSync(path.join(seedsdir, file));
+    }).map(buf => {
       return buf.toString();
     })).filter(p => !!p);
 
@@ -4038,7 +4040,7 @@ if (program.rpc || program.repl) {
         process.exit(1);
       }
 
-      console.log('  removing %s from %s', program.unlink, seedsdir);
+      console.log('  removing link...', program.unlink, seedsdir);
       console.log('');
       console.log('  i will not connect to this node on startup');
       fs.unlinkSync(path.join(seedsdir, match));
