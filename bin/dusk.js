@@ -41,7 +41,6 @@ process.on('unhandledRejection', (err) => {
 const { fork, spawn, execSync } = require('node:child_process');
 const assert = require('node:assert');
 const async = require('async');
-const split = require('split');
 const qrcode = require('qrcode');
 const program = require('commander');
 const dusk = require('../index');
@@ -52,11 +51,8 @@ const fsP = require('node:fs/promises');
 const path = require('node:path');
 const options = require('./config');
 const npid = require('npid');
-const levelup = require('levelup');
-const leveldown = require('leveldown');
 const boscar = require('boscar');
 const rc = require('rc');
-const encoding = require('encoding-down');
 const secp256k1 = require('secp256k1');
 const osascript = require('osascript');
 const readline = require('node:readline');
@@ -77,10 +73,6 @@ const {
   colors, 
   animals 
 } = require('unique-names-generator');
-const { randomBytes } = require('node:crypto');
-const { getRandomKeyString } = require('../lib/utils.js');
-const { EclipseIdentity } = require('../lib/plugin-eclipse.js');
-const { toPublicKeyHash } = require('../lib/utils.js');
 
 const shoesTitle = '🝰 dusk / SHOES '
 const duskTitle = '🝰 dusk'
@@ -2447,7 +2439,7 @@ async function initDusk() {
     logger,
     transport,
     contact,
-    storage: levelup(encoding(leveldown(config.EmbeddedDatabaseDirectory)))
+    storage: new dusk.Storage(config.EmbeddedDatabaseDirectory)
   });
   
   // Extend S/Kademlia with Quasar pub/sub
@@ -2464,7 +2456,6 @@ async function initDusk() {
   node.eclipse = node.plugin(dusk.eclipse(identity));
 
   // Route all traffic through Tor and establish an onion service
-  dusk.constants.T_RESPONSETIMEOUT = 20000;
   node.onion = node.plugin(dusk.onion({
     dataDirectory: config.OnionHiddenServiceDirectory,
     virtualPort: config.OnionVirtualPort,

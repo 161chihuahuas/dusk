@@ -6,9 +6,11 @@ const sinon = require('sinon');
 const utils = require('../lib/utils');
 const KademliaNode = require('../lib/node-kademlia');
 const FakeTransport = require('./fixtures/transport-fake');
-const levelup = require('levelup');
-const memdown = require('memdown');
-const storage = levelup('test:node-kademlia', memdown);
+const proxyquire = require('proxyquire');
+const Storage = proxyquire('../lib/storage', {
+  'node:fs': require('memfs')
+});
+const storage = new Storage('/tmp');
 const bunyan = require('bunyan');
 const constants = require('../lib/constants');
 const ms = require('ms');

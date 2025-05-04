@@ -46,6 +46,9 @@ module.exports.Dropbox = require('./lib/dropbox');
 /** {@link Link } */
 module.exports.Link = require('./lib/link');
 
+/** {@link Storage } */
+module.exports.Storage = require('./lib/storage');
+
 /** {@link module.reedsol } */
 module.exports.reedsol = require('./lib/reed-solomon');
 

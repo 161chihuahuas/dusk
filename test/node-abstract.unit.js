@@ -1,12 +1,14 @@
 'use strict';
 
+const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const sinon = require('sinon');
 const AbstractNode = require('../lib/node-abstract');
 const FakeTransport = require('./fixtures/transport-fake');
-const levelup = require('levelup');
-const memdown = require('memdown');
-const storage = levelup('test:node-abstract', memdown);
+const Storage = proxyquire('../lib/storage', {
+  'node:fs': require('memfs')
+});
+const storage = new Storage('/tmp/dusk.test');
 const bunyan = require('bunyan');
 const constants = require('../lib/constants');
 const utils = require('../lib/utils');
