@@ -4011,7 +4011,7 @@ if (program.install || program.uninstall) {
         if (!file) {
           exitGracefully();
         } else {
-          form.append('file', fs.createReadStream(file));
+          form.append('files', fs.createReadStream(file));
         }
 
         if (text.message) {
@@ -4019,7 +4019,7 @@ if (program.install || program.uninstall) {
         }
 
         if (program.gui) {
-          guiProgress = Dialog.progressBar('Uploading to ' + link.key, duskTitle, {
+          guiProgress = Dialog.progress('Uploading to ' + link.key, duskTitle, {
             pulsate: true,
             noCancel: true
           });
@@ -4039,9 +4039,9 @@ if (program.install || program.uninstall) {
         const proxy = await getProxyUrl();
         const agent = new SocksProxyAgent(proxy);
 
-        spinner.start('Uploading to dropbox');
+        spinner.start('Uploading to ' + onion);
         form.submit({
-          hostname: onion + '.onion',
+          hostname: onion.split('http://')[1],
           port: 80,
           path: '/',
           agent: agent
@@ -4049,16 +4049,16 @@ if (program.install || program.uninstall) {
           if (err || res.statusCode !== 200) {
             if (program.gui) {
               guiProgress.progress(100);
-              Dialog.info(err.message || 'Failed to upload, sorry.', duskTitle, 'error');
+              Dialog.info(err ? err.message : 'Failed to upload, sorry.', duskTitle, 'error');
             } else {
-              spinner.fail(err.message || 'Failed to upload, sorry.');
+              spinner.fail(err ? err.message : 'Failed to upload, sorry.');
             }
             exitGracefully();
           }
           spinner.succeed('File uploaded to ' + link.key + '.' + link.type);
           if (program.gui) {
             guiProgress.progress(100);
-            Dialog.info('File uploaded to ' + link.key + '.' + link.type);
+            Dialog.info('File uploaded to ' + link.key + '.' + link.type, duskTitle, 'info');
           }
 
           res.on('end', exitGracefully).resume();
