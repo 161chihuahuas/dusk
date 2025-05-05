@@ -3818,16 +3818,120 @@ if (program.rpc || program.repl) {
 } else if (program.I) {
   displayMenu();
 } else if (program.X) {
-  console.log(description);
-  console.log('  [ launching dusk explorer... ]')
-
   if (program.gui) {
-    console.log('  [ using graphical interface ]');
-    exitGracefully();
-  } else {
-    console.error('  [ using console interface ]');
+    // TODO
     exitGracefully();
   }
+
+  if (!program.Q) {
+    console.log(description);
+    console.log('  [  enter a dusk url and i will try to resolve it ♥  ]\n');
+  }
+    
+  function promptForUrl() {
+    return new Promise(async (resolve, reject) => {
+      const questions = [{
+        type: 'text',
+        name: 'url',
+        message: duskTitle.substring(0, 2),
+        default: 'dusk://',
+        required: true
+      }];
+      const answers = await inquirer.default.prompt(questions);
+
+      if (answers.url.indexOf('dusk://') !== 0) {
+        answers.url = 'dusk://' + (answers.url || '');
+      }
+
+      resolve(answers.url);
+    });
+  }
+
+  async function explore(rpc) {
+    const ora = (await import('ora')).default;
+
+    const link = typeof program.X === 'string'
+      ? new dusk.Link(program.X)
+      : new dusk.Link(await promptForUrl());
+
+    const spinner = ora({ 
+      spinner: 'dots12', 
+      text: 'Checking link' 
+    });
+
+    spinner.start(); 
+    
+    try {
+      link.parse();
+      link.validate();
+    } catch (err) {
+      spinner.fail(`${err.message}`);
+      if (typeof program.X === 'string') {
+        exitGracefully();
+      }
+      return explore(rpc);
+    }
+
+    spinner.text = `Resolving [${link.key}.${link.type}]`
+
+    const resolver = new dusk.Link.Resolver(rpc);
+    let output;
+
+    try {
+      output = await resolver.resolve(link);
+    } catch (err) {
+      spinner.fail(err.message);
+      if (typeof program.X === 'string') {
+        exitGracefully();
+      }
+      return explore(rpc);
+    }
+
+    if (!output) {
+      spinner.fail(`Not Found [${link.key}.${link.type}]`);
+      if (typeof program.X === 'string') {
+        exitGracefully();
+      } else {
+        return explore(rpc);
+      }
+    }
+
+    switch (link.type) {
+      case 'node':
+        spinner.succeed();
+        console.log('>>', output);
+        break;
+      case 'blob':
+        spinner.succeed();
+        console.log('>>', output);
+        break;
+      case 'drop':
+        spinner.succeed(output);
+        break;
+      case 'wdav':
+        spinner.succeed(output);
+        break;
+      case 'seed':
+        spinner.succeed(); 
+        console.log('>>', output);
+        break;
+      default:
+        // noop
+    }
+
+    if (typeof program.X === 'string') {
+      exitGracefully();
+    }
+
+    explore(rpc);
+  }
+
+  function handleRpcConnectErr(err) {
+    console.error(`I couldn't connect to dusk's control port, is it running?`);
+    exitGracefully();
+  }
+
+  getRpcControl().then(explore, handleRpcConnectErr);
 } else if (program.F) { // --logs
   _config();
 
