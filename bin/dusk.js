@@ -74,7 +74,7 @@ const {
   animals 
 } = require('unique-names-generator');
 
-const shoesTitle = '🝰 dusk / SHOES '
+const shoesTitle = '🝰 dusk ~ SHOES '
 const duskTitle = '🝰 dusk'
 
 function _open(args, opts) {
@@ -256,7 +256,7 @@ program.option('--webdav-pass <password>',
   'set the webdav root user password for this session');
 
 program.option('--shoes', 
-  'setup a dusk/SHOES USB or use with --retrace, --shred');
+  'setup a dusk USB or use with --retrace, --shred');
 program.option('--usb', 'alias for --shoes');
 
 program.option('--dht', 
@@ -643,7 +643,8 @@ function _setup() {
     }
 
     if (program.usb) {
-      program.datadir = await shoes.mount(program, config, exitGracefully);
+      const mnt = await shoes.mount(program, config, exitGracefully);
+      program.datadir = mnt.datadir;    
     }
 
     if (program.testnet) {
@@ -1089,8 +1090,7 @@ If you lose these words, you can never recover access to this identity, includin
       if (program.usb) {
         program.fileOut = path.join(
           program.datadir,
-          'shoes',
-          path.dirname(program.fileOut).split('shoes')[1],
+          'dusk.dag',
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       } else {
@@ -1291,7 +1291,7 @@ Ready?
         console.log('');
         if (program.usb) {
           if (program.gui) {
-            Dialog.info('Sneakernet created! Be safe. ♥', '🝰 dusk / SHOES', 'info');
+            Dialog.info('Sneakernet created! Be safe. ♥', '🝰 dusk ~ SHOES', 'info');
           }
           console.log('sneakernet created ~ be safe  ♥ ');
         } else {
@@ -1406,7 +1406,7 @@ Ready?
         let basePath;
 
         if (program.usb) {
-          basePath = path.join(program.datadir, 'shoes');
+          basePath = path.join(program.datadir, 'dusk.dag');
         } else {
           basePath = config.MetadataDirectory;
         }
@@ -1707,7 +1707,7 @@ Ready?
     }
 
     console.log('');
-    console.log('  [ I reconstructed the encrypted and erasure coded buffer ♥ ]');
+    console.log('  [ I reconstructed the encrypted file ♥ ]');
     console.log('');
     
     if (missingPieces) {
@@ -1730,11 +1730,11 @@ Ready?
 
     if (program.usb) {
       if (program.gui) {
-        Dialog.info('USER 0, I am ready to finish retracing and save to your USB drive.', '🝰 dusk / SHOES', 'info');
+        Dialog.info('USER 0, I am ready to finish retracing and save to your USB drive.', '🝰 dusk ~ SHOES', 'info');
       }
 
       console.log('  USER 0, I\'m ready to finish retracing and save to');
-      console.log('  your dusk/SHOES USB.');
+      console.log('  your dusk USB.');
       console.log('');
       program.datadir = await shoes.mount(program, config, exitGracefully);
     }
@@ -1748,7 +1748,7 @@ Ready?
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
     const [unbundledFilename] = program.retrace.split('.duskbundle');
     const filename = program.fileOut || 
-      path.join(`unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
+      path.join(tmpdir(), `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);

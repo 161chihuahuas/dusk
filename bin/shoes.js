@@ -9,10 +9,11 @@ const dusk = require('../index.js');
 const fs = require('node:fs');
 const Dialog = require('../lib/zenity.js');
 
-
-const dialogTitle = '🝰 dusk / SHOES '
+const dialogTitle = '🝰 dusk ~ SHOES '
 
 module.exports.shred = function(dagEntry, program, config, exitGracefully) {
+  
+
   return new Promise(async (resolve, reject) => {
     // take a shard array and shoesmanifest and distribute the shards onto
     // shoes usbs through interactive prompt
@@ -40,11 +41,11 @@ module.exports.shred = function(dagEntry, program, config, exitGracefully) {
 
     const shardsPerUsb = Math.ceil(dagEntry.shards.length / setup.numDrives);
     
-    let datadir;
+    let datadir, storage;
 
-    const user0prompt = `You are USER 0, which means this data will be encrypted for you and only unlockable using the dusk/SHOES USB that is CURRENTLY inserted.
+    const user0prompt = `You are USER 0, which means this data will be encrypted for you and only unlockable using the dusk USB that is CURRENTLY inserted.
    
-If you need other users to be able to unlock this  file, repeat this process for each user - starting   with THEIR dusk/SHOES USB from the beginning.
+If you need other users to be able to unlock this  file, repeat this process for each user - starting   with THEIR dusk USB from the beginning.
     `;
 
     if (program.gui) {
@@ -72,14 +73,28 @@ If you need other users to be able to unlock this  file, repeat this process for
           console.log(`  I'm ready for USER ${i + 1}.`);
         }
         console.log('');
-        datadir = await module.exports.mount(program, config, exitGracefully);
+        const mnt = await module.exports.mount(program, config, exitGracefully);
+        datadir = mnt.datadir;
+        storage = mnt.storage;
       }
 
-      mkdirp.sync(path.join(datadir, 'shoes.dat'));
-      fs.writeFileSync(
-        path.join(datadir, 'shoes.dat', `${hash}.part`),
-        shard
-      );
+      function putShard(storage, hash, shard) {
+        return new Promise((resolve, reject) => {
+          storage.put(hash, {
+            value: shard,
+            timestamp: Date.now(),
+            publisher: Buffer.alloc(20).fill(0)
+          }, {}, (err) => {
+            if (err) {
+              return reject(err);
+            }
+
+            resolve();
+          });
+        });
+      }
+
+      await putShard(storage, hash, shard);
     }
 
     if (program.gui) {
@@ -104,13 +119,13 @@ module.exports.retrace = function(meta, program, config, exitGracefully) {
       {
         type: 'number',
         name: 'numDrives',
-        message: 'How many dusk/SHOES USBs are we retracing from?'
+        message: 'How many dusk USBs are we retracing from?'
       }
     ];
     
     const user0prompt = `You are USER 0, which means this data will be decrypted by you at the end of this process.
   
-I will use the key located on the dusk/SHOES USB that is CURRENTLY inserted.`;
+I will use the key located on the dusk USB that is CURRENTLY inserted.`;
 
     if (program.gui) {
       setup = { 
@@ -170,14 +185,31 @@ I will tell you when I have enough data. ♥`,
       console.log('  Ok, I\'m ready to retrace. It doesn\'t matter');
       console.log('  what order we go in, so decide amongst yourselves.');
       console.log('');
-      let datadir = await module.exports.mount(program, config, exitGracefully);
+      const mnt = await module.exports.mount(program, config, exitGracefully);
+
+      let datadir = mnt.datadir;
+      let storage = mnt.storage;
       let foundParts = 0;
+ 
+      function getShard(storage, hash) {
+        return new Promise((resolve, reject) => {
+          storage.get(hash, {
+          }, (err, item) => {
+            if (err) {
+              return reject(err);
+            }
+
+            resolve(Buffer.from(item.value, 'hex'));
+          });
+        });
+      }
 
       for (let i = 0; i < meta.l.length; i++) {
-        let shardPath = path.join(datadir, 'shoes.dat', `${meta.l[i]}.part`);
+        const hash = meta.l[i];
 
-        if (fs.existsSync(shardPath)) {
-          shardMap[meta.l[i]] = fs.readFileSync(shardPath);
+        console.log(hash, storage)
+        if (storage._exists(hash)) {
+          shardMap[meta.l[i]] = await getShard(storage, hash);     
           foundParts++;
         }
       }
@@ -185,7 +217,7 @@ I will tell you when I have enough data. ♥`,
       if (program.gui) {
         Dialog.notify(`${foundParts} recovered part(s) from USB #${drivesChecked+1}`, dialogTitle);
       }
-      console.log(`  I found ${foundParts} parts on this dusk/SHOES USB.`);
+      console.log(`  I found ${foundParts} parts on this dusk USB.`);
       console.log('');
       drivesChecked++;
     }
@@ -201,16 +233,16 @@ I will tell you when I have enough data. ♥`,
 
 module.exports.init = function(program, config) {
   return new Promise((resolve, reject) => {
-    const shoesMetaPath = path.join(program.datadir, 'shoes.meta');
+    const shoesMetaPath = path.join(program.datadir, 'dusk.dag');
     mkdirp.sync(shoesMetaPath);    
-    console.log('\n  [ using dusk/SHOES USB ♥ ] ');
+    console.log('\n  [ using dusk USB ♥ ] ');
     resolve();
   });
 }
 ;
 module.exports.mount = function(program, config, exitGracefully) {
   return new Promise(async (resolve, reject) => {
-    console.log('  [ Eject and remove any dusk/SHOES USBs ... ]');
+    console.log('  [ Eject and remove any dusk USBs ... ]');
     console.log('');
     
     let ejected;
@@ -231,7 +263,7 @@ module.exports.mount = function(program, config, exitGracefully) {
       if (program.gui) {
         Dialog.info('Eject USB drives and try again.', dialogTitle, 'error');
       }
-      console.error('Eject dusk/SHOES USB and try again.');
+      console.error('Eject dusk USB and try again.');
       exitGracefully();
     }
 
@@ -242,7 +274,7 @@ module.exports.mount = function(program, config, exitGracefully) {
       : null;
 
     console.log('');
-    console.log('  [ Insert your dusk/SHOES USB ] ');
+    console.log('  [ Insert your dusk USB ] ');
     console.log('  [ I will wait for you  ♥ ... ]');
     console.log('');
 
@@ -332,11 +364,13 @@ module.exports.mount = function(program, config, exitGracefully) {
         exitGracefully();
       }
 
-      datadir = path.join(datadir, '.dusk');
-
-
       console.log(`  Using datadir: ${datadir}`);
-      resolve(datadir);
+      datadir = path.join(datadir, '.config/dusk');
+
+      resolve({
+        datadir,
+        storage: new dusk.Storage(path.join(datadir, 'dusk.dat'))
+      });
     });
   });
 };
