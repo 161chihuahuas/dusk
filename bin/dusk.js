@@ -40,6 +40,7 @@ process.on('unhandledRejection', (err) => {
 
 const { fork, spawn, execSync } = require('node:child_process');
 const assert = require('node:assert');
+const hexy = require('hexy');
 const async = require('async');
 const qrcode = require('qrcode');
 const program = require('commander');
@@ -50,6 +51,7 @@ const fs = require('node:fs');
 const fsP = require('node:fs/promises');
 const path = require('node:path');
 const options = require('./config');
+const { Readable, Transform } = require('node:stream');
 const npid = require('npid');
 const boscar = require('boscar');
 const rc = require('rc');
@@ -2506,8 +2508,6 @@ async function initDusk() {
   // Setup the WebDAV Bridge
   if (!!parseInt(config.WebDAVEnabled)) {
     function setupWebDAV() {
-      const { Readable, Transform } = require('node:stream');
-
       return new Promise(async (resolve, reject) => {
         if (!program.webdavPass) {
           logger.warn('no password given for dusk - refusing to start webdav bridge');
@@ -3843,7 +3843,9 @@ if (program.install || program.uninstall) {
 } else if (program.X) {
   if (!program.Q) {
     console.log(description);
-    console.log('  [  enter a dusk url and i will try to resolve it ♥  ]\n');
+    if (typeof program.X !== 'string') {
+      console.log('  [  enter a dusk url and i will try to resolve it ♥  ]\n');
+    }
   }
     
   function promptForUrl() {
@@ -3931,29 +3933,75 @@ if (program.install || program.uninstall) {
       exitGracefully();
     }
 
-    spinner.succeed();
     if (guiProgress) {
-      guiProgress.progress(100);
     }
 
     switch (link.type) {
       case 'node':
-        // TODO show node details
-        console.log('>>', output);
+        spinner.succeed(`Found [${link.key}.${link.type}]`);
+        if (program.gui) {
+          guiProgress.progress(100);
+          Dialog.list('🝰 dusk', `Found [${link.key}.${link.type}]`, Object.entries(output), 
+            ['Key', 'Value'], 
+            {
+              width: 400,
+              height:400
+            }
+          );
+        } else {
+          console.log(output);
+        }
         break;
       case 'blob':
-        // TODO resolve if meta?
-        console.log('>>', output);
+        const dump = hexy.hexy(Buffer.from(output, 'hex'));
+        spinner.succeed(`Found [${link.key}.${link.type}]`);
+        if (program.gui) {
+          guiProgress.progress(100);
+          Dialog.textInfo(dump, `Found [${link.key}.${link.type}]`, {
+            width: 600,
+            height: 600
+          });
+        } else {
+          console.log(dump);
+        }
+      case 'file':
+        spinner.succeed(`Found [${link.key}.${link.type}]`);
+        
+        // TODO attempt decrypt blob into DAGEntry and retrace --open
+
+        if (program.gui) {
+          guiProgress.progress(100);
+
+        } else {
+
+        }
         break;
       case 'drop':
-        // TODO open dropbox ui
+        spinner.succeed(`Found [${link.key}.${link.type}]`);
+
+        // TODO prompt for upload to dropbox
+
+        if (program.gui) {
+          guiProgress.progress(100);
+        }
         break;
       case 'wdav':
-        // TODO mount anon wdav        
+        spinner.succeed(`Found [${link.key}.${link.type}]`);
+        
+        // TODO connect and list dir contents - allow download        
+
+        if (program.gui) {
+          guiProgress.progress(100);
+        } else {
+
+        }
         break;
       case 'seed':
-        // TODO notify validated and connected
-        console.log('>>', output);
+        spinner.succeed(`Connected to [${link.key}.${link.type}]`);
+        if (program.gui) {
+          guiProgress.progress(100);
+          Dialog.notify(`${duskTitle}\nConnected to ${link.key}`);
+        }
         break;
       default:
         // noop
