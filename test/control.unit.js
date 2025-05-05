@@ -32,7 +32,7 @@ describe('@class Control', function() {
           hostname: 'localhost',
           port: 8080
         },
-        ftpHsAddr: '.onion'
+        onion: {socksPort: 9050 }
       });
       control.node.router.addContactByNodeId(
         utils.getRandomKeyString(),
