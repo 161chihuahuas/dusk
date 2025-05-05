@@ -42,6 +42,7 @@
     "onion-regex": "^2.0.8",
     "ora": "^8.2.0",
     "osascript": "^1.2.0",
+    "protocol-registry": "^2.0.0",
     "qrcode": "^1.5.4",
     "rc": "^1.2.8",
     "secp256k1": "^5.0.1",

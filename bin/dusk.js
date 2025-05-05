@@ -73,6 +73,7 @@ const {
   colors, 
   animals 
 } = require('unique-names-generator');
+const ProtocolRegistry = require('protocol-registry');
 
 const shoesTitle = '🝰 dusk ~ SHOES '
 const duskTitle = '🝰 dusk'
@@ -415,7 +416,6 @@ Type=Application
   if (!program.enableAutostart) {
     console.log('');
     console.log('  [ done! ♥ ]');
-    exitGracefully();
   }
 }
 
@@ -438,14 +438,29 @@ function uninstallGnomeDesktop() {
 }
 
 if (program.install) {
+  const binpath = execSync('which node').toString().trim();
+  const exepath = path.join(__dirname, 'dusk.js');
+
   if (platform() === 'linux') {
     installGnomeDesktop();
   } else if (platform() === 'darwin') {
     installMacBundle();
-    exitGracefully();
   } else {
     throw new Error('Unsupported platform!');
   }
+
+  (async () => {
+    await ProtocolRegistry.register(
+      'dusk',
+      `${binpath} ${exepath} -X "$_URL_" --gui`,
+      {
+        override: true,
+        terminal: false,
+        appName: 'dusk'
+      }
+    );
+    exitGracefully();
+  })();
 }
 
 if (program.uninstall) {
@@ -453,10 +468,17 @@ if (program.uninstall) {
     uninstallGnomeDesktop();
   } else if (platform() === 'darwin') {
     uninstallMacBundle();
-    exitGracefully();
   } else {
     throw new Error('Unsupported platform!');
   }
+
+  (async () => {
+    await ProtocolRegistry.deRegister('dusk', {
+      force: true
+    });
+    console.log('Deregistered link handler.');
+    exitGracefully();
+  })();
 }
 
 function enableAutostartMac() {
@@ -3750,8 +3772,9 @@ function openLiberapay() {
   displayMenu();
 }
 
-// Check if we are sending a command to a running daemon's controller
-if (program.rpc || program.repl) {
+if (program.install || program.uninstall) {
+  // NOOP
+} else if (program.rpc || program.repl) {
   rpcRepl();
 
   async function rpcRepl() {
@@ -3818,11 +3841,6 @@ if (program.rpc || program.repl) {
 } else if (program.I) {
   displayMenu();
 } else if (program.X) {
-  if (program.gui) {
-    // TODO
-    exitGracefully();
-  }
-
   if (!program.Q) {
     console.log(description);
     console.log('  [  enter a dusk url and i will try to resolve it ♥  ]\n');
@@ -3837,7 +3855,9 @@ if (program.rpc || program.repl) {
         default: 'dusk://',
         required: true
       }];
-      const answers = await inquirer.default.prompt(questions);
+      const answers = program.gui
+        ? { url: Dialog.entry('Enter a dusk URL', duskTitle, 'dusk://') }
+        : await inquirer.default.prompt(questions);
 
       if (answers.url.indexOf('dusk://') !== 0) {
         answers.url = 'dusk://' + (answers.url || '');
@@ -3854,11 +3874,18 @@ if (program.rpc || program.repl) {
       ? new dusk.Link(program.X)
       : new dusk.Link(await promptForUrl());
 
+    let guiProgress;
     const spinner = ora({ 
       spinner: 'dots12', 
       text: 'Checking link' 
     });
 
+    if (program.gui) {
+      guiProgress = Dialog.progress('Checking link', duskTitle, {
+        pulsate: true,
+        noCancel: true
+      });
+    }
     spinner.start(); 
     
     try {
@@ -3866,13 +3893,18 @@ if (program.rpc || program.repl) {
       link.validate();
     } catch (err) {
       spinner.fail(`${err.message}`);
-      if (typeof program.X === 'string') {
-        exitGracefully();
+      if (guiProgress) {
+        guiProgress.progress(100);
+        Dialog.info(err.message, duskTitle, 'error');
       }
-      return explore(rpc);
+    
+      exitGracefully();
     }
 
     spinner.text = `Resolving [${link.key}.${link.type}]`
+    if (guiProgress) {
+      guiProgress.text(`Resolving [${link.key}.${link.type}]`);
+    }
 
     const resolver = new dusk.Link.Resolver(rpc);
     let output;
@@ -3881,49 +3913,53 @@ if (program.rpc || program.repl) {
       output = await resolver.resolve(link);
     } catch (err) {
       spinner.fail(err.message);
-      if (typeof program.X === 'string') {
-        exitGracefully();
+      if (guiProgress) {
+        guiProgress.progress(100);
+        Dialog.info(err.message, duskTitle, 'error');
       }
-      return explore(rpc);
+    
+      exitGracefully();
     }
 
     if (!output) {
       spinner.fail(`Not Found [${link.key}.${link.type}]`);
-      if (typeof program.X === 'string') {
-        exitGracefully();
-      } else {
-        return explore(rpc);
+      if (guiProgress) {
+        guiProgress.progress(100);
+        Dialog.info(`Not Found [${link.key}.${link.type}]`, duskTitle, 'error');
       }
+    
+      exitGracefully();
+    }
+
+    spinner.succeed();
+    if (guiProgress) {
+      guiProgress.progress(100);
     }
 
     switch (link.type) {
       case 'node':
-        spinner.succeed();
+        // TODO show node details
         console.log('>>', output);
         break;
       case 'blob':
-        spinner.succeed();
+        // TODO resolve if meta?
         console.log('>>', output);
         break;
       case 'drop':
-        spinner.succeed(output);
+        // TODO open dropbox ui
         break;
       case 'wdav':
-        spinner.succeed(output);
+        // TODO mount anon wdav        
         break;
       case 'seed':
-        spinner.succeed(); 
+        // TODO notify validated and connected
         console.log('>>', output);
         break;
       default:
         // noop
     }
 
-    if (typeof program.X === 'string') {
-      exitGracefully();
-    }
-
-    explore(rpc);
+    exitGracefully();
   }
 
   function handleRpcConnectErr(err) {
