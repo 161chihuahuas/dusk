@@ -40,6 +40,7 @@ process.on('unhandledRejection', (err) => {
 
 const { fork, spawn, execSync } = require('node:child_process');
 const assert = require('node:assert');
+const createWdavClient = require('webdav').createClient;
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const FormData = require('form-data');
 const hexy = require('hexy');
@@ -2523,7 +2524,7 @@ async function initDusk() {
         const rootUser = userManager.addUser(config.WebDAVRootUsername,
           program.webdavPass, true, false);
         const anonUser = userManager.addUser('anon',
-          null, false, true);
+          'anon', false, true);
 
         // Privilege manager (tells which users can access which files/folders)
         const privilegeManager = new webdav.SimplePathPrivilegeManager();
@@ -3872,6 +3873,17 @@ if (program.install || program.uninstall) {
   }
 
   async function explore(rpc) {
+    function getProxyUrl() {
+      return new Promise((resolve, reject) => {
+        rpc.invoke('getinfo', [], (err, info) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(info.proxy);
+        });
+      });
+    }
+
     const fileSelector = (await import('inquirer-file-selector')).default;
     const ora = (await import('ora')).default;
 
@@ -3934,9 +3946,6 @@ if (program.install || program.uninstall) {
       }
     
       exitGracefully();
-    }
-
-    if (guiProgress) {
     }
 
     switch (link.type) {
@@ -4024,18 +4033,7 @@ if (program.install || program.uninstall) {
             noCancel: true
           });
         }
-
-        function getProxyUrl() {
-          return new Promise((resolve, reject) => {
-            rpc.invoke('getinfo', [], (err, info) => {
-              if (err) {
-                return reject(err);
-              }
-              resolve(info.proxy);
-            });
-          });
-        }
-
+ 
         const proxy = await getProxyUrl();
         const agent = new SocksProxyAgent(proxy);
 
@@ -4066,14 +4064,56 @@ if (program.install || program.uninstall) {
         break;
       case 'wdav':
         spinner.succeed(`Found [${link.key}.${link.type}]`);
-        
-        // TODO connect and list dir contents - allow download        
+        const davurl = output.split('/Public')[0];
+        const filepath = '/Public' + output.split('/Public')[1]
+        const proxy2 = await getProxyUrl();
+        const agent2 = new SocksProxyAgent(proxy2);
+
+        const davClient = createWdavClient(davurl, {
+          username: 'anon',
+          password: 'anon',
+          authType: 'digest',
+          httpAgent: agent2
+        });
+
+        spinner.start('Trying to fetch ' + filepath);
 
         if (program.gui) {
-          guiProgress.progress(100);
-        } else {
-
+          guiProgress = Dialog.progress('Trying to fetch ' + filepath, duskTitle, {
+            pulsate: true,
+            noCancel: true
+          });
         }
+
+        const tmpPath = path.join(tmpdir(), 
+          dusk.utils.getRandomKeyString() + '-' + path.basename(filepath));
+        const rStream = davClient.createReadStream(filepath);
+        const wStream = fs.createWriteStream(tmpPath);
+
+        rStream.on('error', err => {
+          if (program.gui) {
+            guiProgress.progress(100);
+            Dialog.info(err.message, duskTitle, 'error');
+          }
+          spinner.fail(err.message);
+          exitGracefully();
+        });
+
+        rStream.pipe(wStream).on('finish', () => {
+          if (program.gui) {
+            guiProgress.progress(100);
+          }
+          spinner.succeed();
+          _open([tmpPath], { detached: true });
+          exitGracefully();
+        }).on('error', err => {
+          if (program.gui) {
+            guiProgress.progress(100);
+            Dialog.info(err.message, duskTitle, 'error');
+          }
+          spinner.fail(err.message);
+          exitGracefully();
+        });
         break;
       case 'seed':
         spinner.succeed(`Connected to [${link.key}.${link.type}]`);

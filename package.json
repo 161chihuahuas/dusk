@@ -55,6 +55,7 @@
     "unique-names-generator": "^4.7.1",
     "usb": "^2.14.0",
     "uuid": "^3.2.1",
+    "webdav": "^5.8.0",
     "webdav-server": "^2.6.2"
   },
   "description": "deniable cloud drive",
