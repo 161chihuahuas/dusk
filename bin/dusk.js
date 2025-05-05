@@ -40,6 +40,8 @@ process.on('unhandledRejection', (err) => {
 
 const { fork, spawn, execSync } = require('node:child_process');
 const assert = require('node:assert');
+const { SocksProxyAgent } = require('socks-proxy-agent');
+const FormData = require('form-data');
 const hexy = require('hexy');
 const async = require('async');
 const qrcode = require('qrcode');
@@ -3870,6 +3872,7 @@ if (program.install || program.uninstall) {
   }
 
   async function explore(rpc) {
+    const fileSelector = (await import('inquirer-file-selector')).default;
     const ora = (await import('ora')).default;
 
     const link = typeof program.X === 'string'
@@ -3951,6 +3954,7 @@ if (program.install || program.uninstall) {
         } else {
           console.log(output);
         }
+        exitGracefully();
         break;
       case 'blob':
         const dump = hexy.hexy(Buffer.from(output, 'hex'));
@@ -3964,6 +3968,8 @@ if (program.install || program.uninstall) {
         } else {
           console.log(dump);
         }
+        exitGracefully();
+        break;
       case 'file':
         spinner.succeed(`Found [${link.key}.${link.type}]`);
         
@@ -3975,15 +3981,88 @@ if (program.install || program.uninstall) {
         } else {
 
         }
+
+        exitGracefully();
         break;
       case 'drop':
         spinner.succeed(`Found [${link.key}.${link.type}]`);
-
-        // TODO prompt for upload to dropbox
+        const onion = output;
+        const form = new FormData();
+        let text;
+        let file;
 
         if (program.gui) {
           guiProgress.progress(100);
+          file = Dialog.file('file', false, false);
+          text = { 
+            message: Dialog.entry('Include a message with this file?', duskTitle) 
+          };
+        } else {
+          file = await fileSelector({
+            message: 'Drop a file to ' + link.key
+          });
+          text = await inquirer.default.prompt([{
+            type: 'input',
+            name: 'message',
+            message: 'Include a message with this file?'
+          }]);
         }
+
+        if (!file) {
+          exitGracefully();
+        } else {
+          form.append('file', fs.createReadStream(file));
+        }
+
+        if (text.message) {
+          form.append('message', text.message);
+        }
+
+        if (program.gui) {
+          guiProgress = Dialog.progressBar('Uploading to ' + link.key, duskTitle, {
+            pulsate: true,
+            noCancel: true
+          });
+        }
+
+        function getProxyUrl() {
+          return new Promise((resolve, reject) => {
+            rpc.invoke('getinfo', [], (err, info) => {
+              if (err) {
+                return reject(err);
+              }
+              resolve(info.proxy);
+            });
+          });
+        }
+
+        const proxy = await getProxyUrl();
+        const agent = new SocksProxyAgent(proxy);
+
+        spinner.start('Uploading to dropbox');
+        form.submit({
+          hostname: onion + '.onion',
+          port: 80,
+          path: '/',
+          agent: agent
+        }, (err, res) => {
+          if (err || res.statusCode !== 200) {
+            if (program.gui) {
+              guiProgress.progress(100);
+              Dialog.info(err.message || 'Failed to upload, sorry.', duskTitle, 'error');
+            } else {
+              spinner.fail(err.message || 'Failed to upload, sorry.');
+            }
+            exitGracefully();
+          }
+          spinner.succeed('File uploaded to ' + link.key + '.' + link.type);
+          if (program.gui) {
+            guiProgress.progress(100);
+            Dialog.info('File uploaded to ' + link.key + '.' + link.type);
+          }
+
+          res.on('end', exitGracefully).resume();
+        });
         break;
       case 'wdav':
         spinner.succeed(`Found [${link.key}.${link.type}]`);
@@ -4002,12 +4081,11 @@ if (program.install || program.uninstall) {
           guiProgress.progress(100);
           Dialog.notify(`${duskTitle}\nConnected to ${link.key}`);
         }
+        exitGracefully();
         break;
       default:
         // noop
     }
-
-    exitGracefully();
   }
 
   function handleRpcConnectErr(err) {
