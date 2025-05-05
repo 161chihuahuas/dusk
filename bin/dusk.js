@@ -3399,6 +3399,7 @@ async function manageDeviceLinks(actions) {
       ['🫂  View linked devices'], 
       ['🖇️  Link a new device'], 
       ['📵  Remove a linked device'], 
+      ['🔭  Resolve a dusk URL']
     ], ['🔗  Device Links / Network Seeds'],{ height: 600 }) };
   } else {
     option = await inquirer.default.prompt({
@@ -3418,6 +3419,9 @@ async function manageDeviceLinks(actions) {
         }, {
           name: '📵  Remove a linked device',
           value: 3
+        }, new inquirer.default.Separator(), {
+          name: '🔭  Resolve a dusk URL',
+          value: 4
         }, new inquirer.default.Separator(), {
           name: '↩️   Back', 
           value: null
@@ -3447,6 +3451,13 @@ async function manageDeviceLinks(actions) {
         f = _dusk(['--unlink', '--gui']);
       } else {
         f = _dusk(['--unlink']);
+      }
+      break;
+    case 4:
+      if (program.gui) {
+        f = _dusk(['--gui', '-X']);
+      } else {
+        f = _dusk(['-X']);
       }
       break;
     default:
@@ -3977,20 +3988,6 @@ if (program.install || program.uninstall) {
         } else {
           console.log(dump);
         }
-        exitGracefully();
-        break;
-      case 'file':
-        spinner.succeed(`Found [${link.key}.${link.type}]`);
-        
-        // TODO attempt decrypt blob into DAGEntry and retrace --open
-
-        if (program.gui) {
-          guiProgress.progress(100);
-
-        } else {
-
-        }
-
         exitGracefully();
         break;
       case 'drop':
