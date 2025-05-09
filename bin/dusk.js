@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-':' //; exec "$(command -v node || command -v nodejs)" "$0" "$@"
+':' //; exec "$(command -v node || command -v nodejs)" --max-old-space-size=16384 "$0" "$@"
 
 'use strict';
 
@@ -1406,14 +1406,14 @@ Ready?
         console.error('Failed to shrink metadata', err);
       }
       if (program.stdio) {
-        process.stdout.write(link.toString(), exitGracefully);
+        return process.stdout.write(link.toString(), exitGracefully);
       } else {
         exitGracefully();
       }
     }
 
     if (program.stdio) {
-      process.stdout.write(metaEnc, exitGracefully);
+      return process.stdout.write(metaEnc, exitGracefully);
     } else {
       exitGracefully();
     }
@@ -1846,20 +1846,6 @@ Ready?
       console.log('');
       console.log('  [ I reconstructed the encrypted file ♥ ]');
       console.log('');
-    }
-
-    if (missingPieces) {
-      if (progressBar) {
-        progressBar.text('There were some missing pieces. I will try to recover them...');
-      }
-      !program.Q && console.log('  attempting to encode missing parts from erasure codes...')
-      shards = splitSync(await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
-        bytes: dusk.DAGEntry.INPUT_SIZE
-      })), { bytes: dusk.DAGEntry.INPUT_SIZE });
-    } 
-
-    while (metaData.p--) {
-      shards.pop();
     }
 
     if (progressBar) {
@@ -2718,14 +2704,6 @@ async function initDusk() {
               callback(inputStream.pipe(toGunzipped).pipe(toDecrypted));
             }
           },
-          storageManager: new webdav.PerUserStorageManager(
-            dusk.constants.SHARD_SIZE * dusk.reedsol.MAX_K
-          ), 
-          // TODO how to make larger? currently limited to 192MiB
-          // limit is currently due to :
-          // - uniform shard size
-          // - reedsolomon params
-          // - json serialization @ leveldb
           enableLocationTag: false,
           maxRequestDepth: 1,
           headers: undefined,
