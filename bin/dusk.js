@@ -95,6 +95,29 @@ function _dusk(args, opts) {
   return fork(path.join(__dirname, 'dusk.js'), args, opts);
 }
 
+_dusk.createRetracer = function(priv) {
+  return spawn(path.join(__dirname, 'dusk.js'), [
+    '--retrace',
+    '--stdio',
+    '--quiet',
+    '--local',
+    '--unshrink-metadata',
+    '--with-secret', priv.toString('hex')
+  ]);
+};
+
+_dusk.createShredder = function(name) {
+  return spawn(path.join(__dirname, 'dusk.js'), [
+    '--shred',
+    '--stdio',
+    '--yes',
+    '--quiet',
+    '--local',
+    '--shrink-metadata',
+    '--filename', name
+  ]);
+};
+
 program.version(dusk.version.software);
 
 const description = `
@@ -1865,8 +1888,7 @@ Ready?
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
 
     if (program.stdio) {
-      process.stdout.write(trimmedFile);
-      exitGracefully();
+      return process.stdout.write(trimmedFile, exitGracefully);
     }
 
     const [unbundledFilename] = program.retrace.split('.duskbundle');
@@ -2629,6 +2651,9 @@ async function initDusk() {
           privilegeManager.setRights(anonUser, '/Public', [ 'canRead' ]);
         } 
 
+        const duskSerializer = new dusk.VirtualFileSystemSerializer(privkey, _dusk, logger);
+        const virtualFileSystem = new webdav.VirtualFileSystem(duskSerializer);
+
         const server = new webdav.WebDAVServer({
           requireAuthentication: false, // Default user is anon
           httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 
@@ -2639,6 +2664,7 @@ async function initDusk() {
           strictMode: false,
           hostname: '127.0.0.1',
           https: null,
+          rootFileSystem: virtualFileSystem,
           version: dusk.version.software,
           autoSave: {
             treeFilePath: typeof program.vfs === 'string'
@@ -2650,20 +2676,7 @@ async function initDusk() {
             },
             streamProvider: (callback) => {
               const pubkey = secp256k1.publicKeyCreate(privkey);
-              let tree = Buffer.from([]);
-              let meta = Buffer.from([]);
-           
-              const toMetaLinks = new Transform({
-                transform(chunk, encoding, callback) {
-                  meta = Buffer.concat([meta, chunk]);
-                  callback(null);
-                },
-                flush(callback) {
-                  console.log('tree', meta.toString())
-                  console.log('tree', JSON.parse(meta.toString()))
-                  callback(null, meta);
-                }
-              });
+              let tree = Buffer.from([]); 
 
               const toCrypted = new Transform({
                 transform(chunk, encoding, callback) {
@@ -2676,17 +2689,15 @@ async function initDusk() {
               });
               const toGzipped = zlib.createGzip();
 
-              toMetaLinks.pipe(toCrypted).pipe(toGzipped);
-              callback(toMetaLinks, toGzipped);
-
-              // TODO config options for how often to shred the vfs
-              // _dusk(['--shred', '--vfs', '--yes', '--dht', '--lazy', '--quiet']);
+              toCrypted.pipe(toGzipped);
+              callback(toCrypted, toGzipped);
             }
           },
           autoLoad: {
             treeFilePath: typeof program.vfs === 'string'
               ? program.vfs
               : config.VirtualFileSystemPath,
+            serializers: [duskSerializer],
             streamProvider: (inputStream, callback) => {
               let crypted = Buffer.from([]);
               
