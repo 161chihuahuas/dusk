@@ -220,6 +220,18 @@ program.option('--shred [message]',
 program.option('--retrace [bundle]', 
   're-assembles a dusk bundle created by --shred');
 
+program.option('--stdio', 
+  'use with --shred and --retrace to read from stdin and write to stdout');
+
+program.option('--filename <name>', 
+  'use with --shred --stdio to set a file name for the stream');
+
+program.option('--shrink-metadata', 
+  'use with --shred --stdio to store encrypted metadata in network');
+
+program.option('--unshrink-metadata', 
+  'use with --retrace --stdio to recover encrypted metadata from network');
+
 program.option('--vfs',
   'use with --shred or --retrace to operate on the virtual filesystem');
 
@@ -1059,7 +1071,29 @@ If you lose these words, you can never recover access to this identity, includin
   }
 
   if (program.shred) { 
-    console.log('');
+    !program.Q && console.log('');
+
+    function storeLocal(hexValue) {
+      return new Promise((resolve, reject) => {
+        rpc.invoke('putlocal', [hexValue], (err, key) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(key);
+        });
+      });
+    }
+
+    function storeNetwork(hexValue) {
+      return new Promise((resolve, reject) => {
+        rpc.invoke('storevalue', [hexValue], (err, key) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(key);
+        });
+      });
+    }
 
     if (program.vfs) {
       program.shred = true;
@@ -1080,6 +1114,17 @@ If you lose these words, you can never recover access to this identity, includin
     } else if (program.gui) { 
       program.fileIn = Dialog.file('file', false, false);
       entry = fs.readFileSync(program.fileIn);
+    } else if (program.stdio) {
+      entry = await (function() {
+        return new Promise((resolve, reject) => {
+          let buf = Buffer.from([]);
+
+          process.stdin
+            .on('data', data => buf = Buffer.concat([buf, data]))
+            .on('end', () => resolve(buf))
+            .on('error', reject);
+        });
+      })();
     } else {
       program.fileIn = await fileSelector({
         message: 'Select input file:'
@@ -1087,12 +1132,12 @@ If you lose these words, you can never recover access to this identity, includin
       entry = fs.readFileSync(program.fileIn);
     }
 
-    console.log('  encrypting input...');
+    !program.Q && console.log('  encrypting input...');
 
     const encryptedFile = dusk.utils.encrypt(publicKey, entry);
-    console.log('  shredding input and normalizing shard sizes...');
-    console.log('  creating parity shards...');
-    console.log('');
+    !program.Q && console.log('  shredding input and normalizing shard sizes...');
+    !program.Q && console.log('  creating parity shards...');
+    !program.Q && console.log('');
     const dagEntry = await dusk.DAGEntry.fromBuffer(encryptedFile, entry.length);
 
     if (!program.Q) {
@@ -1109,7 +1154,7 @@ If you lose these words, you can never recover access to this identity, includin
       if (program.fileIn) {
         program.fileOut = `${program.fileIn}.duskbundle`;
       } else {
-        console.warn('you didn\'t specify a --file-out so i wont\'t write anything');
+        !program.Q && console.warn('you didn\'t specify a --file-out so i wont\'t write anything');
       }
     }  
     
@@ -1134,11 +1179,12 @@ If you lose these words, you can never recover access to this identity, includin
         Dialog.info(`The file ${program.fileOut} already exists. I won't overwrite it`,
           'Sorry', 'error');
       }
-      console.error('file %s already exists, i won\'t overwrite it', program.fileOut);
+      program.Q && console.error('file %s already exists, i won\'t overwrite it', program.fileOut);
       process.exit(1);
     }
 
-    const meta = dagEntry.toMetadata(`${Date.now()}-${path.basename(program.fileIn)}` || '');
+    const meta = dagEntry.toMetadata(program.filename ||
+      `${Date.now()}-${path.basename(program.fileIn)}`);
     const metaEnc = dusk.utils.encrypt(publicKey, meta);
     const metaHash160 = dusk.utils.hash160(metaEnc).toString('hex');
 
@@ -1152,43 +1198,35 @@ If you lose these words, you can never recover access to this identity, includin
     let progressBar, rpc;
      
     if (program.usb) { 
-      console.log('');
+      !program.Q && console.log('');
       await shoes.shred(dagEntry, program, config, exitGracefully);
     } else if (program.dht || program.local) {
-      console.log('');
-      console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
+      !program.Q && console.log('');
+      !program.Q && console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
       rpc = await getRpcControl();
-      console.log('');
-      console.log('  [ we\'re connected ♥ ]')
-      console.log('');
+      !program.Q && console.log('');
+      !program.Q && console.log('  [ we\'re connected ♥ ]')
+      !program.Q && console.log('');
     }
 
     if (program.local || (program.dht && program.lazy)) {
-      console.log(`  I will attempt to write ${dagEntry.shards.length} to my local database...`);
+      !program.Q && 
+        console.log(`  I will attempt to write ${dagEntry.shards.length} to my local database...`);
       
-      function storeLocal(hexValue) {
-        return new Promise((resolve, reject) => {
-          rpc.invoke('putlocal', [hexValue], (err, key) => {
-            if (err) {
-              return reject(err);
-            }
-            resolve(key);
-          });
-        });
-      }
-
+      
       for (let i = 0; i < dagEntry.shards.length; i++) {
         let success;
         
-        console.log('  putlocal [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
+        !program.Q && 
+          console.log('  putlocal [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
         
         while (!success) {
           try {
             success = await storeLocal(dagEntry.shards[i].toString('hex'));
-            console.log('  [  done!  ]');
+            !program.Q && console.log('  [  done!  ]');
           } catch (e) {
             console.error(e.message);
-            console.log('');
+            !program.Q && console.log('');
             exitGracefully();
           }
         }
@@ -1196,14 +1234,16 @@ If you lose these words, you can never recover access to this identity, includin
     }
 
     if (program.dht) {
-      console.log(`  I will attempt to store ${dagEntry.shards.length} shards in the DHT.`);
-      console.log('  This can take a while depending on network conditions and the');
-      console.log('  overall size of the file.');
-      console.log('');
-      console.log('  Make sure you are safe to sit here for a moment and babysit me.');
-      console.log('  We will do ' + dusk.constants.SHARD_SIZE + 'bytes at a time, until we are done.');
-      console.log('');
-            
+      if (!program.Q) {
+        console.log(`  I will attempt to store ${dagEntry.shards.length} shards in the DHT.`);
+        console.log('  This can take a while depending on network conditions and the');
+        console.log('  overall size of the file.');
+        console.log('');
+        console.log('  Make sure you are safe to sit here for a moment and babysit me.');
+        console.log('  We will do ' + dusk.constants.SHARD_SIZE + 'bytes at a time, until we are done.');
+        console.log('');
+      }
+
       let ready = false;
 
       if (program.gui) {
@@ -1221,7 +1261,7 @@ Ready?
         );
       }
 
-      while (!ready && !program.yes) {
+      while (!ready && !program.yes && !program.Q) {
         let answers = await inquirer.default.prompt({
           type: 'confirm',
           name: 'ready',
@@ -1230,18 +1270,8 @@ Ready?
         ready = answers.ready;
       }
 
-      console.log('');
-      function storeNetwork(hexValue) {
-        return new Promise((resolve, reject) => {
-          rpc.invoke('storevalue', [hexValue], (err) => {
-            if (err) {
-              return reject(err);
-            }
-            resolve(true);
-          });
-        });
-      }
-
+      !program.Q && console.log('');
+      
       if (program.gui) {
         progressBar = Dialog.progress('Shredding file ♥ ...', '🝰 dusk', {
           pulsate: true,
@@ -1255,15 +1285,16 @@ Ready?
           progressBar.progress((i / dagEntry.shards.length) * 100);
           progressBar.text('Storing piece ' + dagEntry.merkle._leaves[i].toString('hex') + '...');
         }
-        console.log('  storevalue [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
+        !program.Q &&
+          console.log('  storevalue [  %s  ]', dagEntry.merkle._leaves[i].toString('hex'));
         while (!success) {
           try {
             success = await storeNetwork(dagEntry.shards[i].toString('hex'));
-            console.log('  [  done!  ]');
+            !program.Q && console.log('  [  done!  ]');
           } catch (e) {
             let tryAgain = { yes: program.yes && !(program.local && program.lazy) };
             console.error(e.message);
-            console.log('');
+            !program.Q && console.log('');
             if (program.gui && (!program.lazy && program.local)) {
               tryAgain = { yes: tryAgain.yes || Dialog.info(
                 `I wasn't able to store the shard. Would you like to try again? If not, I will exit.`, 
@@ -1287,9 +1318,9 @@ Ready?
       if (program.gui) {
         Dialog.notify('File was stored in the dusk network', 'Success!');
       }
-
-      console.log('  [  we did it ♥  ]');
-      console.log('');
+ 
+      !program.Q && console.log('\n  [  we did it ♥  ]');
+      !program.Q && console.log('');
     } else { 
       for (let s = 0; s < dagEntry.shards.length; s++) {
         if (program.gui) {
@@ -1315,27 +1346,53 @@ Ready?
         progressBar.progress(100);
       }
       if (program.fileOut) {
-        console.log('');
+        !program.Q && console.log('');
         if (program.usb) {
           if (program.gui) {
             Dialog.info('Sneakernet created! Be safe. ♥', '🝰 dusk ~ SHOES', 'info');
           }
-          console.log('sneakernet created ~ be safe  ♥ ');
+          !program.Q && console.log('sneakernet created ~ be safe  ♥ ');
         } else {
           if (program.gui) {
             Dialog.info('Parts uploaded and metadata written to ' + program.fileOut, '🝰 dusk', 'info'); 
           }
-          console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
+          !program.Q && console.log('bundle written ♥ ~ [  %s  ] ', program.fileOut);
         }
-        console.log('meta hash ♥ ~ [  %s  ] ', metaHash160);
-        console.log('');
+        !program.Q && console.log('meta hash ♥ ~ [  %s  ] ', metaHash160);
+        !program.Q && console.log('');
       } else {
-        console.log('');
-        console.warn('when you\'re ready, try again with --file-in / --file-out');
-        console.log('');
+        if (!program.Q) {
+          console.log('');
+          console.warn('when you\'re ready, try again with --file-in / --file-out');
+          console.log('');
+        }
       }
     }
-    process.exit(0);
+
+    if (program.shrinkMetadata) {
+      !program.Q && console.log('  shrinking metadata');
+      let key, link;
+      try {
+        key = program.lazy || program.local
+          ? await storeLocal(metaEnc.toString('hex'))
+          : await storeNetwork(metaEnc.toString('hex'));
+        link = new dusk.Link('dusk://' + key + '.blob');
+        link.parse();
+        link.validate();
+      } catch (err) {
+        console.error('Failed to shrink metadata', err);
+      }
+      if (program.stdio) {
+        process.stdout.write(link.toString());
+      }
+      exitGracefully();
+    }
+
+    if (program.stdio) {
+      process.stdout.write(metaEnc);
+    }
+
+    exitGracefully();
   }  
 
   // Initialize private key
@@ -1422,7 +1479,18 @@ Ready?
   }  
 
   if (program.retrace) {
-    if (typeof program.retrace !== 'string') {
+    if (program.stdio) {
+      program.retrace = await (function() {
+        return new Promise((resolve, reject) => {
+          let input = Buffer.from([]);
+          process.stdin.on('data', data => input = Buffer.concat([input, data]));
+          process.stdin.on('end', () => resolve(input));
+          process.stdin.on('error', reject);
+        });
+      })();
+    }
+
+    if (typeof program.retrace === true && !program.stdio) {
       program.retrace = '';
 
       while (path.extname(program.retrace) !== '.duskbundle') {
@@ -1453,10 +1521,9 @@ Ready?
       }
     }
       
-    console.log(`  Validating .duskbundle ...`);
+    !program.Q && console.log(`  Validating .duskbundle ...`);
 
-    if (path.extname(program.retrace) !== '.duskbundle') {
-
+    if (!program.stdio && path.extname(program.retrace) !== '.duskbundle') {
       if (program.gui) {
         Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
       }
@@ -1466,39 +1533,55 @@ Ready?
       console.error('  If you renamed the folder, make sure it ends in .duskbundle');
       process.exit(1);
     }
-    
-    const bundleContents = fs.readdirSync(program.retrace); 
-    const metaFiles = bundleContents.filter(f => path.extname(f) === '.meta');
 
-    if (metaFiles.length > 1) {
+    let metaData;
 
-      if (program.gui) {
-        Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
+    if (program.stdio) {
+      metaData = program.unshrinkMetadata
+        ? await (new dusk.Link.Resolver(await getRpcControl()))
+          .resolve(program.retrace.toString())
+        : program.retrace;
+    } else {
+      const bundleContents = fs.readdirSync(program.retrace); 
+      const metaFiles = bundleContents.filter(f => path.extname(f) === '.meta');
+
+      if (metaFiles.length > 1) {
+        if (program.gui) {
+          Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
+        }
+
+        console.error('i found more than one meta file and don\'t know what to do');
+        process.exit(1);
+      } else if (metaFiles.length === 0) {
+        if (program.gui) {
+          Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
+        }
+       
+        console.error('missing a meta file, i don\'t know how to retrace this bundle');
+        process.exit(1);
       }
-
-      console.error('i found more than one meta file and don\'t know what to do');
-      process.exit(1);
-    } else if (metaFiles.length === 0) {
-
-      if (program.gui) {
-        Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
-      }
-     
-      console.error('missing a meta file, i don\'t know how to retrace this bundle');
-      process.exit(1);
+      
+      const metaPath = path.join(program.retrace, metaFiles.pop());
+      
+      metaData = dusk.utils.decrypt(
+        privkey.toString('hex'),
+        fs.readFileSync(metaPath)
+      ).toString('utf8');
     }
-    const metaPath = path.join(program.retrace, metaFiles.pop());
-    const metaData = JSON.parse(dusk.utils.decrypt(
+
+    metaData = dusk.utils.decrypt(
       privkey.toString('hex'),
-      fs.readFileSync(metaPath)
-    ).toString('utf8'));
-    
+      Buffer.from(metaData, 'hex')
+    ).toString('utf8');
+
+    metaData = JSON.parse(metaData);
+
     let missingPieces = 0;
     let progressBar;
 
-    console.log('  read meta file successfully ♥ ');
-    console.log('');
-    console.log('  retracing from merkle leaves... ');
+    !program.Q && console.log('  read meta file successfully ♥ ');
+    !program.Q && console.log('');
+    !program.Q && console.log('  retracing from merkle leaves... ');
 
     let shards;
     let rpc;
@@ -1506,7 +1589,7 @@ Ready?
     if (program.usb) {
       shards = (await shoes.retrace(metaData, program, config, exitGracefully)).map(part => {
         if (!part) {
-          console.warn('missing part detected');
+          !program.Q && console.warn('missing part detected');
           missingPieces++;
         
           if (missingPieces > metaData.p) {
@@ -1532,12 +1615,12 @@ Ready?
         
       shards = [];
 
-      console.log('');
-      console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
+      !program.Q && console.log('');
+      !program.Q && console.log('  ok, I\'m going to try to connect to dusk\'s control socket...');
       rpc = await getRpcControl();
-      console.log('');
-      console.log('  [ we\'re connected ♥ ]')
-      console.log('');
+      !program.Q && console.log('');
+      !program.Q && console.log('  [ we\'re connected ♥ ]')
+      !program.Q && console.log('');
     }
 
     if (program.local) {
@@ -1555,17 +1638,17 @@ Ready?
       for (let i = 0; i < metaData.l.length; i++) {
         let success;
         
-        console.log('  getlocal [  %s  ]', metaData.l[i].toString('hex'));
+        !program.Q && console.log('  getlocal [  %s  ]', metaData.l[i].toString('hex'));
         
         while (!success) {
           try {
             let shard = await getLocal(metaData.l[i].toString('hex'));
-            console.log('  [  done!  ]');
+            !program.Q && console.log('  [  done!  ]');
             shards.push(shard);
             success = true;
           } catch (e) {
             console.error(e.message);
-            console.log('');
+            !program.Q && console.log('');
 
             missingPieces++;
               
@@ -1580,7 +1663,7 @@ Ready?
             }
 
             shards.push(Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
-            console.log('  [  skip.  ]');
+            !program.Q && console.log('  [  skip.  ]');
             success = true;
           }
         }
@@ -1588,13 +1671,15 @@ Ready?
     }
 
     if (program.dht && !missingPieces || (program.dht && (missingPieces && missingPieces > metaData.p))) {
-      console.log(`  I will attempt to find ${missingPieces || metaData.l.length} shards in the DHT.`);
-      console.log('  This can take a while depending on network conditions and the');
-      console.log('  overall size of the file.');
-      console.log('');
-      console.log('  Make sure you are safe to sit here for a moment and babysit me.');
-      console.log('  We will do ' + dusk.constants.SHARD_SIZE + 'bytes at a time, until we are done.');
-      console.log(''); 
+      if (!program.Q) {
+        console.log(`  I will attempt to find ${missingPieces || metaData.l.length} shards in the DHT.`);
+        console.log('  This can take a while depending on network conditions and the');
+        console.log('  overall size of the file.');
+        console.log('');
+        console.log('  Make sure you are safe to sit here for a moment and babysit me.');
+        console.log('  We will do ' + dusk.constants.SHARD_SIZE + 'bytes at a time, until we are done.');
+        console.log('');
+      }
       
       let ready = { yes: program.yes };
 
@@ -1627,7 +1712,7 @@ Ready?
         ready.yes = answers.yes;
       }
 
-      console.log('');
+      !program.Q && console.log('');
       
       function findvalue(hexKey) {
         return new Promise((resolve, reject) => {
@@ -1657,16 +1742,16 @@ Ready?
           continue;
         }
 
-        console.log('  findvalue [  %s  ]', metaData.l[i].toString('hex'));
+        !program.Q && console.log('  findvalue [  %s  ]', metaData.l[i].toString('hex'));
         while (!success) {
           try {
             let shard = await findvalue(metaData.l[i].toString('hex'));
-            console.log('  [  done!  ]');
+            !program.Q && console.log('  [  done!  ]');
             shards[i] = shard;
             success = true;
           } catch (e) {
             console.error(e.message);
-            console.log('');
+            !program.Q && console.log('');
             let tryAgain = { yes: false };
 
             if (program.gui && !program.Q) {
@@ -1680,8 +1765,6 @@ Ready?
                 message: 'Would you like to try again? If not I will skip it.'
               });
             }
-
-            console.log(tryAgain)
 
             if (!tryAgain.yes) {
               missingPieces++;
@@ -1697,19 +1780,21 @@ Ready?
               }
 
               shards[i] = (Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
-              console.log('  [  skip.  ]');
+              !program.Q && console.log('  [  skip.  ]');
               success = true;
             }
           }
         }
       } 
       
-      console.log('');
-      console.log('  [  we did it ♥  ]');
-      console.log('');
-    } else {
+      if (!program.Q) {
+        console.log('');
+        console.log('  [  we did it ♥  ]');
+        console.log('');
+      }
+    } else if (!program.dht && !program.local) {
       shards = metaData.l.map(hash => {
-        console.log(`  reconstructing  [ ${hash}`);
+        !program.Q && console.log(`  reconstructing  [ ${hash}`);
         if (!fs.existsSync(path.join(program.retrace, `${hash}.part`))) {
           console.warn('missing part detected for hash %s', hash);
           missingPieces++;
@@ -1733,15 +1818,17 @@ Ready?
       progressBar.text(' I reconstructed the encrypted file ♥ ');
     }
 
-    console.log('');
-    console.log('  [ I reconstructed the encrypted file ♥ ]');
-    console.log('');
-    
+    if (!program.Q) {
+      console.log('');
+      console.log('  [ I reconstructed the encrypted file ♥ ]');
+      console.log('');
+    }
+
     if (missingPieces) {
       if (progressBar) {
         progressBar.text('There were some missing pieces. I will try to recover them...');
       }
-      console.log('  attempting to encode missing parts from erasure codes...')
+      !program.Q && console.log('  attempting to encode missing parts from erasure codes...')
       shards = splitSync(await dusk.reedsol.encodeCorrupted(splitSync(Buffer.concat(shards), {
         bytes: dusk.DAGEntry.INPUT_SIZE
       })), { bytes: dusk.DAGEntry.INPUT_SIZE });
@@ -1773,12 +1860,18 @@ Ready?
     }
 
     const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
-    const [unbundledFilename] = program.retrace.split('.duskbundle');
-    const filename = program.fileOut || 
-      path.join(tmpdir(), `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
     const trimmedFile = fileBuf.subarray(0, metaData.s.o);
+
+    if (program.stdio) {
+      process.stdout.write(trimmedFile);
+      exitGracefully();
+    }
+
+    const [unbundledFilename] = program.retrace.split('.duskbundle');
+    const filename = program.fileOut || 
+      path.join(tmpdir(), `unbundled-${Date.now()}-${path.basename(unbundledFilename)}`);
 
     if (fs.existsSync(filename)) {
       let overwrite;
@@ -2558,7 +2651,20 @@ async function initDusk() {
             streamProvider: (callback) => {
               const pubkey = secp256k1.publicKeyCreate(privkey);
               let tree = Buffer.from([]);
-            
+              let meta = Buffer.from([]);
+           
+              const toMetaLinks = new Transform({
+                transform(chunk, encoding, callback) {
+                  meta = Buffer.concat([meta, chunk]);
+                  callback(null);
+                },
+                flush(callback) {
+                  console.log('tree', meta.toString())
+                  console.log('tree', JSON.parse(meta.toString()))
+                  callback(null, meta);
+                }
+              });
+
               const toCrypted = new Transform({
                 transform(chunk, encoding, callback) {
                   tree = Buffer.concat([tree, chunk]);
@@ -2570,8 +2676,8 @@ async function initDusk() {
               });
               const toGzipped = zlib.createGzip();
 
-              toCrypted.pipe(toGzipped);
-              callback(toCrypted, toGzipped);
+              toMetaLinks.pipe(toCrypted).pipe(toGzipped);
+              callback(toMetaLinks, toGzipped);
 
               // TODO config options for how often to shred the vfs
               // _dusk(['--shred', '--vfs', '--yes', '--dht', '--lazy', '--quiet']);
