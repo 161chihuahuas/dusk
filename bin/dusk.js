@@ -1406,16 +1406,17 @@ Ready?
         console.error('Failed to shrink metadata', err);
       }
       if (program.stdio) {
-        process.stdout.write(link.toString());
+        process.stdout.write(link.toString(), exitGracefully);
+      } else {
+        exitGracefully();
       }
-      exitGracefully();
     }
 
     if (program.stdio) {
-      process.stdout.write(metaEnc);
+      process.stdout.write(metaEnc, exitGracefully);
+    } else {
+      exitGracefully();
     }
-
-    exitGracefully();
   }  
 
   // Initialize private key
