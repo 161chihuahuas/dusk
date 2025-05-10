@@ -96,18 +96,20 @@ function _dusk(args, opts) {
 }
 
 _dusk.createRetracer = function(priv) {
-  return spawn(path.join(__dirname, 'dusk.js'), [
+  return _dusk([
     '--retrace',
     '--stdio',
     '--quiet',
     '--local',
     '--unshrink-metadata',
     '--with-secret', priv.toString('hex')
-  ]);
+  ], {
+    silent: true
+  });
 };
 
 _dusk.createShredder = function(name) {
-  return spawn(path.join(__dirname, 'dusk.js'), [
+  return _dusk([
     '--shred',
     '--stdio',
     '--yes',
@@ -115,7 +117,9 @@ _dusk.createShredder = function(name) {
     '--local',
     '--shrink-metadata',
     '--filename', name
-  ]);
+  ], {
+    silent: true
+  });
 };
 
 program.version(dusk.version.software);
