@@ -10,7 +10,7 @@ describe('@module dusk/version', function() {
 
     it('should return the version string', function() {
       expect(version.toString()).to.equal(
-        `dusk v${version.software} protocol v${version.protocol}`
+        `dusk v${version.software}-${version.protocol}`
       );
     });
 
