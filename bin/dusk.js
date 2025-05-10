@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-':' //; exec "$(command -v node || command -v nodejs)" --max-old-space-size=16384 "$0" "$@"
+':' //; exec "$(command -v node || command -v nodejs)" --max-old-space-size=8192 "$0" "$@"
 
 'use strict';
 
@@ -425,29 +425,18 @@ function uninstallMacBundle() {
 
 function installGnomeDesktop() {
   const binpath = execSync('which node').toString().trim();
-  const desktop1 = `[Desktop Entry]
-Name=${duskTitle} ~ Files
-Comment=deniable cloud drive file browser
-Terminal=false
-Exec=${binpath} ${path.join(__dirname)}/dusk.js --open --gui --menu %U
-Icon=${path.join(__dirname, '../assets/images/icon-files.png')}
-Categories=Utility;
-Type=Application
-  `;
   const desktop2 = `[Desktop Entry]
-Name=${duskTitle} ~ Settings
+Name=${duskTitle}
 Comment=deniable cloud drive
 Terminal=false
 Exec=${binpath} ${path.join(__dirname)}/dusk.js --gui --menu %U
-Icon=${path.join(__dirname, '../assets/images/icon-settings.png')}
+Icon=${path.join(__dirname, '../assets/images/icon-dusk.png')}
 Categories=Utility;
 Type=Application
   `;
-  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk_Files.desktop');
-  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk_Settings.desktop');
-  console.log(`  Installing desktop entries to ${writeOut1},${writeOut2}...`);
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk.desktop');
+  console.log(`  Installing desktop entries to ${writeOut2}...`);
   try {
-    fs.writeFileSync(writeOut1, desktop1);
     fs.writeFileSync(writeOut2, desktop2);
   } catch (e) {
     console.error('  Failed to create desktop entries:', e.message);
@@ -460,11 +449,9 @@ Type=Application
 }
 
 function uninstallGnomeDesktop() {
-  const writeOut1 = path.join(homedir(), '.local/share/applications/dusk_Files.desktop');
-  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk_Settings.desktop');
-  console.log(`  Removing desktop entries from ${writeOut1},${writeOut2}...`);
+  const writeOut2 = path.join(homedir(), '.local/share/applications/dusk.desktop');
+  console.log(`  Removing desktop entries from ${writeOut2}...`);
   try {
-    fs.unlinkSync(writeOut1);
     fs.unlinkSync(writeOut2);
   } catch (e) {
     console.error('  Failed to remove desktop entries:', e.message);
@@ -574,7 +561,7 @@ X-GNOME-Autostart-Delay=1
 }
 
 function disableAutostartGnome() {
-  const writeOut3 = path.join(homedir(), '.config/autostart/dusk:Autostart.desktop');
+  const writeOut3 = path.join(homedir(), '.config/autostart/dusk_Autostart.desktop');
   console.log(`  Removing autostart entry from ${writeOut3}...`);
   try {
     fs.unlinkSync(writeOut3);
