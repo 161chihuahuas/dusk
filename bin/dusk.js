@@ -1505,7 +1505,7 @@ Ready?
       })();
     }
 
-    if (typeof program.retrace === true && !program.stdio) {
+    if (program.retrace === true && !program.stdio) {
       program.retrace = '';
 
       while (path.extname(program.retrace) !== '.duskbundle') {
@@ -1538,7 +1538,8 @@ Ready?
       
     !program.Q && console.log(`  Validating .duskbundle ...`);
 
-    if (!program.stdio && path.extname(program.retrace) !== '.duskbundle') {
+    if (!program.stdio && typeof program.retrace === 'string'
+      && path.extname(program.retrace) !== '.duskbundle') {
       if (program.gui) {
         Dialog.info('Not a valid .duskbundle. Try again?', 'Sorry', 'error');
       }
