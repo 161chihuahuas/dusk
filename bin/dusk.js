@@ -889,7 +889,7 @@ async function _init() {
       ' is used to protect your files. Next, I will ask you to set a password and then confirm it.';
 
     if (program.gui) {
-      Dialog.info(message, 'info');
+      Dialog.info(message, duskTitle, 'info');
     } else {
       console.log(`
   ${message}
