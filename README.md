@@ -1,9 +1,8 @@
 # [🝰 dusk](https://rundusk.org)
-## --
 
-🝰 dusk is a deniable cloud drive
+a deniable cloud drive
 
----
+![dusk demo](https://github.com/user-attachments/assets/41bde292-ae90-4a08-83e6-6a49ec4ab083)
 
 * [Installer](install.sh)
 * [User Guide](howto.md)
