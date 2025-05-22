@@ -56,7 +56,7 @@ const path = require('node:path');
 const options = require('./config');
 const { Readable, Transform } = require('node:stream');
 const npid = require('npid');
-const boscar = require('boscar');
+const mascara = require('@tacticalchihuahua/mascara');
 const rc = require('rc');
 const secp256k1 = require('secp256k1');
 const osascript = require('osascript');
@@ -2523,7 +2523,7 @@ function registerControlInterface() {
            parseInt(config.ControlSockEnabled)),
   'ControlSock and ControlPort cannot both be enabled');
 
-  controller = new boscar.Server(new dusk.Control(node));
+  controller = new mascara.Server(new dusk.Control(node));
 
   if (parseInt(config.ControlPortEnabled)) {
     logger.info('binding controller to port ' + config.ControlPort);
@@ -2988,7 +2988,7 @@ function getRpcControl() {
       console.error(e.message);
     }
 
-    const client = new boscar.Client();
+    const client = new mascara.Client();
 
     if (parseInt(config.ControlPortEnabled)) {
       client.connect(parseInt(config.ControlPort));
