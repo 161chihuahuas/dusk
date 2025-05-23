@@ -12,11 +12,11 @@
   "contributors": [],
   "dependencies": {
     "@ronomon/reed-solomon": "^6.0.0",
+    "@tacticalchihuahua/blossom": "^1.0.0",
     "@tacticalchihuahua/equihash": "^1.0.0",
     "@tacticalchihuahua/granax": "^3.4.0",
     "@tacticalchihuahua/mascara": "^1.0.0",
     "async": "^2.6.0",
-    "atbf": "^1.1.0",
     "bip39": "^3.1.0",
     "bunyan": "^1.8.12",
     "bunyan-rotating-file-stream": "^1.6.3",

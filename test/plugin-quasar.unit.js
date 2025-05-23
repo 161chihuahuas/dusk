@@ -7,7 +7,7 @@ const utils = require('../lib/utils');
 const RoutingTable = require('../lib/routing-table');
 const dusk = require('..');
 const constants = require('../lib/constants');
-const BloomFilter = require('atbf');
+const { AttenuatedBloomFilter } = require('@tacticalchihuahua/blossom').bloom;
 
 
 describe('@module dusk/quasar', function() {
@@ -189,9 +189,9 @@ describe('@module dusk/quasar', function() {
 
       it('should merge all the filters with local', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        let remote1 = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
-        let remote2 = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
-        let remote3 = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let remote1 = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let remote2 = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let remote3 = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
         remote1[0].add('remote 1');
         remote2[0].add('remote 2');
         remote3[0].add('remote 3');
@@ -214,7 +214,7 @@ describe('@module dusk/quasar', function() {
 
       it('should node#send with args and callback with atbf', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        let remote = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let remote = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
         remote[0].add('some topic');
         plugin.node.send = function(method, params, contact, callback) {
           expect(method).to.equal(QuasarPlugin.SUBSCRIBE_METHOD);
@@ -230,7 +230,7 @@ describe('@module dusk/quasar', function() {
 
       it('should callback if transport error', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        let remote = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let remote = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
         remote[0].add('some topic');
         plugin.node.send = function(method, params, contact, callback) {
           callback(new Error('Timeout'));
@@ -243,7 +243,7 @@ describe('@module dusk/quasar', function() {
 
       it('should callback if bad result', function(done) {
         let plugin = new QuasarPlugin({ identity, router, use });
-        let remote = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let remote = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
         remote[0].add('some topic');
         plugin.node.send = function(method, params, contact, callback) {
           callback(null, ['some', 'bad', 'data?']);
@@ -544,7 +544,7 @@ describe('@module dusk/quasar', function() {
     describe('@method subscribe', function() {
 
       it('should respond with a hex array of our filter', function(done) {
-        let filter = new BloomFilter({ filterDepth: 3, bitfieldSize: 160 });
+        let filter = new AttenuatedBloomFilter({ filterDepth: 3, bitfieldSize: 160 });
         filter[0].add('beep');
         filter[1].add('boop');
         filter[2].add('buup');
@@ -552,7 +552,7 @@ describe('@module dusk/quasar', function() {
         rules.subscribe({}, {
           send: (params) => {
             expect(params).to.have.lengthOf(3);
-            let filter = BloomFilter.from(params);
+            let filter = AttenuatedBloomFilter.from(params);
             expect(filter[0].has('beep')).to.equal(true);
             expect(filter[1].has('boop')).to.equal(true);
             expect(filter[2].has('buup')).to.equal(true);
@@ -566,7 +566,7 @@ describe('@module dusk/quasar', function() {
     describe('@method update', function() {
 
       it('should merge remote filter with the local filter', function(done) {
-        let local = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let local = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         let rules = new QuasarRules({ filter: local, node: { logger } });
         let send = sinon.stub();
         rules.update({ params: { bad: 'data' } }, { send }, function(err) {
@@ -577,7 +577,7 @@ describe('@module dusk/quasar', function() {
       });
 
       it('should callback error if failed to merge', function(done) {
-        let local = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let local = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         let rules = new QuasarRules({ filter: local, node: { logger } });
         let send = sinon.stub();
         rules.update({ params: ['bad', 'data?'] }, { send }, function(err) {
@@ -588,8 +588,8 @@ describe('@module dusk/quasar', function() {
       });
 
       it('should merge remote filter with the local filter', function(done) {
-        let local = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
-        let remote = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let local = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let remote = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         remote[0].add('test');
         let rules = new QuasarRules({ filter: local, node: { logger } });
         rules.update({ params: remote.toHexArray() }, {
@@ -614,7 +614,7 @@ describe('@module dusk/quasar', function() {
             ]
           }
         };
-        let filters = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let filters = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         expect(
           QuasarRules.shouldRelayPublication(request, filters)
         ).to.equal(false);
@@ -629,7 +629,7 @@ describe('@module dusk/quasar', function() {
             ]
           }
         };
-        let filters = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let filters = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         filters[1].add(identity.toString('hex'));
         filters[2].add(identity.toString('hex'));
         expect(
@@ -646,7 +646,7 @@ describe('@module dusk/quasar', function() {
             ]
           }
         };
-        let filters = new BloomFilter({ bitfieldSize: 160, filterDepth: 3 });
+        let filters = new AttenuatedBloomFilter({ bitfieldSize: 160, filterDepth: 3 });
         filters[0].add('test topic');
         expect(
           QuasarRules.shouldRelayPublication(request, filters)
