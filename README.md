@@ -1,6 +1,4 @@
-# [🝰 dusk](https://rundusk.org)
-
-a deniable cloud drive
+# [🝰 dusk](https://rundusk.org) *a deniable cloud drive*
 
 ![dusk demo](https://github.com/user-attachments/assets/41bde292-ae90-4a08-83e6-6a49ec4ab083)
 
