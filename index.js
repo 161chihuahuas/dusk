@@ -34,12 +34,6 @@ module.exports.RoutingTable = require('./lib/routing-table');
 /** {@link HTTPTransport} */
 module.exports.HTTPTransport = require('./lib/transport-http');
 
-/** { @link DAGEntry } */
-module.exports.DAGEntry = require('./lib/dag-entry');
-
-/** {@link MerkleTree } */
-module.exports.MerkleTree = require('./lib/merkle-tree');
-
 /** {@link Dropbox } */
 module.exports.Dropbox = require('./lib/dropbox');
 

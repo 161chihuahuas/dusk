@@ -71,6 +71,7 @@ const { tmpdir, homedir, platform } = require('node:os');
 const http = require('node:http');
 const webdav = require('webdav-server').v2;
 const hsv3 = require('@tacticalchihuahua/granax/hsv3');
+const { DAG } = require('@tacticalchihuahua/merked').dag;
 const Dialog = require('../lib/zenity.js');
 const { 
   uniqueNamesGenerator, 
@@ -1150,9 +1151,14 @@ If you lose these words, you can never recover access to this identity, includin
 
     const encryptedFile = dusk.utils.encrypt(publicKey, entry);
     !program.Q && console.log('  shredding input and normalizing shard sizes...');
-    !program.Q && console.log('  creating parity shards...');
     !program.Q && console.log('');
-    const dagEntry = await dusk.DAGEntry.fromBuffer(encryptedFile, entry.length);
+    const dagEntry = DAG.fromBuffer(
+      encryptedFile,
+      dusk.constants.DAG_SLICE_SIZE,
+      dusk.utils.hash160,
+      true,
+      true
+    );
 
     if (!program.Q) {
       for (let i = 0; i < dagEntry.merkle.levels(); i++) {
@@ -1585,11 +1591,6 @@ Ready?
       ).toString('utf8');
     }
 
-    metaData = dusk.utils.decrypt(
-      privkey.toString('hex'),
-      Buffer.from(metaData, 'hex')
-    ).toString('utf8');
-
     metaData = JSON.parse(metaData);
 
     let missingPieces = 0;
@@ -1617,7 +1618,7 @@ Ready?
             process.exit(1);
           }  
         
-          return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+          return Buffer.alloc(dusk.constants.DAG_SLICE_SIZE);
         }
         return part;
       });
@@ -1678,7 +1679,7 @@ Ready?
               process.exit(1);
             }
 
-            shards.push(Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
+            shards.push(Buffer.alloc(dusk.constants.DAG_SLICE_SIZE));
             !program.Q && console.log('  [  skip.  ]');
             success = true;
           }
@@ -1751,7 +1752,7 @@ Ready?
           progressBar.text(`Finding shard ${metaData.l[i].toString('hex')}...`);
         }
 
-        const emptyBuf = Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+        const emptyBuf = Buffer.alloc(dusk.constants.DAG_SLICE_SIZE);
         const currentShard = shards[i];
 
         if (currentShard && Buffer.compare(emptyBuf, currentShard) !== 0) {
@@ -1795,7 +1796,7 @@ Ready?
                 process.exit(1);
               }
 
-              shards[i] = (Buffer.alloc(dusk.DAGEntry.INPUT_SIZE));
+              shards[i] = (Buffer.alloc(dusk.constants.DAG_SLICE_SIZE));
               !program.Q && console.log('  [  skip.  ]');
               success = true;
             }
@@ -1824,7 +1825,7 @@ Ready?
             process.exit(1);
           }
 
-          return Buffer.alloc(dusk.DAGEntry.INPUT_SIZE);
+          return Buffer.alloc(dusk.constants.DAG_SLICE_SIZE);
         }
         return fs.readFileSync(path.join(program.retrace, `${hash}.part`));
       });
@@ -1861,10 +1862,10 @@ Ready?
         : config.VirtualFileSystemPath;
     }
 
-    const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s.a);
+    const mergedNormalized = Buffer.concat(shards).subarray(0, metaData.s);
     const decryptedFile = dusk.utils.decrypt(privkey.toString('hex'), mergedNormalized);
     const fileBuf = Buffer.from(decryptedFile);
-    const trimmedFile = fileBuf.subarray(0, metaData.s.o);
+    const trimmedFile = fileBuf.subarray(0, metaData.s);
 
     if (program.stdio) {
       return process.stdout.write(trimmedFile, exitGracefully);
