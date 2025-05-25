@@ -43,7 +43,6 @@ const assert = require('node:assert');
 const createWdavClient = require('webdav').createClient;
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const FormData = require('form-data');
-const hexy = require('hexy');
 const async = require('async');
 const qrcode = require('qrcode');
 const program = require('commander');
@@ -4057,7 +4056,13 @@ if (program.install || program.uninstall) {
         exitGracefully();
         break;
       case 'blob':
-        const dump = hexy.hexy(Buffer.from(output, 'hex'));
+        let dump = '\n';
+        const array = output.match(/[\s\S]{1,2}/g) || [];
+        const chunkSize = 20;
+        for (let i = 0; i < array.length; i += chunkSize) {
+          const chunk = array.slice(i, i + chunkSize);
+          dump += '  ' + chunk.join('  ') + '\n';  
+        }
         spinner.succeed(`Found [${link.key}.${link.type}]`);
         if (program.gui) {
           guiProgress.progress(100);
