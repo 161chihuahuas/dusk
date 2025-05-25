@@ -49,7 +49,6 @@ const qrcode = require('qrcode');
 const program = require('commander');
 const dusk = require('../index');
 const bunyan = require('bunyan');
-const RotatingLogStream = require('bunyan-rotating-file-stream');
 const fs = require('node:fs');
 const fsP = require('node:fs/promises');
 const path = require('node:path');
@@ -717,12 +716,10 @@ function _setup() {
       name: 'dusk',
       streams: [
         {
-          stream: new RotatingLogStream({
-            path: config.LogFilePath,
-            totalFiles: parseInt(config.LogFileMaxBackCopies),
-            rotateExisting: true,
-            gzip: false
-          })
+          type: 'rotating-file',  
+          path: config.LogFilePath,
+          count: parseInt(config.LogFileMaxBackCopies),
+          period: '1d'
         },
         { stream: prettyPrint.stdin }
       ],
@@ -2992,16 +2989,10 @@ function getRpcControl() {
     const client = new mascara.Client();
 
     if (parseInt(config.ControlPortEnabled)) {
-      client.connect(parseInt(config.ControlPort));
+      client.connect(parseInt(config.ControlPort), () => resolve(client));
     } else if (parseInt(config.ControlSockEnabled)) {
-      client.connect(config.ControlSock);
+      client.connect(config.ControlSock, () => resolve(client));
     }
-
-    client.on('ready', () => resolve(client));
-
-    client.socket.on('close', () => {
-    
-    });
 
     client.on('error', err => {
       if (program.gui) {

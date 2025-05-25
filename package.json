@@ -19,7 +19,6 @@
     "async": "^2.6.0",
     "bip39": "^3.1.0",
     "bunyan": "^1.8.12",
-    "bunyan-rotating-file-stream": "^1.6.3",
     "commander": "^2.9.0",
     "concat-stream": "^1.6.0",
     "daemon": "^1.1.0",
