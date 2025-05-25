@@ -4,9 +4,8 @@ const path = require('node:path');
 const usb = require('usb');
 const drivelist = require('drivelist');
 const inquirer = require('inquirer').default;
-const mkdirp = require('mkdirp');
 const dusk = require('../index.js');
-const fs = require('node:fs');
+const { mkdirSync } = require('node:fs');
 const Dialog = require('../lib/zenity.js');
 
 const dialogTitle = '🝰 dusk ~ SHOES '
@@ -234,7 +233,7 @@ I will tell you when I have enough data. ♥`,
 module.exports.init = function(program, config) {
   return new Promise((resolve, reject) => {
     const shoesMetaPath = path.join(program.datadir, 'dusk.dag');
-    mkdirp.sync(shoesMetaPath);    
+    mkdirSync(shoesMetaPath, { recursive: true });
     console.log('\n  [ using dusk USB ♥ ] ');
     resolve();
   });

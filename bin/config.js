@@ -1,8 +1,7 @@
 'use strict';
 
 const ini = require('ini');
-const { existsSync, writeFileSync } = require('node:fs');
-const mkdirp = require('mkdirp');
+const { mkdirSync, existsSync, writeFileSync } = require('node:fs');
 const { homedir } = require('node:os');
 const { join } = require('node:path');
 
@@ -71,16 +70,16 @@ module.exports = function(datadir) {
   };
 
   if (!existsSync(join(datadir, 'config'))) {
-    mkdirp.sync(datadir);
+    mkdirSync(datadir, { recursive: true });
     writeFileSync(join(datadir, 'config'), ini.stringify(options));
   }
 
   if (!existsSync(join(datadir, 'dusk.dat'))) {
-    mkdirp.sync(join(datadir, 'dusk.dat'));
+    mkdirSync(join(datadir, 'dusk.dat'), { recursive: true });
   }
 
   if (!existsSync(join(datadir, 'dusk.dag'))) {
-    mkdirp.sync(join(datadir, 'dusk.dag'));
+    mkdirSync(join(datadir, 'dusk.dag'), { recursive: true });
   }
   return options;
 };

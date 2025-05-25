@@ -63,7 +63,6 @@ const bip39 = require('bip39');
 const inquirer = require('inquirer');
 const { splitSync } = require('node-split');
 const shoes = require('./shoes.js');
-const mkdirp = require('mkdirp');
 const zlib = require('node:zlib');
 const { tmpdir, homedir, platform } = require('node:os');
 const http = require('node:http');
@@ -1187,7 +1186,7 @@ If you lose these words, you can never recover access to this identity, includin
           `${Date.now()}-${path.basename(program.fileOut)}`
         );
       }
-      mkdirp.sync(program.fileOut);
+      fs.mkdirSync(program.fileOut, { recursive: true });
     }
 
     if (fs.existsSync(program.fileOut) && fs.readdirSync(program.fileOut).length) {
@@ -2833,7 +2832,7 @@ ${numFiles} files in Dropbox/${codename}`, duskTitle, 'info');
     const seedsdir = path.join(program.datadir, 'seeds');
 
     if (!fs.existsSync(seedsdir)) {
-      mkdirp.sync(seedsdir);
+      fs.mkdirSync(seedsdir, { recursive: true });
     }
     peers = peers.concat(fs.readdirSync(seedsdir).map(file => {
       return fs.readFileSync(path.join(seedsdir, file));
