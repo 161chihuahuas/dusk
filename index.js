@@ -46,9 +46,6 @@ module.exports.Storage = require('./lib/storage');
 /** {@link VirtualFileSystemSerializer } */
 module.exports.VirtualFileSystemSerializer = require('./lib/vfs-serializer');
 
-/** {@link module.reedsol } */
-module.exports.reedsol = require('./lib/reed-solomon');
-
 /** {@link module:dusk/onion} */
 module.exports.onion = require('./lib/plugin-onion');
 

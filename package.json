@@ -11,7 +11,6 @@
   },
   "contributors": [],
   "dependencies": {
-    "@ronomon/reed-solomon": "^6.0.0",
     "@tacticalchihuahua/blossom": "^1.0.0",
     "@tacticalchihuahua/equihash": "^1.0.0",
     "@tacticalchihuahua/granax": "^3.4.0",
@@ -49,13 +48,11 @@
     "qrcode": "^1.5.4",
     "rc": "^1.2.8",
     "secp256k1": "^5.0.1",
-    "semver": "^5.1.0",
     "socks": "^2.8.3",
     "socks-proxy-agent": "^8.0.4",
     "split": "^1.0.1",
     "unique-names-generator": "^4.7.1",
     "usb": "^2.14.0",
-    "uuid": "^3.2.1",
     "webdav": "^5.8.0",
     "webdav-server": "^2.6.2"
   },

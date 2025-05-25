@@ -24,9 +24,9 @@ describe('@module dusk/quasar', function() {
   const topic = 'd51f652b6e6acdd722b47ee04116ab34a439b148';
 
   const { QuasarRules, QuasarPlugin } = proxyquire('../lib/plugin-quasar', {
-    uuid: { v4: () => pubid }
+    'node:crypto': { randomUUID: () => pubid }
   });
-  const uuid = proxyquire('uuid', { v4: () => pubid });
+  const uuid = () => pubid;
 
   const spartacus = {
     privateKey: Buffer.from('c7bbafbe7db6dda12e7417713c86f2c6c460dba54a5280898b0ba2020b74af47', 'hex')
@@ -367,7 +367,7 @@ describe('@module dusk/quasar', function() {
         let send = sinon.stub();
         rules.publish({
           params: {
-            uuid: uuid.v4(),
+            uuid: uuid(),
             topic: 'test',
             ttl: 3,
             contents: '000000'
@@ -391,7 +391,7 @@ describe('@module dusk/quasar', function() {
         let send = sinon.stub();
         rules.publish({
           params: {
-            uuid: uuid.v4(),
+            uuid: uuid(),
             topic: 'test',
             ttl: 24,
             contents: '000000'
@@ -415,7 +415,7 @@ describe('@module dusk/quasar', function() {
         let send = sinon.stub();
         rules.publish({
           params: {
-            uuid: uuid.v4(),
+            uuid: uuid(),
             topic: 'test',
             ttl: -1,
             contents: '000000'
@@ -516,7 +516,7 @@ describe('@module dusk/quasar', function() {
           'shouldRelayPublication'
         ).returns(true);
         shouldRelayPublication.onCall(0).returns(false);
-        let id = uuid.v4();
+        let id = uuid();
         let _relayPublication = sinon.stub(rules, '_relayPublication')
           .callsArg(2);
         let msg = {
